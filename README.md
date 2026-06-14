@@ -1,10 +1,11 @@
-# LangSpot — 1.0.0
+# LangSpot — 1.0.3
 
 Workspace para professores independentes de idiomas, com portal do aluno e sincronização pelo Supabase.
 
 ## Funcionalidades
 
 - autenticação de professor e aluno;
+- recuperação segura de senha por e-mail;
 - primeiro acesso e perfil do professor;
 - cadastro e convite de alunos e professores;
 - agenda, conclusão, cancelamento e histórico de aulas;

@@ -6,7 +6,7 @@ import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
 
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register' | 'forgot';
 
 export default function AuthApp() {
   const [loading, setLoading] = useState(isSupabaseConfigured);
@@ -14,6 +14,11 @@ export default function AuthApp() {
   const [authEmail, setAuthEmail] = useState('');
   const [demo, setDemo] = useState(false);
   const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    return query.get('password-recovery') === '1' || hash.get('type') === 'recovery';
+  });
 
   // Check if we're accepting an invitation
   const params = new URLSearchParams(window.location.search);
@@ -58,11 +63,21 @@ export default function AuthApp() {
       setLoading(false);
     };
     loadProfile();
-    const { data } = client.auth.onAuthStateChange(() => loadProfile());
+    const { data } = client.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
+      void loadProfile();
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando sua conta...</div>;
+  if (passwordRecovery) return <UpdatePassword onComplete={async () => {
+    await supabase?.auth.signOut();
+    window.history.replaceState({}, '', '/');
+    setProfile(null);
+    setAuthEmail('');
+    setPasswordRecovery(false);
+  }} />;
   if (demo) return <>
     <App onLogout={() => setDemo(false)} onInviteTeacher={() => setInviteTeacherOpen(true)} />
     {inviteTeacherOpen && <InviteTeacherModal demoMode onClose={() => setInviteTeacherOpen(false)} />}
@@ -514,10 +529,60 @@ async function functionErrorMessage(error: { message: string; context?: unknown 
   return error.message;
 }
 
+function UpdatePassword({ onComplete }: { onComplete: () => void | Promise<void> }) {
+  const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get('password') ?? '');
+    const confirmation = String(form.get('confirmation') ?? '');
+
+    if (password.length < 8) {
+      setMessage('A nova senha precisa ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (password !== confirmation) {
+      setMessage('As senhas não coincidem.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setMessage('Este link é inválido ou expirou. Solicite uma nova redefinição de senha.');
+      setBusy(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setMessage(error.message);
+      setBusy(false);
+      return;
+    }
+
+    setSuccess(true);
+    setBusy(false);
+    setMessage('Senha atualizada com sucesso. Agora você já pode entrar com a nova senha.');
+  };
+
+  return <main className="first-access-page"><section className="first-access-card"><div className="first-access-icon"><LockKeyhole size={27} /></div><p className="eyebrow">REDEFINIÇÃO DE SENHA</p><h1>Crie uma nova senha</h1><p>{success ? 'Sua senha foi alterada com segurança.' : 'Digite e confirme uma nova senha para continuar usando o LangSpot.'}</p>{success ? <><div className="auth-message auth-message-success">{message}</div><button className="student-primary" onClick={() => void onComplete()}><ArrowRight size={16} />Voltar para o login</button></> : <form onSubmit={submit}><label>Nova senha<input name="password" type="password" minLength={8} autoComplete="new-password" required autoFocus /></label><label>Confirmar nova senha<input name="confirmation" type="password" minLength={8} autoComplete="new-password" required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <LockKeyhole size={16} />}{busy ? 'Atualizando...' : 'Salvar nova senha'}</button></form>}</section></main>;
+}
+
 function AuthPage({ onDemo }: { onDemo: () => void }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const changeMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setMessage('');
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -525,8 +590,19 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
     setBusy(true);
     setMessage('');
     const form = new FormData(event.currentTarget);
-    const email = String(form.get('email'));
-    const password = String(form.get('password'));
+    const email = String(form.get('email') ?? '').trim();
+
+    if (mode === 'forgot') {
+      const redirectTo = `${window.location.origin}/?password-recovery=1`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      setMessage(error
+        ? 'Não foi possível enviar o e-mail agora. Aguarde um momento e tente novamente.'
+        : 'Se houver uma conta associada a esse e-mail, enviaremos um link para redefinir a senha.');
+      setBusy(false);
+      return;
+    }
+
+    const password = String(form.get('password') ?? '');
     if (mode === 'register') {
       const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: String(form.get('name')), role: 'teacher' } } });
       setMessage(error ? error.message : 'Cadastro realizado. Verifique seu e-mail para confirmar a conta.');
@@ -537,7 +613,11 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
     setBusy(false);
   };
 
-  return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{mode === 'login' ? 'BEM-VINDO DE VOLTA' : 'COMECE AGORA'}</p><h2>{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta de professor'}</h2><p>{mode === 'login' ? 'Acesse seu espaço de trabalho.' : 'Depois, você poderá convidar seus alunos.'}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" required /></label><label>Senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : <UserPlus size={17} />}{mode === 'login' ? 'Entrar' : 'Criar conta'}<ArrowRight size={16} /></button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}<button className="auth-switch" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>{can.useDemoMode() && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
+  const eyebrow = mode === 'login' ? 'BEM-VINDO DE VOLTA' : mode === 'register' ? 'COMECE AGORA' : 'RECUPERAR ACESSO';
+  const title = mode === 'login' ? 'Entre na sua conta' : mode === 'register' ? 'Crie sua conta de professor' : 'Esqueceu sua senha?';
+  const description = mode === 'login' ? 'Acesse seu espaço de trabalho.' : mode === 'register' ? 'Depois, você poderá convidar seus alunos.' : 'Informe seu e-mail para receber um link de redefinição.';
+
+  return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" autoComplete="email" required autoFocus /></label>{mode !== 'forgot' && <label>Senha<input name="password" type="password" minLength={6} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required /></label>}{mode === 'login' && <button type="button" className="forgot-password-link" onClick={() => changeMode('forgot')}>Esqueci minha senha</button>}{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : mode === 'register' ? <UserPlus size={17} /> : <ArrowRight size={17} />}{busy ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : 'Enviar link'}{!busy && mode !== 'forgot' && <ArrowRight size={16} />}</button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}{mode === 'forgot' ? <button className="auth-switch" onClick={() => changeMode('login')}>Voltar para o login</button> : <button className="auth-switch" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>}{can.useDemoMode() && mode !== 'forgot' && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
 }
 
 type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Perfil';
