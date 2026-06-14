@@ -470,3 +470,47 @@ button,input,select,textarea{font-size:var(--text-md)}
 @media(max-width:760px){.assignment-summary-grid{grid-template-columns:1fr}.assignments-heading{flex-direction:column}.assignments-heading .secondary-button.compact{width:100%}.assignment-card-top{flex-direction:column}.assignment-due{width:100%;text-align:left}.assignment-card-actions{flex-direction:column;align-items:stretch}.assignment-review-button,.assignment-delete-button{width:100%}}
 .forgot-password-link{justify-self:end!important;width:auto!important;padding:0!important;margin-top:-4px!important;background:transparent!important;color:#684be1!important;box-shadow:none!important;font-size:10px!important;font-weight:800!important}
 .auth-message-success{background:#edf9f1;color:#217a47}
+
+
+/* LangSpot 1.0.4 — prevent student overview rows from overflowing narrow cards */
+.large-panel{container-type:inline-size}
+.student-row{
+  grid-template-columns:42px minmax(0,1.35fr) minmax(90px,.9fr) minmax(96px,.9fr) 32px;
+  column-gap:10px;
+}
+.student-main,.progress-wrap,.next-class{min-width:0}
+.student-main strong,.student-main span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.next-class{
+  overflow:hidden;
+}
+.next-class span{
+  margin-top:0;
+}
+.next-class strong{
+  margin-top:5px;
+  line-height:1.35;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+
+@container (max-width:560px){
+  .student-row{
+    grid-template-columns:42px minmax(0,1fr) 32px;
+    gap:10px;
+    align-items:center;
+  }
+  .student-main{grid-column:2;grid-row:1}
+  .icon-button{grid-column:3;grid-row:1}
+  .progress-wrap{grid-column:2/4;grid-row:2}
+  .next-class{grid-column:2/4;grid-row:3;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:8px}
+  .next-class strong{margin-top:0;text-align:right}
+}
+
+@media(max-width:760px){
+  .next-class{overflow:visible}
+}
