@@ -8,3 +8,9 @@ dist/
 node_modules/
 dist/
 src-tauri/target/
+node_modules/
+dist/
+.env
+src-tauri/target/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/app/build/
