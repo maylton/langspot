@@ -1,0 +1,54 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "LangSpot",
+  "version": "1.0.1",
+  "identifier": "com.langspot.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "LangSpot",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 620,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "maximized": false,
+        "decorations": true,
+        "backgroundColor": "#f4f6fb"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "appimage"
+    ],
+    "category": "Education",
+    "shortDescription": "Dashboard para professores independentes de idiomas.",
+    "longDescription": "O LangSpot reúne alunos, aulas, materiais, tarefas, progresso, relatórios e financeiro em um único aplicativo.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  }
+}

@@ -1,0 +1,716 @@
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Ban, BookOpen, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, FileText, GraduationCap, ImagePlus, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Target, UserRound, UserPlus } from 'lucide-react';
+import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student } from './App';
+import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, isSupabaseConfigured, Profile, StudentRecord, supabase } from './supabase';
+import { can } from './config/env';
+import InviteAcceptance from './components/InviteAcceptance';
+import InviteTeacherModal from './components/InviteTeacherModal';
+
+type AuthMode = 'login' | 'register';
+
+export default function AuthApp() {
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [demo, setDemo] = useState(false);
+  const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
+
+  // Check if we're accepting an invitation
+  const params = new URLSearchParams(window.location.search);
+  const invitationToken = params.get('token');
+  const invitationEmail = params.get('email');
+
+  // If accepting invitation, show invitation page
+  if (invitationToken && invitationEmail) {
+    return (
+      <InviteAcceptance
+        token={invitationToken}
+        email={invitationEmail}
+        onSuccess={() => {
+          // After successful account creation, redirect to login
+          window.location.href = '/';
+        }}
+        onError={(error) => {
+          console.error('Invitation error:', error);
+        }}
+      />
+    );
+  }
+
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+    const loadProfile = async () => {
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) { setProfile(null); setAuthEmail(''); setLoading(false); return; }
+      setAuthEmail(user.email ?? '');
+      const { data } = await client.from('profiles').select('*').eq('id', user.id).single();
+      if (!data) { setProfile(null); setLoading(false); return; }
+      const metadata = user.user_metadata ?? {};
+      setProfile({
+        ...data,
+        full_name: data.full_name || metadata.full_name || metadata.name || '',
+        email: data.email || user.email || '',
+        avatar_url: data.avatar_url || metadata.avatar_url || metadata.picture || '',
+        school_name: data.school_name || '',
+        onboarding_completed: Boolean(data.onboarding_completed),
+      } as Profile);
+      setLoading(false);
+    };
+    loadProfile();
+    const { data } = client.auth.onAuthStateChange(() => loadProfile());
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando sua conta...</div>;
+  if (demo) return <>
+    <App onLogout={() => setDemo(false)} onInviteTeacher={() => setInviteTeacherOpen(true)} />
+    {inviteTeacherOpen && <InviteTeacherModal demoMode onClose={() => setInviteTeacherOpen(false)} />}
+  </>;
+  if (!profile) return <AuthPage onDemo={() => setDemo(true)} />;
+  if (profile.role === 'student' && profile.must_change_password) return <FirstAccessPassword profile={profile} onComplete={() => setProfile({ ...profile, must_change_password: false })} onLogout={() => supabase?.auth.signOut()} />;
+  if (profile.role === 'student') return <StudentPortal profile={profile} onLogout={() => supabase?.auth.signOut()} />;
+  if (!profile.onboarding_completed) return <TeacherOnboarding profile={profile} authEmail={authEmail} onComplete={setProfile} onLogout={() => supabase?.auth.signOut()} />;
+  return <TeacherPortal profile={profile} authEmail={authEmail} onProfileChange={setProfile} onLogout={() => supabase?.auth.signOut()} />;
+}
+
+
+function TeacherOnboarding({ profile, authEmail, onComplete, onLogout }: { profile: Profile; authEmail: string; onComplete: (profile: Profile) => void; onLogout: () => void }) {
+  const [name, setName] = useState(profile.full_name || '');
+  const [email, setEmail] = useState(profile.email || authEmail);
+  const [schoolName, setSchoolName] = useState(profile.school_name || '');
+  const [avatar, setAvatar] = useState(profile.avatar_url || '');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const selectAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+      setMessage('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.');
+      return;
+    }
+    try { setAvatar(await resizeProfileImage(file)); setMessage(''); }
+    catch { setMessage('Não foi possível processar a imagem.'); }
+    event.target.value = '';
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setBusy(true); setMessage('');
+    const updates = { full_name: name.trim(), email: email.trim(), school_name: schoolName.trim(), avatar_url: avatar, onboarding_completed: true };
+    const { data, error } = await supabase.from('profiles').update(updates).eq('id', profile.id).select('*').single();
+    if (error) { setMessage(error.message); setBusy(false); return; }
+    onComplete(data as Profile);
+  };
+
+  return <main className="teacher-onboarding-page"><section className="teacher-onboarding-card"><div className="onboarding-copy"><p className="eyebrow">PRIMEIRO ACESSO</p><h1>Vamos preparar seu espaço de trabalho</h1><p>Confirme seus dados profissionais. Eles aparecerão no dashboard, nos relatórios e na área de configurações.</p></div><form onSubmit={submit}><div className="onboarding-avatar"><div>{avatar ? <img src={avatar} alt="Avatar do professor" /> : <UserRound size={48} />}</div><label><ImagePlus size={16} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label></div><div className="onboarding-fields"><label>Nome completo<input value={name} onChange={(event) => setName(event.target.value)} required autoFocus /></label><label>E-mail profissional<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label className="full-field">Escola, curso ou marca <span>(opcional)</span><input value={schoolName} onChange={(event) => setSchoolName(event.target.value)} placeholder="Ex.: Maylton English Classes" /></label></div>{message && <div className="auth-message">{message}</div>}<button className="student-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : <ArrowRight size={17} />}{busy ? 'Salvando...' : 'Entrar no meu dashboard'}</button></form><button className="auth-switch" onClick={onLogout}>Sair da conta</button></section></main>;
+}
+
+function resizeProfileImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      const crop = Math.min(image.width, image.height);
+      const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 320;
+      const context = canvas.getContext('2d');
+      if (!context) { URL.revokeObjectURL(url); reject(); return; }
+      context.drawImage(image, (image.width - crop) / 2, (image.height - crop) / 2, crop, crop, 0, 0, 320, 320);
+      URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(); };
+    image.src = url;
+  });
+}
+
+function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { profile: Profile; authEmail: string; onProfileChange: (profile: Profile) => void; onLogout: () => void }) {
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  const [requests, setRequests] = useState<CancellationRequest[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [schedule, setSchedule] = useState<ScheduledLesson[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [message, setMessage] = useState('');
+
+  const loadRequests = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from('cancellation_requests').select('*, lessons(*), student:profiles!cancellation_requests_student_id_fkey(full_name)').order('created_at', { ascending: false });
+    setRequests((data ?? []) as unknown as CancellationRequest[]);
+  };
+
+  const loadTeacherData = async () => {
+    if (!supabase) return;
+    setDataLoading(true);
+
+    // Core academic data must load independently from the materials library.
+    // A Storage/RLS error in materials should never make students or lessons disappear.
+    const [{ data: records, error: recordsError }, { data: lessons, error: lessonsError }] = await Promise.all([
+      supabase.from('student_records').select('*, student:profiles!student_records_student_id_fkey(*)').order('created_at', { ascending: false }),
+      supabase.from('lessons').select('*').order('starts_at', { ascending: true }),
+    ]);
+
+    if (recordsError || lessonsError) {
+      setMessage(`Não foi possível carregar alunos e aulas: ${recordsError?.message ?? lessonsError?.message}`);
+      setDataLoading(false);
+      return;
+    }
+
+    const lessonRows = (lessons ?? []) as DbLesson[];
+    const mappedStudents = (records ?? []).map((row: any): Student => {
+      const skillValues = normalizeSkills(row.skills);
+      const studentLessons = lessonRows
+        .filter((lesson) => lesson.student_id === row.student_id && (lesson.status === 'completed' || new Date(lesson.starts_at) < new Date()))
+        .map((lesson) => ({ id: lesson.id, date: lesson.starts_at.slice(0, 10), topic: lesson.topic, notes: lesson.notes, homework: lesson.homework, attendance: lesson.attendance ? ({ presente: 'Presente', ausente: 'Ausente', remarcada: 'Remarcada' } as Record<string, AttendanceStatus>)[lesson.attendance] : undefined, skillScores: lesson.skill_scores || undefined }));
+      const values = Object.values(skillValues);
+      return {
+        id: row.student_id,
+        name: row.student?.full_name || 'Aluno sem nome',
+        email: row.student?.email || '',
+        level: row.level || 'A1',
+        goal: row.goal || '',
+        status: 'Ativo',
+        progress: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0,
+        nextClass: '',
+        notes: row.notes || '',
+        skills: skillValues,
+        lessons: studentLessons,
+      };
+    });
+    setStudents(mappedStudents);
+    setSchedule(lessonRows.map(dbLessonToScheduled));
+
+    const [{ data: materialRows, error: materialsError }, { data: assignmentRows, error: assignmentsError }] = await Promise.all([
+      supabase.from('materials').select('*').order('created_at', { ascending: false }),
+      supabase.from('material_assignments').select('material_id, student_id'),
+    ]);
+
+    if (materialsError || assignmentsError) {
+      setMaterials([]);
+      setMessage(`Alunos e aulas foram carregados, mas houve um problema na biblioteca de materiais: ${materialsError?.message ?? assignmentsError?.message}`);
+      setDataLoading(false);
+      return;
+    }
+
+    const signedMaterials = await Promise.all((materialRows ?? []).map(async (row: any) => {
+      let resolvedUrl = row.url ?? '';
+      if (row.storage_path) {
+        const { data: signed } = await supabase!.storage.from('materials').createSignedUrl(row.storage_path, 60 * 60);
+        resolvedUrl = signed?.signedUrl ?? '';
+      }
+      return { id: row.id, title: row.title, type: row.type, level: row.level, skill: row.skill, url: resolvedUrl, description: row.description ?? '', createdAt: row.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10), assignedStudentIds: (assignmentRows ?? []).filter((a: any) => a.material_id === row.id).map((a: any) => a.student_id), storagePath: row.storage_path ?? undefined, fileName: row.file_name ?? undefined, fileSize: row.file_size ?? undefined, source: row.material_source ?? 'link' } as Material;
+    }));
+    setMaterials(signedMaterials);
+    const { data: taskRows, error: taskError } = await supabase.from('assignments').select('*').order('due_date', { ascending: true });
+    if (taskError) { setAssignments([]); setMessage(`Dados principais carregados, mas houve um problema nas tarefas: ${taskError.message}`); }
+    else setAssignments((taskRows ?? []).map(dbAssignmentToAssignment));
+    const { data: paymentRows, error: paymentError } = await supabase.from('payments').select('*').order('due_date', { ascending: true });
+    if (paymentError) { setPayments([]); setMessage(`Dados principais carregados, mas houve um problema no financeiro: ${paymentError.message}`); }
+    else setPayments((paymentRows ?? []).map((row: any): Payment => ({ id: row.id, studentId: row.student_id, description: row.description, amount: Number(row.amount), dueDate: row.due_date, status: row.status === 'paid' ? 'Pago' : row.status === 'overdue' ? 'Atrasado' : 'Pendente', paidAt: row.paid_at ?? undefined, createdAt: row.created_at })));
+    setDataLoading(false);
+  };
+
+  useEffect(() => { void loadRequests(); void loadTeacherData(); }, []);
+
+  const invite = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    const form = new FormData(event.currentTarget);
+    const { error } = await supabase.functions.invoke('invite-student', { body: { email: form.get('email'), fullName: form.get('name'), level: form.get('level'), goal: form.get('goal') } });
+    if (!error) {
+      setMessage('Convite enviado com sucesso. O aluno aparecerá após a conta ser criada.');
+      setInviteOpen(false);
+      await loadTeacherData();
+      return;
+    }
+    setMessage(`Não foi possível enviar o convite: ${await functionErrorMessage(error)}`);
+  };
+
+  const createStudentAccount = async ({ name, email, level, goal }: { name: string; email: string; level: string; goal: string }) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.functions.invoke('invite-student', { body: { action: 'create-with-password', email, fullName: name, level, goal } });
+    if (error) throw new Error(await functionErrorMessage(error));
+    // Do not reload all teacher data here. That temporarily unmounts <App>
+    // and would close the one-time temporary-password modal before it appears.
+    // App adds the newly-created student to its current state; future reloads
+    // continue to retrieve the account from Supabase normally.
+    return { temporaryPassword: String(data.temporaryPassword), studentId: String(data.studentId) };
+  };
+
+  const createScheduledLesson = async (lesson: Omit<ScheduledLesson, 'id' | 'status' | 'notes' | 'homework'>) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const payload = scheduledToDb(profile.id, lesson);
+    const { data, error } = await supabase.from('lessons').insert(payload).select('*').single();
+    if (error) throw new Error(error.message);
+    return dbLessonToScheduled(data as DbLesson);
+  };
+
+  const updateScheduledLesson = async (id: string, lesson: Omit<ScheduledLesson, 'id' | 'status' | 'notes' | 'homework'>) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.from('lessons').update(scheduledToDb(profile.id, lesson)).eq('id', id).select('*').single();
+    if (error) throw new Error(error.message);
+    return dbLessonToScheduled(data as DbLesson);
+  };
+
+  const cancelScheduledLesson = async (id: string) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase
+      .from('lessons')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('teacher_id', profile.id)
+      .select('id')
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('A aula não foi encontrada ou você não tem permissão para alterá-la.');
+  };
+
+  const completeScheduledLesson = async (id: string, notes: string, homework: string, attendance: AttendanceStatus, skillScores: Record<Skill, number>) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const lesson = schedule.find((item) => item.id === id);
+    if (!lesson) throw new Error('Aula não encontrada.');
+    const { error: lessonError } = await supabase.from('lessons').update({ status: 'completed', notes, homework, attendance: attendance.toLowerCase(), skill_scores: skillScores }).eq('id', id).eq('teacher_id', profile.id);
+    if (lessonError) throw new Error(lessonError.message);
+    const { error: skillsError } = await supabase.from('student_records').update({ skills: skillScores }).eq('student_id', lesson.studentId).eq('teacher_id', profile.id);
+    if (skillsError) throw new Error(skillsError.message);
+  };
+
+  const createMaterial = async (material: MaterialInput) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    let storagePath: string | null = null;
+    let resolvedUrl = material.url;
+    if (material.file) {
+      const safeName = material.file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '-');
+      storagePath = `${profile.id}/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('materials').upload(storagePath, material.file, { contentType: 'application/pdf', upsert: false });
+      if (uploadError) throw new Error(`Falha no upload: ${uploadError.message}`);
+      const { data: signed } = await supabase.storage.from('materials').createSignedUrl(storagePath, 60 * 60);
+      resolvedUrl = signed?.signedUrl ?? '';
+    }
+    const payload = { teacher_id: profile.id, title: material.title, type: material.file ? 'PDF' : material.type, level: material.level, skill: material.skill, url: material.file ? '' : material.url, description: material.description, storage_path: storagePath, file_name: material.file?.name ?? null, file_size: material.file?.size ?? null, mime_type: material.file?.type ?? null, material_source: material.file ? 'upload' : 'link' };
+    const { data, error } = await supabase.from('materials').insert(payload).select('*').single();
+    if (error) { if (storagePath) await supabase.storage.from('materials').remove([storagePath]); throw new Error(error.message); }
+    return { id: data.id, title: data.title, type: data.type, level: data.level, skill: data.skill, url: resolvedUrl, description: data.description ?? '', createdAt: data.created_at.slice(0, 10), assignedStudentIds: [], storagePath: data.storage_path ?? undefined, fileName: data.file_name ?? undefined, fileSize: data.file_size ?? undefined, source: data.material_source ?? 'link' } as Material;
+  };
+
+  const deleteMaterial = async (id: string) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const material = materials.find((item) => item.id === id);
+    const { error } = await supabase.from('materials').delete().eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
+    if (material?.storagePath) { const { error: storageError } = await supabase.storage.from('materials').remove([material.storagePath]); if (storageError) console.warn(storageError.message); }
+  };
+
+  const assignMaterial = async (materialId: string, studentIds: string[]) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { error: deleteError } = await supabase.from('material_assignments').delete().eq('material_id', materialId);
+    if (deleteError) throw new Error(deleteError.message);
+    if (!studentIds.length) return;
+    const { error } = await supabase.from('material_assignments').insert(studentIds.map((studentId) => ({ material_id: materialId, student_id: studentId })));
+    if (error) throw new Error(error.message);
+  };
+
+  const createAssignment = async (assignment: AssignmentInput) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.from('assignments').insert({ teacher_id: profile.id, student_id: assignment.studentId, material_id: assignment.materialId || null, title: assignment.title, instructions: assignment.instructions, due_date: assignment.dueDate, status: 'pending' }).select('*').single();
+    if (error) throw new Error(error.message);
+    if (assignment.materialId) {
+      const { error: shareError } = await supabase.from('material_assignments').upsert({ material_id: assignment.materialId, student_id: assignment.studentId }, { onConflict: 'material_id,student_id' });
+      if (shareError) console.warn(`A tarefa foi criada, mas o material não pôde ser compartilhado automaticamente: ${shareError.message}`);
+    }
+    return dbAssignmentToAssignment(data as DbAssignment);
+  };
+  const deleteAssignment = async (id: string) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { error } = await supabase.from('assignments').delete().eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
+  };
+  const reviewAssignment = async (id: string, feedback: string, grade?: number) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { error } = await supabase.from('assignments').update({ feedback, grade: grade ?? null, status: 'reviewed' }).eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
+  };
+
+  const createPayment = async (payment: PaymentInput) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.from('payments').insert({ teacher_id: profile.id, student_id: payment.studentId, description: payment.description, amount: payment.amount, due_date: payment.dueDate, status: 'pending' }).select('*').single();
+    if (error) throw new Error(error.message);
+    return { id: data.id, studentId: data.student_id, description: data.description, amount: Number(data.amount), dueDate: data.due_date, status: 'Pendente', createdAt: data.created_at } as Payment;
+  };
+  const updatePaymentStatus = async (id: string, status: PaymentStatus) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const dbStatus = status === 'Pago' ? 'paid' : status === 'Atrasado' ? 'overdue' : 'pending';
+    const { error } = await supabase.from('payments').update({ status: dbStatus, paid_at: status === 'Pago' ? new Date().toISOString() : null }).eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
+  };
+  const deletePayment = async (id: string) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { error } = await supabase.from('payments').delete().eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
+  };
+
+  const updateStudentSkills = async (studentId: string, skillValues: Record<Skill, number>) => {
+    const { error } = await supabase!.from('student_records').update({ skills: skillValues }).eq('student_id', studentId);
+    if (error) throw new Error(error.message);
+  };
+
+  const deleteStudent = async (studentId: string) => {
+    const { error } = await supabase!.from('student_records').delete().eq('student_id', studentId);
+    if (error) throw new Error(error.message);
+  };
+
+  const resolveRequest = async (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('cancellation_requests').update({ status, teacher_response: response, resolved_at: new Date().toISOString() }).eq('id', request.id);
+    if (!error && status === 'approved') await supabase.from('lessons').update({ status: 'cancelled' }).eq('id', request.lesson_id);
+    await Promise.all([loadRequests(), loadTeacherData()]);
+  };
+
+  const pending = requests.filter((request) => request.status === 'pending').length;
+  if (dataLoading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando alunos e aulas...</div>;
+
+  return <div className="authenticated-app">
+    <App
+      authenticatedMode
+      initialStudents={students}
+      initialSchedule={schedule}
+      initialMaterials={materials}
+      initialAssignments={assignments}
+      initialPayments={payments}
+      onLogout={onLogout}
+      onInviteStudent={() => setInviteOpen(true)}
+      onInviteTeacher={() => setInviteTeacherOpen(true)}
+      onCreateStudentAccount={createStudentAccount}
+      onCreateScheduledLesson={createScheduledLesson}
+      onUpdateScheduledLesson={updateScheduledLesson}
+      onCancelScheduledLesson={cancelScheduledLesson}
+      onCompleteScheduledLesson={completeScheduledLesson}
+      onUpdateStudentSkills={updateStudentSkills}
+      onDeleteStudent={deleteStudent}
+      onCreateMaterial={createMaterial}
+      onDeleteMaterial={deleteMaterial}
+      onAssignMaterial={assignMaterial}
+      onCreateAssignment={createAssignment}
+      onDeleteAssignment={deleteAssignment}
+      onReviewAssignment={reviewAssignment}
+      onCreatePayment={createPayment}
+      onUpdatePaymentStatus={updatePaymentStatus}
+      onDeletePayment={deletePayment}
+      onOpenCancellationRequests={() => setRequestsOpen(true)}
+      cancellationRequestCount={pending}
+      initialSettings={{ teacherName: profile.full_name, email: profile.email || authEmail, schoolName: profile.school_name, avatar: profile.avatar_url }}
+      onProfileSettingsChange={async (settings) => {
+        if (!supabase) return;
+        const updates = { full_name: settings.teacherName, email: settings.email, school_name: settings.schoolName, avatar_url: settings.avatar };
+        const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id);
+        if (!error) onProfileChange({ ...profile, ...updates });
+      }}
+    />
+    {inviteOpen && <div className="modal-backdrop" onMouseDown={() => setInviteOpen(false)}><section className="modal invite-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><h2>Convidar aluno</h2><button className="icon-button" onClick={() => setInviteOpen(false)}>×</button></div><form className="form-grid" onSubmit={invite}><label>Nome completo<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Nível<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Objetivo<input name="goal" placeholder="Conversação, intercâmbio..." /></label>{message && <div className="auth-message full-field">{message}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={() => setInviteOpen(false)}>Cancelar</button><button className="primary-button">Enviar convite</button></div></form></section></div>}
+    {inviteTeacherOpen && <InviteTeacherModal onClose={() => setInviteTeacherOpen(false)} />}
+    {requestsOpen && <CancellationRequestsModal requests={requests} onClose={() => setRequestsOpen(false)} onResolve={resolveRequest} />}
+  </div>;
+}
+
+function dbAssignmentToAssignment(row: DbAssignment): Assignment {
+  const statusMap = { pending: 'Pendente', submitted: 'Entregue', reviewed: 'Corrigida' } as const;
+  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, createdAt: row.created_at };
+}
+
+function normalizeSkills(value: unknown): Record<Skill, number> {
+  const defaults: Record<Skill, number> = { Speaking: 50, Listening: 50, Reading: 50, Writing: 50, Grammar: 50, Vocabulary: 50, Pronunciation: 50 };
+  if (!value || typeof value !== 'object') return defaults;
+  for (const key of Object.keys(defaults) as Skill[]) {
+    const score = Number((value as Record<string, unknown>)[key]);
+    if (Number.isFinite(score)) defaults[key] = Math.max(0, Math.min(100, score));
+  }
+  return defaults;
+}
+
+function dbLessonToScheduled(lesson: DbLesson): ScheduledLesson {
+  const date = new Date(lesson.starts_at);
+  const statusMap: Record<string, ScheduledLesson['status']> = { scheduled: 'Agendada', completed: 'Concluída', cancelled: 'Cancelada' };
+  return {
+    id: lesson.id,
+    studentId: lesson.student_id,
+    date: date.toLocaleDateString('en-CA'),
+    startTime: date.toTimeString().slice(0, 5),
+    duration: lesson.duration_minutes,
+    topic: lesson.topic,
+    onlineUrl: lesson.online_url ?? '',
+    status: statusMap[lesson.status] ?? 'Agendada',
+    notes: lesson.notes ?? '',
+    homework: lesson.homework ?? '',
+    attendance: lesson.attendance ? ({ presente: 'Presente', ausente: 'Ausente', remarcada: 'Remarcada' } as Record<string, AttendanceStatus>)[lesson.attendance] : undefined,
+    skillScores: lesson.skill_scores ?? undefined,
+  };
+}
+
+function scheduledToDb(teacherId: string, lesson: Omit<ScheduledLesson, 'id' | 'status' | 'notes' | 'homework'>) {
+  return {
+    teacher_id: teacherId,
+    student_id: lesson.studentId,
+    starts_at: new Date(`${lesson.date}T${lesson.startTime}:00`).toISOString(),
+    duration_minutes: lesson.duration,
+    topic: lesson.topic,
+    online_url: lesson.onlineUrl || null,
+    status: 'scheduled',
+  };
+}
+
+function FirstAccessPassword({ profile, onComplete, onLogout }: { profile: Profile; onComplete: () => void; onLogout: () => void }) {
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get('password'));
+    if (password !== String(form.get('confirmation'))) { setMessage('As senhas não coincidem.'); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) { setMessage(error.message); setBusy(false); return; }
+    const { error: completionError } = await supabase.rpc('complete_initial_password_change');
+    if (completionError) { setMessage(completionError.message); setBusy(false); return; }
+    onComplete();
+  };
+  return <main className="first-access-page"><section className="first-access-card"><div className="first-access-icon"><LockKeyhole size={27} /></div><p className="eyebrow">PRIMEIRO ACESSO</p><h1>Olá, {profile.full_name}!</h1><p>Antes de entrar no portal, escolha uma senha pessoal. A senha temporária deixará de funcionar.</p><form onSubmit={submit}><label>Nova senha<input name="password" type="password" minLength={8} required /></label><label>Confirmar nova senha<input name="confirmation" type="password" minLength={8} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <LockKeyhole size={16} />}{busy ? 'Atualizando...' : 'Definir senha e entrar'}</button></form><button className="auth-switch" onClick={onLogout}>Sair da conta</button></section></main>;
+}
+
+async function functionErrorMessage(error: { message: string; context?: unknown }) {
+  if (error.context instanceof Response) {
+    const payload = await error.context.clone().json().catch(() => null);
+    return payload?.error ?? error.message;
+  }
+  return error.message;
+}
+
+function AuthPage({ onDemo }: { onDemo: () => void }) {
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setBusy(true);
+    setMessage('');
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email'));
+    const password = String(form.get('password'));
+    if (mode === 'register') {
+      const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: String(form.get('name')), role: 'teacher' } } });
+      setMessage(error ? error.message : 'Cadastro realizado. Verifique seu e-mail para confirmar a conta.');
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setMessage(error.message);
+    }
+    setBusy(false);
+  };
+
+  return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{mode === 'login' ? 'BEM-VINDO DE VOLTA' : 'COMECE AGORA'}</p><h2>{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta de professor'}</h2><p>{mode === 'login' ? 'Acesse seu espaço de trabalho.' : 'Depois, você poderá convidar seus alunos.'}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" required /></label><label>Senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : <UserPlus size={17} />}{mode === 'login' ? 'Entrar' : 'Criar conta'}<ArrowRight size={16} /></button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}<button className="auth-switch" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>{can.useDemoMode() && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
+}
+
+type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Perfil';
+
+function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () => void }) {
+  const [portalProfile, setPortalProfile] = useState(profile);
+  const [tab, setTab] = useState<StudentTab>('Visão geral');
+  const [record, setRecord] = useState<StudentRecord | null>(null);
+  const [lessons, setLessons] = useState<DbLesson[]>([]);
+  const [materials, setMaterials] = useState<DbMaterial[]>([]);
+  const [assignments, setAssignments] = useState<DbAssignment[]>([]);
+  const [requests, setRequests] = useState<CancellationRequest[]>([]);
+  const [lessonToCancel, setLessonToCancel] = useState<DbLesson | null>(null);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const loadPortal = async () => {
+    if (!supabase) return;
+    const [recordResult, lessonResult, assignmentResult, taskResult, requestResult, userResult] = await Promise.all([
+      supabase.from('student_records').select('*').eq('student_id', profile.id).maybeSingle(),
+      supabase.from('lessons').select('*').order('starts_at'),
+      supabase.from('material_assignments').select('materials(*)'),
+      supabase.from('assignments').select('*').order('due_date', { ascending: true }),
+      supabase.from('cancellation_requests').select('*').order('created_at', { ascending: false }),
+      supabase.auth.getUser(),
+    ]);
+    setRecord(recordResult.data as StudentRecord | null);
+    setLessons((lessonResult.data ?? []) as DbLesson[]);
+    const assignedRows = (assignmentResult.data ?? []).flatMap((assignment) => assignment.materials ? [assignment.materials as unknown as DbMaterial] : []);
+    const resolvedMaterials = await Promise.all(assignedRows.map(async (material) => {
+      if (!material.storage_path) return material;
+      const { data: signed } = await supabase!.storage.from('materials').createSignedUrl(material.storage_path, 60 * 60);
+      return { ...material, url: signed?.signedUrl ?? '' };
+    }));
+    setMaterials(resolvedMaterials);
+    setAssignments((taskResult.data ?? []) as DbAssignment[]);
+    setRequests((requestResult.data ?? []) as CancellationRequest[]);
+    setEmail(userResult.data.user?.email ?? '');
+    setLoading(false);
+  };
+  useEffect(() => { setPortalProfile(profile); }, [profile]);
+  useEffect(() => { loadPortal(); }, [profile.id]);
+
+  const upcoming = useMemo(() => lessons.filter((lesson) => lesson.status === 'scheduled' && new Date(lesson.starts_at) > new Date()), [lessons]);
+  const history = useMemo(() => lessons.filter((lesson) => lesson.status !== 'scheduled' || new Date(lesson.starts_at) <= new Date()).reverse(), [lessons]);
+  const nextLesson = upcoming[0];
+  const requestByLesson = (lessonId: string) => requests.find((request) => request.lesson_id === lessonId);
+  const nav: { label: StudentTab; icon: typeof LayoutDashboard }[] = [{ label: 'Visão geral', icon: LayoutDashboard }, { label: 'Aulas', icon: CalendarDays }, { label: 'Progresso', icon: GraduationCap }, { label: 'Materiais', icon: BookOpen }, { label: 'Tarefas', icon: ClipboardList }, { label: 'Perfil', icon: UserRound }];
+
+  if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
+  return <div className="student-app"><aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}><LogOut size={16} />Sair</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} />}</main>{lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+}
+
+function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">AGENDA</p><h2>Solicitações de cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><div className="request-list">{requests.length ? requests.map((request) => <article className="request-card" key={request.id}><div className="request-heading"><div><strong>{request.student?.full_name ?? 'Aluno'}</strong><span>{request.lessons ? `${formatPortalDate(request.lessons.starts_at)} · ${request.lessons.topic}` : 'Aula'}</span></div><StatusBadge status={request.status} /></div><p>{request.reason}</p>{request.status === 'pending' ? <><textarea value={responses[request.id] ?? ''} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Resposta opcional para o aluno" /><div className="request-actions"><button className="reject-button" onClick={() => onResolve(request, 'rejected', responses[request.id] ?? '')}><Ban size={15} />Recusar</button><button className="approve-button" onClick={() => onResolve(request, 'approved', responses[request.id] ?? '')}><Check size={15} />Aprovar</button></div></> : request.teacher_response && <small>Resposta: {request.teacher_response}</small>}</article>) : <div className="empty-state small"><Check size={30} /><h3>Nenhuma solicitação</h3><p>Os pedidos dos alunos aparecerão aqui.</p></div>}</div></section></div>;
+}
+
+function StudentOverview({ profile, record, nextLesson, materialCount }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number }) {
+  return <div className="student-page"><section className="student-welcome"><span>BEM-VINDO DE VOLTA</span><h1>Olá, {profile.full_name}!</h1><p>{record?.goal ? `Seu objetivo: ${record.goal}.` : 'Continue avançando um passo por vez.'}</p></section><section className="student-summary-grid"><article><CalendarDays size={22} /><span>Próxima aula</span><strong>{nextLesson ? formatPortalDate(nextLesson.starts_at) : 'Não agendada'}</strong>{nextLesson?.online_url && <a href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={13} /></a>}</article><article><Target size={22} /><span>Nível atual</span><strong>{record?.level ?? 'Não informado'}</strong><small>{record?.goal || 'Objetivo ainda não definido'}</small></article><article><BookOpen size={22} /><span>Materiais disponíveis</span><strong>{materialCount}</strong><small>Compartilhados pelo professor</small></article></section>{nextLesson && <section className="student-panel next-lesson-panel"><div><p className="eyebrow">PRÓXIMO ENCONTRO</p><h2>{nextLesson.topic}</h2><p><Clock3 size={15} />{formatPortalDate(nextLesson.starts_at)} · {nextLesson.duration_minutes} minutos</p></div>{nextLesson.online_url && <a className="student-primary" href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={15} /></a>}</section>}</div>;
+}
+
+function StudentLessons({ upcoming, history, requestByLesson, onCancel }: { upcoming: DbLesson[]; history: DbLesson[]; requestByLesson: (id: string) => CancellationRequest | undefined; onCancel: (lesson: DbLesson) => void }) {
+  return <div className="student-page"><section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">AGENDA</p><h2>Próximas aulas</h2></div></div><div className="portal-lesson-list">{upcoming.length ? upcoming.map((lesson) => { const request = requestByLesson(lesson.id); return <article key={lesson.id}><div className="portal-date"><strong>{new Date(lesson.starts_at).toLocaleDateString('pt-BR', { day: '2-digit' })}</strong><span>{new Date(lesson.starts_at).toLocaleDateString('pt-BR', { month: 'short' })}</span></div><div><h3>{lesson.topic}</h3><p>{formatPortalDate(lesson.starts_at)} · {lesson.duration_minutes} minutos</p>{request && <StatusBadge status={request.status} />}</div><div className="portal-lesson-actions">{lesson.online_url && <a href={lesson.online_url} target="_blank" rel="noreferrer"><ExternalLink size={14} />Entrar</a>}<a href={googleCalendarUrl(lesson)} target="_blank" rel="noreferrer"><CalendarDays size={14} />Calendário</a>{!request && <button onClick={() => onCancel(lesson)}><Ban size={14} />Pedir cancelamento</button>}</div></article>; }) : <EmptyPortal icon={CalendarDays} title="Nenhuma aula agendada" text="Sua próxima aula aparecerá aqui." />}</div></section><section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">HISTÓRICO</p><h2>Aulas anteriores</h2></div></div><div className="portal-history">{history.length ? history.map((lesson) => <article key={lesson.id}><time>{formatPortalDate(lesson.starts_at)}</time><div><strong>{lesson.topic}</strong><p>{lesson.notes || 'Sem observações registradas.'}</p>{lesson.homework && <small>Tarefa: {lesson.homework}</small>}</div></article>) : <EmptyPortal icon={Clock3} title="Histórico vazio" text="As aulas concluídas aparecerão aqui." />}</div></section></div>;
+}
+
+function StudentProgress({ record }: { record: StudentRecord | null }) {
+  const entries = Object.entries(record?.skills ?? {});
+  const average = entries.length ? Math.round(entries.reduce((sum, [, value]) => sum + value, 0) / entries.length) : 0;
+  const strongest = entries.sort((a, b) => b[1] - a[1])[0];
+  const attention = [...entries].sort((a, b) => a[1] - b[1])[0];
+  return <div className="student-page"><section className="student-progress-hero"><div><p className="eyebrow">SEU DESENVOLVIMENTO</p><h2>{average ? `${average}% de progresso geral` : 'Seu progresso começa aqui'}</h2><p>{record?.goal || 'Seu professor poderá registrar metas e habilidades.'}</p></div><strong>{record?.level ?? '—'}</strong></section><section className="student-progress-grid"><article className="student-panel"><h2>Habilidades</h2>{entries.length ? <div className="portal-skills">{entries.map(([skill, value]) => <div key={skill}><div><strong>{skill}</strong><span>{value}%</span></div><i><b style={{ width: `${value}%` }} /></i></div>)}</div> : <EmptyPortal icon={GraduationCap} title="Sem avaliações ainda" text="As habilidades atualizadas pelo professor aparecerão aqui." />}</article><aside className="student-panel progress-insights"><h2>Destaques</h2><div><span>Habilidade mais forte</span><strong>{strongest?.[0] ?? 'A avaliar'}</strong></div><div><span>Ponto de atenção</span><strong>{attention?.[0] ?? 'A avaliar'}</strong></div><div><span>Observações do professor</span><p>{record?.notes || 'Nenhuma observação registrada.'}</p></div></aside></section></div>;
+}
+
+function StudentMaterials({ materials }: { materials: DbMaterial[] }) {
+  return <div className="student-page"><section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">BIBLIOTECA</p><h2>Materiais compartilhados</h2></div><span>{materials.length} item(ns)</span></div>{materials.length ? <div className="portal-material-grid">{materials.map((material) => <article key={material.id}><FileText size={22} /><span>{material.type} · {material.level}</span><h3>{material.title}</h3><p>{material.description || `${material.skill} para seus estudos.`}</p><a href={material.url} target="_blank" rel="noreferrer">Abrir material <ExternalLink size={14} /></a></article>)}</div> : <EmptyPortal icon={BookOpen} title="Nenhum material compartilhado" text="Quando o professor enviar um recurso, ele aparecerá aqui." />}</section></div>;
+}
+
+
+function StudentAssignments({ assignments, materials, onSubmitted }: { assignments: DbAssignment[]; materials: DbMaterial[]; onSubmitted: () => Promise<void> }) {
+  type TaskFilter = 'all' | 'pending' | 'submitted' | 'reviewed';
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState('');
+  const [filter, setFilter] = useState<TaskFilter>('all');
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const isOverdue = (assignment: DbAssignment) => assignment.status === 'pending' && new Date(`${assignment.due_date}T12:00:00`) < today;
+  const ordered = [...assignments].sort((a, b) => {
+    const priority = (item: DbAssignment) => isOverdue(item) ? 0 : item.status === 'pending' ? 1 : item.status === 'submitted' ? 2 : 3;
+    return priority(a) - priority(b) || a.due_date.localeCompare(b.due_date);
+  });
+  const visible = filter === 'all' ? ordered : ordered.filter((assignment) => assignment.status === filter);
+  const counts = {
+    pending: assignments.filter((assignment) => assignment.status === 'pending').length,
+    submitted: assignments.filter((assignment) => assignment.status === 'submitted').length,
+    reviewed: assignments.filter((assignment) => assignment.status === 'reviewed').length,
+  };
+  const submit = async (assignment: DbAssignment) => {
+    const text = (drafts[assignment.id] ?? '').trim();
+    if (!text) { setMessage('Escreva sua resposta antes de enviar.'); return; }
+    setSendingId(assignment.id); setMessage('');
+    const { error } = await supabase!.from('assignments').update({ submission_text: text, submitted_at: new Date().toISOString(), status: 'submitted' }).eq('id', assignment.id).eq('student_id', assignment.student_id);
+    if (error) setMessage(error.message); else { setMessage('Tarefa enviada com sucesso.'); setDrafts((current) => ({ ...current, [assignment.id]: '' })); await onSubmitted(); }
+    setSendingId(null);
+  };
+  const materialFor = (id: string | null) => materials.find((material) => material.id === id);
+  const dueLabel = (assignment: DbAssignment) => {
+    const date = new Date(`${assignment.due_date}T12:00:00`);
+    const diff = Math.round((date.getTime() - today.getTime()) / 86400000);
+    if (isOverdue(assignment)) return `Atrasada · ${date.toLocaleDateString('pt-BR')}`;
+    if (diff === 0) return 'Entrega hoje';
+    if (diff === 1) return 'Entrega amanhã';
+    return `Prazo: ${date.toLocaleDateString('pt-BR')}`;
+  };
+  return <div className="student-page student-tasks-page">
+    <section className="student-task-summary">
+      <div><p className="eyebrow">ATIVIDADES</p><h2>Minhas tarefas</h2><p>Organize suas entregas, acesse os materiais e acompanhe o feedback do professor.</p></div>
+      <div className="student-task-metrics"><article><Clock3 size={19} /><span>Pendentes</span><strong>{counts.pending}</strong></article><article><ClipboardList size={19} /><span>Enviadas</span><strong>{counts.submitted}</strong></article><article><Check size={19} /><span>Corrigidas</span><strong>{counts.reviewed}</strong></article></div>
+    </section>
+    <section className="student-panel">
+      <div className="student-section-heading task-heading"><div><h2>Lista de tarefas</h2><span>{visible.length} de {assignments.length}</span></div><div className="student-task-filters"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Todas</button><button className={filter === 'pending' ? 'active' : ''} onClick={() => setFilter('pending')}>Pendentes</button><button className={filter === 'submitted' ? 'active' : ''} onClick={() => setFilter('submitted')}>Enviadas</button><button className={filter === 'reviewed' ? 'active' : ''} onClick={() => setFilter('reviewed')}>Corrigidas</button></div></div>
+      {message && <div className="auth-message">{message}</div>}
+      <div className="student-assignment-list">{visible.length ? visible.map((assignment) => {
+        const material = materialFor(assignment.material_id);
+        const overdue = isOverdue(assignment);
+        return <article key={assignment.id} className={overdue ? 'overdue' : ''}>
+          <div className="student-assignment-heading"><div><div className="task-status-row"><span className={`assignment-status ${assignment.status}`}>{assignment.status === 'pending' ? 'Pendente' : assignment.status === 'submitted' ? 'Entregue' : 'Corrigida'}</span>{overdue && <span className="task-overdue-badge">Atrasada</span>}</div><h3>{assignment.title}</h3></div><strong className={overdue ? 'overdue-text' : ''}>{dueLabel(assignment)}</strong></div>
+          <div className="task-instructions"><strong>Instruções</strong><p>{assignment.instructions}</p></div>
+          {material && <a className="task-material-link" href={material.url} target="_blank" rel="noreferrer"><FileText size={16} /><span><strong>{material.title}</strong><small>Abrir material de apoio</small></span><ExternalLink size={14} /></a>}
+          {assignment.status === 'pending' ? <div className="task-response-box"><div className="task-response-header"><div><label htmlFor={`assignment-${assignment.id}`}>Sua resposta</label></div><span className="task-response-count">{(drafts[assignment.id] ?? '').length} caracteres</span></div><textarea className="task-response-input" id={`assignment-${assignment.id}`} rows={6} value={drafts[assignment.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [assignment.id]: event.target.value }))} placeholder="Digite sua resposta ou descreva o que realizou." /><div className="task-submit-row"><small>Revise sua resposta antes de enviar.</small><button className="student-primary" disabled={sendingId === assignment.id} onClick={() => submit(assignment)}>{sendingId === assignment.id ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{sendingId === assignment.id ? 'Enviando...' : 'Enviar tarefa'}</button></div></div> : <div className="submission-preview student-submission-review"><div><strong>Sua resposta</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div><p>{assignment.submission_text || 'Nenhuma resposta em texto.'}</p>{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>}
+        </article>;
+      }) : <EmptyPortal icon={ClipboardList} title={assignments.length ? 'Nenhuma tarefa neste filtro' : 'Nenhuma tarefa por enquanto'} text={assignments.length ? 'Escolha outro filtro para visualizar suas atividades.' : 'As atividades enviadas pelo professor aparecerão aqui.'} />}</div>
+    </section>
+  </div>;
+}
+
+function StudentProfilePage({ profile, record, email, onProfileChange }: { profile: Profile; record: StudentRecord | null; email: string; onProfileChange: (profile: Profile) => void }) {
+  const [message, setMessage] = useState('');
+  const [avatarMessage, setAvatarMessage] = useState('');
+  const [avatar, setAvatar] = useState(profile.avatar_url || '');
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const selectAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) { setAvatarMessage('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.'); return; }
+    try { setAvatar(await resizeProfileImage(file)); setAvatarMessage('Pré-visualização pronta. Clique em salvar foto.'); }
+    catch { setAvatarMessage('Não foi possível processar esta imagem.'); }
+    event.target.value = '';
+  };
+  const saveAvatar = async () => {
+    setSavingAvatar(true); setAvatarMessage('');
+    const { data, error } = await supabase!.from('profiles').update({ avatar_url: avatar }).eq('id', profile.id).select('*').single();
+    if (error) setAvatarMessage(error.message); else { const updated = data as Profile; onProfileChange(updated); setAvatarMessage('Foto de perfil atualizada.'); }
+    setSavingAvatar(false);
+  };
+  const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const password = String(new FormData(event.currentTarget).get('password'));
+    const { error } = await supabase!.auth.updateUser({ password });
+    setMessage(error ? error.message : 'Senha atualizada com sucesso.');
+    if (!error) event.currentTarget.reset();
+  };
+  return <div className="student-page student-profile-grid"><section className="student-panel profile-details"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><h2>{profile.full_name}</h2><p>{email}</p><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}<dl><div><dt>Nível</dt><dd>{record?.level ?? 'Não informado'}</dd></div><div><dt>Objetivo</dt><dd>{record?.goal || 'Não informado'}</dd></div></dl></section><section className="student-panel password-panel"><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section></div>;
+}
+
+function CancellationModal({ lesson, profile, onClose, onSent }: { lesson: DbLesson; profile: Profile; onClose: () => void; onSent: () => void }) {
+  const [message, setMessage] = useState('');
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const reason = String(new FormData(event.currentTarget).get('reason'));
+    const { error } = await supabase!.from('cancellation_requests').insert({ lesson_id: lesson.id, student_id: profile.id, teacher_id: lesson.teacher_id, reason });
+    if (error) setMessage(error.message); else onSent();
+  };
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal cancel-request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">SOLICITAÇÃO</p><h2>Pedir cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><p className="cancel-lesson-summary"><strong>{lesson.topic}</strong><br />{formatPortalDate(lesson.starts_at)}</p><form className="form-grid" onSubmit={submit}><label className="full-field">Justificativa<textarea name="reason" rows={5} minLength={5} required placeholder="Conte ao professor por que você precisa cancelar esta aula." /></label>{message && <div className="auth-message full-field">{message}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Voltar</button><button className="primary-button">Enviar solicitação</button></div></form></section></div>;
+}
+
+function StatusBadge({ status }: { status: CancellationRequest['status'] }) {
+  const labels = { pending: 'Aguardando', approved: 'Aprovado', rejected: 'Recusado' };
+  return <span className={`request-status ${status}`}>{labels[status]}</span>;
+}
+
+function EmptyPortal({ icon: Icon, title, text }: { icon: typeof CalendarDays; title: string; text: string }) {
+  return <div className="empty-state small"><Icon size={30} /><h3>{title}</h3><p>{text}</p></div>;
+}
+
+function formatPortalDate(value: string) {
+  return new Date(value).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function googleCalendarUrl(lesson: DbLesson) {
+  const start = new Date(lesson.starts_at);
+  const end = new Date(start.getTime() + lesson.duration_minutes * 60000);
+  const stamp = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const params = new URLSearchParams({ action: 'TEMPLATE', text: lesson.topic, dates: `${stamp(start)}/${stamp(end)}`, details: lesson.online_url ?? '' });
+  return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+function initials(name: string) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+}
