@@ -137,6 +137,17 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const [payments, setPayments] = useState<Payment[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [inviteMessage, setInviteMessage] = useState('');
+
+  const openStudentInvite = () => {
+    setInviteMessage('');
+    setInviteOpen(true);
+  };
+
+  const closeStudentInvite = () => {
+    setInviteMessage('');
+    setInviteOpen(false);
+  };
 
   const loadRequests = async () => {
     if (!supabase) return;
@@ -220,15 +231,28 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const invite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase) return;
-    const form = new FormData(event.currentTarget);
-    const { error } = await supabase.functions.invoke('invite-student', { body: { email: form.get('email'), fullName: form.get('name'), level: form.get('level'), goal: form.get('goal') } });
-    if (!error) {
-      setMessage('Convite enviado com sucesso. O aluno aparecerá após a conta ser criada.');
-      setInviteOpen(false);
-      await loadTeacherData();
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setInviteMessage('');
+
+    const { error } = await supabase.functions.invoke('invite-student', {
+      body: {
+        email: form.get('email'),
+        fullName: form.get('name'),
+        level: form.get('level'),
+        goal: form.get('goal'),
+      },
+    });
+
+    if (error) {
+      setInviteMessage(`Não foi possível enviar o convite: ${await functionErrorMessage(error)}`);
       return;
     }
-    setMessage(`Não foi possível enviar o convite: ${await functionErrorMessage(error)}`);
+
+    formElement.reset();
+    setInviteMessage('Convite enviado com sucesso! O aluno receberá um link para definir a própria senha.');
+    await loadTeacherData();
   };
 
   const createStudentAccount = async ({ name, email, level, goal }: { name: string; email: string; level: string; goal: string }) => {
@@ -383,7 +407,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       initialAssignments={assignments}
       initialPayments={payments}
       onLogout={onLogout}
-      onInviteStudent={() => setInviteOpen(true)}
+      onInviteStudent={openStudentInvite}
       onInviteTeacher={() => setInviteTeacherOpen(true)}
       onCreateStudentAccount={createStudentAccount}
       onCreateScheduledLesson={createScheduledLesson}
@@ -411,7 +435,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
         if (!error) onProfileChange({ ...profile, ...updates });
       }}
     />
-    {inviteOpen && <div className="modal-backdrop" onMouseDown={() => setInviteOpen(false)}><section className="modal invite-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><h2>Convidar aluno</h2><button className="icon-button" onClick={() => setInviteOpen(false)}>×</button></div><form className="form-grid" onSubmit={invite}><label>Nome completo<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Nível<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Objetivo<input name="goal" placeholder="Conversação, intercâmbio..." /></label>{message && <div className="auth-message full-field">{message}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={() => setInviteOpen(false)}>Cancelar</button><button className="primary-button">Enviar convite</button></div></form></section></div>}
+    {inviteOpen && <div className="modal-backdrop" onMouseDown={closeStudentInvite}><section className="modal invite-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><h2>Convidar aluno</h2><button className="icon-button" onClick={closeStudentInvite}>×</button></div><form className="form-grid" onSubmit={invite}><label>Nome completo<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Nível<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Objetivo<input name="goal" placeholder="Conversação, intercâmbio..." /></label>{inviteMessage && <div className="auth-message full-field">{inviteMessage}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={closeStudentInvite}>Cancelar</button><button className="primary-button">Enviar convite</button></div></form></section></div>}
     {inviteTeacherOpen && <InviteTeacherModal onClose={() => setInviteTeacherOpen(false)} />}
     {requestsOpen && <CancellationRequestsModal requests={requests} onClose={() => setRequestsOpen(false)} onResolve={resolveRequest} />}
   </div>;

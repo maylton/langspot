@@ -33,14 +33,30 @@ Deno.serve(async (request) => {
     return Response.json({ ok: true, temporaryPassword, studentId: data.user.id }, { headers: cors });
   }
 
-  const redirectTo = request.headers.get('origin') ?? Deno.env.get('APP_URL') ?? 'http://localhost:1420';
+  const requestOrigin = request.headers.get('origin');
+  const redirectTo = requestOrigin?.startsWith('http')
+    ? requestOrigin
+    : Deno.env.get('APP_URL') ?? 'https://langspot.app';
+
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
-    data: { full_name: fullName, role: 'student', teacher_id: user.id },
+    data: {
+      full_name: fullName,
+      role: 'student',
+      teacher_id: user.id,
+      must_change_password: true,
+    },
   });
   if (error || !data.user) return Response.json({ error: error?.message }, { status: 400, headers: cors });
 
-  const { error: profileError } = await admin.from('profiles').insert({ id: data.user.id, role: 'student', full_name: fullName, email, teacher_id: user.id });
+  const { error: profileError } = await admin.from('profiles').insert({
+    id: data.user.id,
+    role: 'student',
+    full_name: fullName,
+    email,
+    teacher_id: user.id,
+    must_change_password: true,
+  });
   const { error: recordError } = profileError
     ? { error: null }
     : await admin.from('student_records').insert({ teacher_id: user.id, student_id: data.user.id, level, goal });

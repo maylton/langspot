@@ -1,6 +1,6 @@
 [package]
 name = "langspot"
-version = "1.0.1"
+version = "1.0.2"
 description = "Dashboard para professores independentes de idiomas"
 authors = ["Maylton Fernandes"]
 license = ""
