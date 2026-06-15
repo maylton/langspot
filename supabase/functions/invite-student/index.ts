@@ -13,7 +13,10 @@ Deno.serve(async (request) => {
   const { data: teacher } = await admin.from('profiles').select('role').eq('id', user.id).single();
   if (teacher?.role !== 'teacher') return Response.json({ error: 'Apenas professores podem convidar alunos' }, { status: 403, headers: cors });
 
-  const { action = 'invite', email, fullName, level = 'A1', goal = '' } = await request.json();
+  const { data: hasAccess } = await admin.rpc('teacher_has_access', { target_teacher: user.id });
+  if (!hasAccess) return Response.json({ error: 'Seu período de teste terminou. Ative uma assinatura para convidar alunos.' }, { status: 402, headers: cors });
+
+  const { action = 'invite', email, fullName, age = null, level = 'A1', goal = '', notes = '' } = await request.json();
   if (action === 'create-with-password') {
     const temporaryPassword = createTemporaryPassword();
     const { data, error } = await admin.auth.admin.createUser({
@@ -25,7 +28,7 @@ Deno.serve(async (request) => {
     if (error || !data.user) return Response.json({ error: error?.message }, { status: 400, headers: cors });
 
     const { error: profileError } = await admin.from('profiles').insert({ id: data.user.id, role: 'student', full_name: fullName, email, teacher_id: user.id, must_change_password: true });
-    const { error: recordError } = profileError ? { error: null } : await admin.from('student_records').insert({ teacher_id: user.id, student_id: data.user.id, level, goal });
+    const { error: recordError } = profileError ? { error: null } : await admin.from('student_records').insert({ teacher_id: user.id, student_id: data.user.id, age, level, goal, notes });
     if (profileError || recordError) {
       await admin.auth.admin.deleteUser(data.user.id);
       return Response.json({ error: profileError?.message ?? recordError?.message }, { status: 400, headers: cors });
@@ -59,7 +62,7 @@ Deno.serve(async (request) => {
   });
   const { error: recordError } = profileError
     ? { error: null }
-    : await admin.from('student_records').insert({ teacher_id: user.id, student_id: data.user.id, level, goal });
+    : await admin.from('student_records').insert({ teacher_id: user.id, student_id: data.user.id, age, level, goal, notes });
 
   if (profileError || recordError) {
     await admin.auth.admin.deleteUser(data.user.id);

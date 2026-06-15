@@ -72,6 +72,11 @@ Deno.serve(async (request) => {
       );
     }
 
+    const { data: hasAccess } = await admin.rpc('teacher_has_access', { target_teacher: user.id });
+    if (!hasAccess) {
+      return Response.json({ error: 'Seu período de teste terminou. Ative uma assinatura para convidar professores.' }, { status: 402, headers: cors });
+    }
+
     // Parse request body
     const { email, full_name } = await request.json();
     if (!email || !full_name) {
@@ -85,7 +90,7 @@ Deno.serve(async (request) => {
     const { data: existingUser } = await admin
       .from('profiles')
       .select('id')
-      .eq('id', email)
+      .eq('email', email.trim().toLowerCase())
       .maybeSingle();
 
     if (existingUser) {

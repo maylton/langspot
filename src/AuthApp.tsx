@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Ban, BookOpen, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, FileText, GraduationCap, ImagePlus, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Target, UserRound, UserPlus } from 'lucide-react';
-import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student } from './App';
-import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, isSupabaseConfigured, Profile, StudentRecord, supabase } from './supabase';
+import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student, StudentCreateInput } from './App';
+import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, isSupabaseConfigured, Profile, StudentRecord, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
@@ -153,6 +153,9 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const [dataLoading, setDataLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
+  const [subscription, setSubscription] = useState<TeacherSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState('');
 
   const openStudentInvite = () => {
     setInviteMessage('');
@@ -198,11 +201,12 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
         id: row.student_id,
         name: row.student?.full_name || 'Aluno sem nome',
         email: row.student?.email || '',
+        age: row.age != null ? String(row.age) : '',
         level: row.level || 'A1',
         goal: row.goal || '',
         status: 'Ativo',
         progress: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0,
-        nextClass: '',
+        nextClass: formatNextLessonFromRows(row.student_id, lessonRows),
         notes: row.notes || '',
         skills: skillValues,
         lessons: studentLessons,
@@ -241,7 +245,25 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     setDataLoading(false);
   };
 
-  useEffect(() => { void loadRequests(); void loadTeacherData(); }, []);
+  useEffect(() => {
+    const loadSubscription = async () => {
+      if (!supabase) return;
+      setSubscriptionLoading(true);
+      setSubscriptionError('');
+      const { data, error } = await supabase.rpc('ensure_teacher_subscription');
+      if (error) {
+        console.error('Subscription loading failed:', error);
+        setSubscriptionError('Não foi possível carregar o período de teste. Verifique se a migração 1.1.2 foi aplicada no Supabase.');
+        setSubscriptionLoading(false);
+        return;
+      }
+      setSubscription((data as TeacherSubscription | null) ?? null);
+      setSubscriptionLoading(false);
+    };
+    void loadSubscription();
+    void loadRequests();
+    void loadTeacherData();
+  }, []);
 
   const invite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -270,7 +292,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     await loadTeacherData();
   };
 
-  const createStudentAccount = async ({ name, email, level, goal }: { name: string; email: string; level: string; goal: string }) => {
+  const createStudentAccount = async ({ name, email, age, level, goal, notes }: StudentCreateInput) => {
     if (!supabase) throw new Error('Supabase não configurado.');
     const { data, error } = await supabase.functions.invoke('invite-student', { body: { action: 'create-with-password', email, fullName: name, level, goal } });
     if (error) throw new Error(await functionErrorMessage(error));
@@ -398,6 +420,15 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     if (error) throw new Error(error.message);
   };
 
+  const updateStudentProfile = async (student: Student) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const [{ error: profileError }, { error: recordError }] = await Promise.all([
+      supabase.from('profiles').update({ full_name: student.name }).eq('id', student.id).eq('teacher_id', profile.id),
+      supabase.from('student_records').update({ age: student.age ? Number(student.age) : null, level: student.level, goal: student.goal, notes: student.notes }).eq('student_id', student.id).eq('teacher_id', profile.id),
+    ]);
+    if (profileError || recordError) throw new Error(profileError?.message ?? recordError?.message ?? 'Não foi possível atualizar o aluno.');
+  };
+
   const deleteStudent = async (studentId: string) => {
     const { error } = await supabase!.from('student_records').delete().eq('student_id', studentId);
     if (error) throw new Error(error.message);
@@ -413,7 +444,13 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const pending = requests.filter((request) => request.status === 'pending').length;
   if (dataLoading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando alunos e aulas...</div>;
 
-  return <div className="authenticated-app">
+  const subscriptionActive = subscription?.status === 'active' || (subscription?.status === 'trialing' && Boolean(subscription.trial_ends_at && new Date(subscription.trial_ends_at) > new Date()));
+  const trialDays = subscription?.trial_ends_at ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at).getTime() - Date.now()) / 86400000)) : null;
+
+  return <div className={`authenticated-app ${subscription && !subscriptionActive ? 'subscription-locked' : ''}`}>
+    {subscriptionLoading && <div className="subscription-banner"><strong>Carregando seu período de teste…</strong><span>Estamos verificando o status da sua conta.</span></div>}
+    {subscriptionError && <div className="subscription-banner subscription-banner-expired"><strong>Período de teste indisponível</strong><span>{subscriptionError}</span></div>}
+    {!subscriptionLoading && !subscriptionError && subscription && <div className={`subscription-banner ${subscriptionActive ? '' : 'subscription-banner-expired'}`}><strong>{subscription.plan === 'owner' ? 'Acesso permanente' : subscription.status === 'trialing' ? `Teste gratuito · ${trialDays} dia(s) restante(s)` : subscription.status === 'active' ? 'Plano ativo' : subscription.status === 'pending_confirmation' ? 'Confirme seu e-mail para iniciar o teste' : 'Período de teste encerrado'}</strong><span>{subscription.status === 'pending_confirmation' ? 'Abra o link enviado ao seu e-mail. O teste gratuito de 30 dias começa após a confirmação.' : subscriptionActive ? 'Todos os recursos estão liberados.' : 'Seus dados continuam disponíveis, mas novas alterações exigem uma assinatura ativa.'}</span>{!subscriptionActive && subscription.status !== 'pending_confirmation' && <button type="button" onClick={() => alert('A integração de pagamento será adicionada na próxima etapa.')}>Ver planos</button>}</div>}
     <App
       authenticatedMode
       initialStudents={students}
@@ -422,14 +459,15 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       initialAssignments={assignments}
       initialPayments={payments}
       onLogout={onLogout}
-      onInviteStudent={openStudentInvite}
-      onInviteTeacher={() => setInviteTeacherOpen(true)}
+      onInviteStudent={subscriptionActive ? openStudentInvite : undefined}
+      onInviteTeacher={subscriptionActive ? () => setInviteTeacherOpen(true) : undefined}
       onCreateStudentAccount={createStudentAccount}
       onCreateScheduledLesson={createScheduledLesson}
       onUpdateScheduledLesson={updateScheduledLesson}
       onCancelScheduledLesson={cancelScheduledLesson}
       onCompleteScheduledLesson={completeScheduledLesson}
       onUpdateStudentSkills={updateStudentSkills}
+      onUpdateStudentProfile={updateStudentProfile}
       onDeleteStudent={deleteStudent}
       onCreateMaterial={createMaterial}
       onDeleteMaterial={deleteMaterial}
@@ -519,6 +557,12 @@ function FirstAccessPassword({ profile, onComplete, onLogout }: { profile: Profi
     onComplete();
   };
   return <main className="first-access-page"><section className="first-access-card"><div className="first-access-icon"><LockKeyhole size={27} /></div><p className="eyebrow">PRIMEIRO ACESSO</p><h1>Olá, {profile.full_name}!</h1><p>Antes de entrar no portal, escolha uma senha pessoal. A senha temporária deixará de funcionar.</p><form onSubmit={submit}><label>Nova senha<input name="password" type="password" minLength={8} required /></label><label>Confirmar nova senha<input name="confirmation" type="password" minLength={8} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <LockKeyhole size={16} />}{busy ? 'Atualizando...' : 'Definir senha e entrar'}</button></form><button className="auth-switch" onClick={onLogout}>Sair da conta</button></section></main>;
+}
+
+function formatNextLessonFromRows(studentId: string, lessons: DbLesson[]) {
+  const upcoming = lessons.filter((lesson) => lesson.student_id === studentId && lesson.status === 'scheduled' && new Date(lesson.starts_at) >= new Date()).sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+  if (!upcoming) return '';
+  return new Date(upcoming.starts_at).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace('.', '');
 }
 
 async function functionErrorMessage(error: { message: string; context?: unknown }) {
@@ -756,6 +800,8 @@ function StudentAssignments({ assignments, materials, onSubmitted }: { assignmen
 
 function StudentProfilePage({ profile, record, email, onProfileChange }: { profile: Profile; record: StudentRecord | null; email: string; onProfileChange: (profile: Profile) => void }) {
   const [message, setMessage] = useState('');
+  const [profileMessage, setProfileMessage] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [avatarMessage, setAvatarMessage] = useState('');
   const [avatar, setAvatar] = useState(profile.avatar_url || '');
   const [savingAvatar, setSavingAvatar] = useState(false);
@@ -773,6 +819,22 @@ function StudentProfilePage({ profile, record, email, onProfileChange }: { profi
     if (error) setAvatarMessage(error.message); else { const updated = data as Profile; onProfileChange(updated); setAvatarMessage('Foto de perfil atualizada.'); }
     setSavingAvatar(false);
   };
+  const saveStudentDetails = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !record) return;
+    setSavingProfile(true); setProfileMessage('');
+    const form = new FormData(event.currentTarget);
+    const fullName = String(form.get('fullName') || '').trim();
+    const age = String(form.get('age') || '').trim();
+    const goal = String(form.get('goal') || '').trim();
+    const [{ data: updatedProfile, error: profileError }, { error: recordError }] = await Promise.all([
+      supabase.from('profiles').update({ full_name: fullName }).eq('id', profile.id).select('*').single(),
+      supabase.from('student_records').update({ age: age ? Number(age) : null, goal }).eq('student_id', profile.id),
+    ]);
+    if (profileError || recordError) setProfileMessage(profileError?.message ?? recordError?.message ?? 'Não foi possível salvar o perfil.');
+    else { onProfileChange(updatedProfile as Profile); record.age = age ? Number(age) : null; record.goal = goal; setProfileMessage('Perfil atualizado com sucesso.'); }
+    setSavingProfile(false);
+  };
   const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const password = String(new FormData(event.currentTarget).get('password'));
@@ -780,7 +842,7 @@ function StudentProfilePage({ profile, record, email, onProfileChange }: { profi
     setMessage(error ? error.message : 'Senha atualizada com sucesso.');
     if (!error) event.currentTarget.reset();
   };
-  return <div className="student-page student-profile-grid"><section className="student-panel profile-details"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><h2>{profile.full_name}</h2><p>{email}</p><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}<dl><div><dt>Nível</dt><dd>{record?.level ?? 'Não informado'}</dd></div><div><dt>Objetivo</dt><dd>{record?.goal || 'Não informado'}</dd></div></dl></section><section className="student-panel password-panel"><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section></div>;
+  return <div className="student-page student-profile-grid"><section className="student-panel profile-details"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><h2>{profile.full_name}</h2><p>{email}</p><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}<form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label>{profileMessage && <div className="auth-message">{profileMessage}</div>}<button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></form></section><section className="student-panel password-panel"><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section></div>;
 }
 
 function CancellationModal({ lesson, profile, onClose, onSent }: { lesson: DbLesson; profile: Profile; onClose: () => void; onSent: () => void }) {

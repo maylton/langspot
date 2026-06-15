@@ -22,6 +22,7 @@ create table public.student_records (
   teacher_id uuid not null references public.profiles(id) on delete cascade,
   student_id uuid unique references public.profiles(id) on delete cascade,
   level text not null default 'A1',
+  age integer check (age is null or (age >= 1 and age <= 120)),
   goal text not null default '',
   notes text not null default '',
   skills jsonb not null default '{}',

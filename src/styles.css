@@ -514,3 +514,14 @@ button,input,select,textarea{font-size:var(--text-md)}
 @media(max-width:760px){
   .next-class{overflow:visible}
 }
+
+.subscription-banner{position:fixed;z-index:80;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.96);box-shadow:0 8px 30px rgba(35,43,66,.18);border:1px solid rgba(111,78,255,.18);font-size:13px}.subscription-banner strong{white-space:nowrap}.subscription-banner span{color:var(--muted-color,#697083)}.subscription-banner button{border:0;border-radius:10px;padding:8px 12px;background:#6f4eff;color:white;font-weight:700;cursor:pointer}.subscription-banner-expired{border-color:rgba(208,74,74,.28)}.subscription-locked .primary-button,.subscription-locked .invite-button{opacity:.55}@media(max-width:720px){.subscription-banner{top:8px;align-items:flex-start;flex-direction:column;gap:4px}.subscription-banner strong{white-space:normal}}
+
+/* Student profile editing */
+.student-profile-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.student-profile-actions .student-delete { margin-top: 0; }
+.form-section-title { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; background: var(--surface-soft, rgba(99, 102, 241, .06)); }
+.form-section-title span { font-size: .82rem; color: var(--text-muted, #64748b); }
+.student-profile-form { display: grid; gap: 14px; margin-top: 20px; width: 100%; }
+.student-profile-form label { display: grid; gap: 6px; text-align: left; font-weight: 600; }
+.student-profile-form input { width: 100%; }

@@ -3,6 +3,15 @@ import { SUPABASE } from './config/env';
 
 export type UserRole = 'teacher' | 'student';
 
+export type TeacherSubscription = {
+  teacher_id: string;
+  plan: 'trial' | 'professional' | 'owner';
+  status: 'pending_confirmation' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired';
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+};
+
 export type Profile = {
   id: string;
   role: UserRole;
@@ -20,6 +29,7 @@ export type StudentRecord = {
   teacher_id: string;
   student_id: string;
   level: string;
+  age: number | null;
   goal: string;
   notes: string;
   skills: Record<string, number>;
