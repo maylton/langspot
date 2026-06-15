@@ -156,6 +156,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const [subscription, setSubscription] = useState<TeacherSubscription | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [subscriptionError, setSubscriptionError] = useState('');
+  const [showAccessToast, setShowAccessToast] = useState(false);
 
   const openStudentInvite = () => {
     setInviteMessage('');
@@ -264,6 +265,17 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     void loadRequests();
     void loadTeacherData();
   }, []);
+
+  useEffect(() => {
+    const shouldShowToast = subscription?.plan === 'owner' || subscription?.status === 'trialing';
+    if (!shouldShowToast) {
+      setShowAccessToast(false);
+      return;
+    }
+    setShowAccessToast(true);
+    const timeout = window.setTimeout(() => setShowAccessToast(false), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [subscription?.plan, subscription?.status, subscription?.trial_ends_at]);
 
   const invite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -447,12 +459,20 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const subscriptionActive = subscription?.status === 'active' || (subscription?.status === 'trialing' && Boolean(subscription.trial_ends_at && new Date(subscription.trial_ends_at) > new Date()));
   const trialDays = subscription?.trial_ends_at ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at).getTime() - Date.now()) / 86400000)) : null;
 
+  const accountAccess = subscription ? {
+    label: subscription.plan === 'owner' ? 'Acesso permanente' : subscription.status === 'trialing' ? `Teste gratuito · ${trialDays} dia(s) restante(s)` : subscription.status === 'active' ? 'Plano ativo' : subscription.status === 'pending_confirmation' ? 'Confirmação pendente' : 'Acesso expirado',
+    description: subscription.plan === 'owner' ? 'Sua conta possui acesso completo ao LangSpot, sem data de expiração.' : subscription.status === 'pending_confirmation' ? 'Confirme seu e-mail para iniciar os 30 dias de teste gratuito.' : subscriptionActive ? 'Todos os recursos do LangSpot estão liberados para esta conta.' : 'Seus dados permanecem disponíveis, mas novas alterações exigem uma assinatura ativa.',
+    status: subscription.plan === 'owner' ? 'permanent' as const : subscriptionActive ? 'active' as const : 'inactive' as const,
+  } : undefined;
+
   return <div className={`authenticated-app ${subscription && !subscriptionActive ? 'subscription-locked' : ''}`}>
     {subscriptionLoading && <div className="subscription-banner"><strong>Carregando seu período de teste…</strong><span>Estamos verificando o status da sua conta.</span></div>}
     {subscriptionError && <div className="subscription-banner subscription-banner-expired"><strong>Período de teste indisponível</strong><span>{subscriptionError}</span></div>}
-    {!subscriptionLoading && !subscriptionError && subscription && <div className={`subscription-banner ${subscriptionActive ? '' : 'subscription-banner-expired'}`}><strong>{subscription.plan === 'owner' ? 'Acesso permanente' : subscription.status === 'trialing' ? `Teste gratuito · ${trialDays} dia(s) restante(s)` : subscription.status === 'active' ? 'Plano ativo' : subscription.status === 'pending_confirmation' ? 'Confirme seu e-mail para iniciar o teste' : 'Período de teste encerrado'}</strong><span>{subscription.status === 'pending_confirmation' ? 'Abra o link enviado ao seu e-mail. O teste gratuito de 30 dias começa após a confirmação.' : subscriptionActive ? 'Todos os recursos estão liberados.' : 'Seus dados continuam disponíveis, mas novas alterações exigem uma assinatura ativa.'}</span>{!subscriptionActive && subscription.status !== 'pending_confirmation' && <button type="button" onClick={() => alert('A integração de pagamento será adicionada na próxima etapa.')}>Ver planos</button>}</div>}
+    {!subscriptionLoading && !subscriptionError && subscription && subscription.plan !== 'owner' && !subscriptionActive && <div className="subscription-banner subscription-banner-expired"><strong>{subscription.status === 'pending_confirmation' ? 'Confirme seu e-mail para iniciar o teste' : 'Período de teste encerrado'}</strong><span>{subscription.status === 'pending_confirmation' ? 'Abra o link enviado ao seu e-mail. O teste gratuito de 30 dias começa após a confirmação.' : 'Seus dados continuam disponíveis, mas novas alterações exigem uma assinatura ativa.'}</span>{subscription.status !== 'pending_confirmation' && <button type="button" onClick={() => alert('A integração de pagamento será adicionada na próxima etapa.')}>Ver planos</button>}</div>}
+    {showAccessToast && <div className="access-toast" role="status"><Check size={18} /><div><strong>{subscription?.plan === 'owner' ? 'Acesso permanente' : `Teste gratuito · ${trialDays} dia(s) restante(s)`}</strong><span>{subscription?.plan === 'owner' ? 'Sua conta possui acesso completo ao LangSpot.' : 'Todos os recursos estão liberados durante o período de teste.'}</span></div></div>}
     <App
       authenticatedMode
+      accountAccess={accountAccess}
       initialStudents={students}
       initialSchedule={schedule}
       initialMaterials={materials}

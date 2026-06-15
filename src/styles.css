@@ -525,3 +525,9 @@ button,input,select,textarea{font-size:var(--text-md)}
 .student-profile-form { display: grid; gap: 14px; margin-top: 20px; width: 100%; }
 .student-profile-form label { display: grid; gap: 6px; text-align: left; font-weight: 600; }
 .student-profile-form input { width: 100%; }
+
+
+/* Account access status: permanent access is shown briefly on entry and persistently only in Settings. */
+.access-toast{position:fixed;z-index:95;top:18px;right:18px;display:flex;align-items:flex-start;gap:10px;max-width:min(380px,calc(100vw - 32px));padding:13px 15px;border:1px solid rgba(111,78,255,.2);border-radius:14px;background:rgba(255,255,255,.97);box-shadow:0 14px 42px rgba(35,43,66,.2);animation:access-toast-in .28s ease-out both}.access-toast>svg{flex:0 0 auto;margin-top:1px;color:#6f4eff}.access-toast div{display:grid;gap:2px}.access-toast strong{font-size:14px}.access-toast span{font-size:12px;color:var(--muted-color,#697083);line-height:1.4}@keyframes access-toast-in{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.account-access-card{grid-column:1/-1;display:flex;align-items:flex-start;gap:12px;margin-top:4px;padding:14px;border:1px solid rgba(111,78,255,.16);border-radius:14px;background:rgba(111,78,255,.055)}.account-access-card>svg{flex:0 0 auto;margin-top:2px;color:#6f4eff}.account-access-card div{display:grid;gap:3px}.account-access-card span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-color,#697083)}.account-access-card strong{font-size:15px}.account-access-card p{margin:0;color:var(--muted-color,#697083);font-size:12px;line-height:1.45}.account-access-inactive{border-color:rgba(208,74,74,.22);background:rgba(208,74,74,.055)}.account-access-inactive>svg{color:#d04a4a}
+@media(max-width:720px){.access-toast{top:10px;right:10px;left:10px;max-width:none}.account-access-card{padding:12px}}
