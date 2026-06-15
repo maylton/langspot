@@ -139,6 +139,24 @@ export type LearningJournalEntry = {
   created_at: string;
 };
 
+export type StudyActivity = {
+  id: string;
+  student_id: string;
+  teacher_id: string | null;
+  activity_date: string;
+  activity_type: 'lesson' | 'assignment' | 'journal' | 'goal' | 'flashcard';
+  source_id: string;
+  created_at: string;
+};
+
+export type StreakFreeze = {
+  id: string;
+  student_id: string;
+  teacher_id: string | null;
+  protected_date: string;
+  created_at: string;
+};
+
 export type CancellationStatus = 'pending' | 'approved' | 'rejected';
 
 export type CancellationRequest = {

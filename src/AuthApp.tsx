@@ -1,19 +1,30 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, Eye, FileText, Flag, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, NotebookPen, Plus, RotateCcw, Sparkles, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Award, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, Eye, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
 import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student, StudentCreateInput } from './App';
-import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StudentRecord, TeacherSubscription, supabase } from './supabase';
+import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
+import AdminTeachersModal from './components/AdminTeachersModal';
 
 type AuthMode = 'login' | 'register' | 'forgot';
+const streakMilestones = [
+  { days: 3, title: 'Primeiros passos' },
+  { days: 7, title: 'Uma semana firme' },
+  { days: 14, title: 'Ritmo consistente' },
+  { days: 30, title: 'Hábito de estudo' },
+  { days: 100, title: 'Centenário' },
+];
+
+function isSchemaCacheMiss(error: { code?: string; message?: string } | null) {
+  return error?.code === 'PGRST205' || Boolean(error?.message?.includes('schema cache'));
+}
 
 export default function AuthApp() {
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authEmail, setAuthEmail] = useState('');
   const [demo, setDemo] = useState(false);
-  const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(() => {
     const query = new URLSearchParams(window.location.search);
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -79,8 +90,7 @@ export default function AuthApp() {
     setPasswordRecovery(false);
   }} />;
   if (demo) return <>
-    <App onLogout={() => setDemo(false)} onInviteTeacher={() => setInviteTeacherOpen(true)} />
-    {inviteTeacherOpen && <InviteTeacherModal demoMode onClose={() => setInviteTeacherOpen(false)} />}
+    <App onLogout={() => setDemo(false)} />
   </>;
   if (!profile) return <AuthPage onDemo={() => setDemo(true)} />;
   if (profile.role === 'student' && profile.must_change_password) return <FirstAccessPassword profile={profile} onComplete={() => setProfile({ ...profile, must_change_password: false })} onLogout={() => supabase?.auth.signOut()} />;
@@ -143,6 +153,7 @@ function resizeProfileImage(file: File): Promise<string> {
 function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { profile: Profile; authEmail: string; onProfileChange: (profile: Profile) => void; onLogout: () => void }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
+  const [manageTeachersOpen, setManageTeachersOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [requests, setRequests] = useState<CancellationRequest[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -181,13 +192,15 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
 
     // Core academic data must load independently from the materials library.
     // A Storage/RLS error in materials should never make students or lessons disappear.
-    const [{ data: records, error: recordsError }, { data: lessons, error: lessonsError }] = await Promise.all([
+    const [{ data: records, error: recordsError }, { data: lessons, error: lessonsError }, { data: activityRows, error: activityError }, { data: freezeRows, error: freezeError }] = await Promise.all([
       supabase.from('student_records').select('*, student:profiles!student_records_student_id_fkey(*)').order('created_at', { ascending: false }),
       supabase.from('lessons').select('*').order('starts_at', { ascending: true }),
+      supabase.from('study_activities').select('*').order('activity_date', { ascending: false }),
+      supabase.from('streak_freezes').select('*').order('protected_date', { ascending: false }),
     ]);
 
-    if (recordsError || lessonsError) {
-      setMessage(`Não foi possível carregar alunos e aulas: ${recordsError?.message ?? lessonsError?.message}`);
+    if (recordsError || lessonsError || activityError || (freezeError && !isSchemaCacheMiss(freezeError))) {
+      setMessage(`Não foi possível carregar alunos e aulas: ${recordsError?.message ?? lessonsError?.message ?? activityError?.message ?? freezeError?.message}`);
       setDataLoading(false);
       return;
     }
@@ -199,6 +212,11 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
         .filter((lesson) => lesson.student_id === row.student_id && (lesson.status === 'completed' || new Date(lesson.starts_at) < new Date()))
         .map((lesson) => ({ id: lesson.id, date: lesson.starts_at.slice(0, 10), topic: lesson.topic, notes: lesson.notes, homework: lesson.homework, attendance: lesson.attendance ? ({ presente: 'Presente', ausente: 'Ausente', remarcada: 'Remarcada' } as Record<string, AttendanceStatus>)[lesson.attendance] : undefined, skillScores: lesson.skill_scores || undefined }));
       const values = Object.values(skillValues);
+      const streakDates = [
+        ...(activityRows ?? []).filter((activity: any) => activity.student_id === row.student_id).map((activity: any) => activity.activity_date),
+        ...(freezeRows ?? []).filter((freeze: any) => freeze.student_id === row.student_id).map((freeze: any) => freeze.protected_date),
+      ];
+      const streak = calculateStreak(streakDates);
       return {
         id: row.student_id,
         name: row.student?.full_name || 'Aluno sem nome',
@@ -212,6 +230,9 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
         notes: row.notes || '',
         skills: skillValues,
         lessons: studentLessons,
+        currentStreak: streak.current,
+        bestStreak: streak.best,
+        achievementCount: streakMilestones.filter((milestone) => streak.best >= milestone.days).length,
       };
     });
     setStudents(mappedStudents);
@@ -496,7 +517,8 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       initialPayments={payments}
       onLogout={onLogout}
       onInviteStudent={subscriptionActive ? openStudentInvite : undefined}
-      onInviteTeacher={subscriptionActive ? () => setInviteTeacherOpen(true) : undefined}
+      onInviteTeacher={subscriptionActive && subscription?.plan === 'owner' ? () => setInviteTeacherOpen(true) : undefined}
+      onManageTeachers={subscriptionActive && subscription?.plan === 'owner' ? () => setManageTeachersOpen(true) : undefined}
       onCreateStudentAccount={createStudentAccount}
       onCreateScheduledLesson={createScheduledLesson}
       onUpdateScheduledLesson={updateScheduledLesson}
@@ -526,7 +548,8 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       }}
     />
     {inviteOpen && <div className="modal-backdrop" onMouseDown={closeStudentInvite}><section className="modal invite-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><h2>Convidar aluno</h2><button className="icon-button" onClick={closeStudentInvite}>×</button></div><form className="form-grid" onSubmit={invite}><label>Nome completo<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Nível<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Objetivo<input name="goal" placeholder="Conversação, intercâmbio..." /></label>{inviteMessage && <div className="auth-message full-field">{inviteMessage}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={closeStudentInvite}>Cancelar</button><button className="primary-button">Enviar convite</button></div></form></section></div>}
-    {inviteTeacherOpen && <InviteTeacherModal onClose={() => setInviteTeacherOpen(false)} />}
+    {inviteTeacherOpen && subscription?.plan === 'owner' && <InviteTeacherModal onClose={() => setInviteTeacherOpen(false)} />}
+    {manageTeachersOpen && subscription?.plan === 'owner' && <AdminTeachersModal onClose={() => setManageTeachersOpen(false)} />}
     {requestsOpen && <CancellationRequestsModal requests={requests} onClose={() => setRequestsOpen(false)} onResolve={resolveRequest} />}
   </div>;
 }
@@ -701,7 +724,40 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
   return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" autoComplete="email" required autoFocus /></label>{mode !== 'forgot' && <label>Senha<input name="password" type="password" minLength={6} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required /></label>}{mode === 'login' && <button type="button" className="forgot-password-link" onClick={() => changeMode('forgot')}>Esqueci minha senha</button>}{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : mode === 'register' ? <UserPlus size={17} /> : <ArrowRight size={17} />}{busy ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : 'Enviar link'}{!busy && mode !== 'forgot' && <ArrowRight size={16} />}</button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}{mode === 'forgot' ? <button className="auth-switch" onClick={() => changeMode('login')}>Voltar para o login</button> : <button className="auth-switch" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>}{can.useDemoMode() && mode !== 'forgot' && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
 }
 
-type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Flashcards' | 'Metas' | 'Diário' | 'Perfil';
+type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Flashcards' | 'Metas' | 'Conquistas' | 'Diário' | 'Perfil';
+
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function dateKeyDistance(later: string, earlier: string) {
+  return Math.round((Date.parse(`${later}T12:00:00Z`) - Date.parse(`${earlier}T12:00:00Z`)) / 86400000);
+}
+
+function calculateStreak(activityDates: string[]) {
+  const dates = [...new Set(activityDates)].sort();
+  let best = dates.length ? 1 : 0;
+  let running = dates.length ? 1 : 0;
+  for (let index = 1; index < dates.length; index += 1) {
+    running = dateKeyDistance(dates[index], dates[index - 1]) === 1 ? running + 1 : 1;
+    best = Math.max(best, running);
+  }
+  const last = dates[dates.length - 1];
+  if (!last) return { current: 0, best: 0 };
+  const today = localDateKey(new Date());
+  if (dateKeyDistance(today, last) > 1) return { current: 0, best };
+  let current = 1;
+  for (let index = dates.length - 1; index > 0 && dateKeyDistance(dates[index], dates[index - 1]) === 1; index -= 1) current += 1;
+  return { current, best };
+}
+
+function lastStudyDays(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (count - index - 1));
+    return { date: localDateKey(date), label: date.toLocaleDateString('pt-BR', { weekday: 'narrow' }).replace('.', '') };
+  });
+}
 
 function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherName = '' }: { profile: Profile; onLogout: () => void; previewMode?: boolean; previewTeacherName?: string }) {
   const [portalProfile, setPortalProfile] = useState(profile);
@@ -712,6 +768,8 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   const [assignments, setAssignments] = useState<DbAssignment[]>([]);
   const [goals, setGoals] = useState<LearningGoal[]>([]);
   const [journal, setJournal] = useState<LearningJournalEntry[]>([]);
+  const [studyActivities, setStudyActivities] = useState<StudyActivity[]>([]);
+  const [streakFreezes, setStreakFreezes] = useState<StreakFreeze[]>([]);
   const [requests, setRequests] = useState<CancellationRequest[]>([]);
   const [lessonToCancel, setLessonToCancel] = useState<DbLesson | null>(null);
   const [email, setEmail] = useState('');
@@ -722,7 +780,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     if (!supabase) return;
     setLoading(true);
     setLoadError('');
-    const [profileResult, recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, requestResult, userResult] = await Promise.all([
+    const [profileResult, recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, activityResult, freezeResult, requestResult, userResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', profile.id).maybeSingle(),
       supabase.from('student_records').select('*').eq('student_id', profile.id).maybeSingle(),
       supabase.from('lessons').select('*').eq('student_id', profile.id).order('starts_at'),
@@ -730,10 +788,12 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
       supabase.from('assignments').select('*').eq('student_id', profile.id).order('due_date', { ascending: true }),
       supabase.from('learning_goals').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('learning_journal_entries').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('study_activities').select('*').eq('student_id', profile.id).order('activity_date', { ascending: false }),
+      supabase.from('streak_freezes').select('*').eq('student_id', profile.id).order('protected_date', { ascending: false }),
       supabase.from('cancellation_requests').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }),
       previewMode ? Promise.resolve({ data: { user: null }, error: null }) : supabase.auth.getUser(),
     ]);
-    const errors = [profileResult.error, recordResult.error, lessonResult.error, assignmentResult.error, taskResult.error, goalResult.error, journalResult.error, requestResult.error].filter(Boolean);
+    const errors = [profileResult.error, recordResult.error, lessonResult.error, assignmentResult.error, taskResult.error, goalResult.error, journalResult.error, activityResult.error, requestResult.error, freezeResult.error && !isSchemaCacheMiss(freezeResult.error) ? freezeResult.error : null].filter(Boolean);
     const warnings = errors.map((error) => error?.message).filter(Boolean) as string[];
     if (previewMode && !profileResult.data && !profileResult.error) {
       warnings.unshift('O perfil real do aluno não está acessível para o professor. Aplique a migração de permissões da visualização do aluno no Supabase.');
@@ -764,6 +824,8 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     setAssignments((taskResult.data ?? []) as DbAssignment[]);
     setGoals((goalResult.data ?? []) as LearningGoal[]);
     setJournal((journalResult.data ?? []) as LearningJournalEntry[]);
+    setStudyActivities((activityResult.data ?? []) as StudyActivity[]);
+    setStreakFreezes((freezeResult.data ?? []) as StreakFreeze[]);
     setRequests((requestResult.data ?? []) as CancellationRequest[]);
     setEmail(userResult.data.user?.email ?? (profileResult.data as Profile | null)?.email ?? profile.email ?? '');
     setLoading(false);
@@ -782,13 +844,14 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     { label: 'Materiais', icon: BookOpen },
     { label: 'Flashcards', icon: Brain },
     { label: 'Metas', icon: Flag },
+    { label: 'Conquistas', icon: Award },
     { label: 'Diário', icon: NotebookPen },
     { label: 'Progresso', icon: GraduationCap },
     { label: 'Perfil', icon: UserRound },
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -796,11 +859,31 @@ function CancellationRequestsModal({ requests, onClose, onResolve }: { requests:
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">AGENDA</p><h2>Solicitações de cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><div className="request-list">{requests.length ? requests.map((request) => <article className="request-card" key={request.id}><div className="request-heading"><div><strong>{request.student?.full_name ?? 'Aluno'}</strong><span>{request.lessons ? `${formatPortalDate(request.lessons.starts_at)} · ${request.lessons.topic}` : 'Aula'}</span></div><StatusBadge status={request.status} /></div><p>{request.reason}</p>{request.status === 'pending' ? <><textarea value={responses[request.id] ?? ''} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Resposta opcional para o aluno" /><div className="request-actions"><button className="reject-button" onClick={() => onResolve(request, 'rejected', responses[request.id] ?? '')}><Ban size={15} />Recusar</button><button className="approve-button" onClick={() => onResolve(request, 'approved', responses[request.id] ?? '')}><Check size={15} />Aprovar</button></div></> : request.teacher_response && <small>Resposta: {request.teacher_response}</small>}</article>) : <div className="empty-state small"><Check size={30} /><h3>Nenhuma solicitação</h3><p>Os pedidos dos alunos aparecerão aqui.</p></div>}</div></section></div>;
 }
 
-function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, onNavigate, readOnly = false }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; onNavigate: (tab: StudentTab) => void; readOnly?: boolean }) {
+function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, studyActivities, streakFreezes, onChanged, onNavigate, readOnly = false }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; studyActivities: StudyActivity[]; streakFreezes: StreakFreeze[]; onChanged: () => Promise<void>; onNavigate: (tab: StudentTab) => void; readOnly?: boolean }) {
+  const [streakMessage, setStreakMessage] = useState('');
+  const [protecting, setProtecting] = useState(false);
   const pending = assignments.filter((item) => item.status === 'pending');
   const urgent = [...pending].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
   const activeGoals = goals.filter((goal) => goal.status === 'active');
   const average = record ? Object.values(record.skills ?? {}).reduce((sum, value) => sum + value, 0) / Math.max(Object.values(record.skills ?? {}).length, 1) : 0;
+  const activityDates = studyActivities.map((activity) => activity.activity_date);
+  const protectedDates = streakFreezes.map((freeze) => freeze.protected_date);
+  const streak = calculateStreak([...activityDates, ...protectedDates]);
+  const activeDates = new Set(studyActivities.map((activity) => activity.activity_date));
+  const freezeDates = new Set(protectedDates);
+  const streakWeek = lastStudyDays(7);
+  const yesterday = lastStudyDays(2)[0].date;
+  const dayBeforeYesterday = lastStudyDays(3)[0].date;
+  const monthlyFreezeUsed = protectedDates.some((date) => date.slice(0, 7) === yesterday.slice(0, 7));
+  const canProtectYesterday = !readOnly && !monthlyFreezeUsed && !activeDates.has(yesterday) && !freezeDates.has(yesterday) && (activeDates.has(dayBeforeYesterday) || freezeDates.has(dayBeforeYesterday));
+  const useFreeze = async () => {
+    if (!supabase || !canProtectYesterday) return;
+    setProtecting(true); setStreakMessage('');
+    const { error } = await supabase.rpc('use_monthly_streak_freeze');
+    if (error) setStreakMessage(error.message);
+    else { setStreakMessage('Sequência protegida! Ontem agora conta como um dia preservado.'); await onChanged(); }
+    setProtecting(false);
+  };
   const timeline = [
     ...history.slice(0, 4).map((lesson) => ({ date: lesson.starts_at, icon: 'lesson', title: `Aula: ${lesson.topic}`, text: lesson.notes || 'Aula registrada no seu histórico.' })),
     ...assignments.filter((item) => item.status !== 'pending').slice(0, 4).map((item) => ({ date: item.submitted_at ?? item.created_at, icon: 'task', title: item.status === 'reviewed' ? `Tarefa corrigida: ${item.title}` : `Tarefa enviada: ${item.title}`, text: item.feedback || (item.status === 'reviewed' ? 'Confira o feedback do professor.' : 'Aguardando correção.') })),
@@ -818,7 +901,20 @@ function StudentOverview({ profile, record, nextLesson, materialCount, assignmen
     </section>
     <section className="student-dashboard-columns"><div className="student-dashboard-main">{nextLesson && <section className="student-panel next-lesson-panel"><div><p className="eyebrow">PRÓXIMO ENCONTRO</p><h2>{nextLesson.topic}</h2><p><Clock3 size={15} />{formatPortalDate(nextLesson.starts_at)} · {nextLesson.duration_minutes} minutos</p></div>{nextLesson.online_url && <a className="student-primary" href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={15} /></a>}</section>}
       <section className="student-panel student-timeline-panel"><div className="student-section-heading"><div><p className="eyebrow">SUA JORNADA</p><h2>Linha do tempo</h2></div></div>{timeline.length ? <div className="student-learning-timeline">{timeline.map((item, index) => <article key={`${item.date}-${index}`}><span className={`timeline-icon ${item.icon}`}>{item.icon === 'lesson' ? <CalendarDays size={15} /> : item.icon === 'task' ? <Check size={15} /> : item.icon === 'goal' ? <Flag size={15} /> : <NotebookPen size={15} />}</span><div><time>{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</time><strong>{item.title}</strong><p>{item.text}</p></div></article>)}</div> : <EmptyPortal icon={Sparkles} title="Sua jornada está começando" text="Aulas, tarefas, metas e registros de estudo aparecerão aqui." />}</section></div>
-      <aside className="student-dashboard-side"><section className="student-panel quick-actions"><h2>{readOnly ? 'Explorar portal' : 'Ações rápidas'}</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
+      <aside className="student-dashboard-side"><section className="student-panel student-streak-card"><div className="streak-heading"><span><Flame size={24} /></span><div><p className="eyebrow">SEQUÊNCIA DE ESTUDOS</p><h2>{streak.current} dia(s)</h2></div></div><p>{streak.current ? 'Continue estudando para manter sua sequência acesa.' : 'Faça uma atividade hoje para iniciar sua sequência.'}</p><div className="streak-week">{streakWeek.map((day) => <div className={activeDates.has(day.date) ? 'active' : freezeDates.has(day.date) ? 'protected' : ''} key={day.date}><span>{day.label}</span><i>{freezeDates.has(day.date) ? <Snowflake size={13} /> : <Flame size={13} />}</i></div>)}</div>{canProtectYesterday && <button className="streak-freeze-button" disabled={protecting} onClick={useFreeze}><Snowflake size={14} />{protecting ? 'Protegendo...' : 'Proteger sequência de ontem'}</button>}{streakMessage && <small className="streak-message">{streakMessage}</small>}<footer><span>Recorde pessoal</span><strong>{streak.best} dia(s)</strong></footer></section><section className="student-panel quick-actions"><h2>{readOnly ? 'Explorar portal' : 'Ações rápidas'}</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button><button onClick={() => onNavigate('Conquistas')}><Award size={17} /><span><strong>Ver conquistas</strong><small>Acompanhe os marcos desbloqueados</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
+  </div>;
+}
+
+function StudentAchievements({ studyActivities, streakFreezes }: { studyActivities: StudyActivity[]; streakFreezes: StreakFreeze[] }) {
+  const streak = calculateStreak([...studyActivities.map((activity) => activity.activity_date), ...streakFreezes.map((freeze) => freeze.protected_date)]);
+  const unlocked = streakMilestones.filter((milestone) => streak.best >= milestone.days).length;
+  const next = streakMilestones.find((milestone) => streak.best < milestone.days);
+  const progress = next ? Math.min(100, Math.round((streak.best / next.days) * 100)) : 100;
+  return <div className="student-page student-achievements-page">
+    <section className="student-achievements-hero"><div><p className="eyebrow">SUA CONSTÂNCIA</p><h2>Conquistas</h2><p>Cada marco representa dias de estudo consistente. Continue avançando no seu ritmo.</p></div><span><Award size={27} /><strong>{unlocked}/{streakMilestones.length}</strong><small>desbloqueadas</small></span></section>
+    <section className="student-achievement-summary"><article><Flame size={20} /><span>Sequência atual</span><strong>{streak.current} dia(s)</strong></article><article><Award size={20} /><span>Recorde pessoal</span><strong>{streak.best} dia(s)</strong></article><article><Target size={20} /><span>Próximo marco</span><strong>{next ? `${next.days} dias` : 'Todos alcançados'}</strong></article></section>
+    {next && <section className="student-panel achievement-next-card"><div><span>PRÓXIMA CONQUISTA</span><h2>{next.title}</h2><p>Faltam {Math.max(0, next.days - streak.best)} dia(s) para desbloquear este marco.</p></div><strong>{progress}%</strong><i><b style={{ width: `${progress}%` }} /></i></section>}
+    <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">COLEÇÃO</p><h2>Marcos da sequência</h2></div></div><div className="achievement-collection">{streakMilestones.map((milestone) => { const achieved = streak.best >= milestone.days; return <article className={achieved ? 'unlocked' : ''} key={milestone.days}><span><Award size={24} /></span><div><small>{milestone.days} DIAS</small><h3>{milestone.title}</h3><p>{achieved ? 'Conquista desbloqueada pela sua consistência.' : `Continue estudando para alcançar ${milestone.days} dias consecutivos.`}</p></div>{achieved ? <b><Check size={14} />Desbloqueada</b> : <b>Bloqueada</b>}</article>; })}</div></section>
   </div>;
 }
 
@@ -999,7 +1095,7 @@ function StudentJournal({ profile, entries, onChanged, readOnly = false }: { pro
 
 type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
 
-function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; readOnly?: boolean }) {
+function StudentFlashcards({ profile, onActivity, readOnly = false }: { profile: Profile; onActivity: () => Promise<void>; readOnly?: boolean }) {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [reviews, setReviews] = useState<FlashcardReview[]>([]);
@@ -1010,7 +1106,9 @@ function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; re
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [creatingDeck, setCreatingDeck] = useState(false);
+  const [creatingDeckBusy, setCreatingDeckBusy] = useState(false);
   const [creatingCard, setCreatingCard] = useState(false);
+  const [creatingCardBusy, setCreatingCardBusy] = useState(false);
   const selectedDeck = decks.find((deck) => deck.id === selectedDeckId) ?? null;
 
   const loadFlashcards = async () => {
@@ -1046,20 +1144,38 @@ function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; re
   const deckCards = selectedDeckId ? cards.filter((card) => card.deck_id === selectedDeckId) : [];
   const deckDueCards = selectedDeckId ? dueCards.filter((card) => card.deck_id === selectedDeckId) : dueCards;
 
+  const openDeckCreator = () => {
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
+    setMessage('');
+    setSelectedDeckId(null);
+    setCreatingCard(false);
+    setCreatingDeck(true);
+  };
+
   const createDeck = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase) return;
     setMessage('');
-    const form = new FormData(event.currentTarget);
-    const { error } = await supabase.from('flashcard_decks').insert({
+    setCreatingDeckBusy(true);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const { data, error } = await supabase.from('flashcard_decks').insert({
       user_id: profile.id,
       teacher_id: profile.teacher_id,
       title: String(form.get('title') || '').trim(),
       description: String(form.get('description') || '').trim(),
-    });
-    if (error) setMessage(error.message);
-    else { event.currentTarget.reset(); setCreatingDeck(false); await loadFlashcards(); }
+    }).select('*').single();
+    if (error || !data) setMessage(error?.message ?? 'Não foi possível criar o baralho.');
+    else {
+      const createdDeck = data as FlashcardDeck;
+      formElement.reset();
+      setDecks((current) => [createdDeck, ...current.filter((deck) => deck.id !== createdDeck.id)]);
+      setSelectedDeckId(createdDeck.id);
+      setCreatingDeck(false);
+      setMessage('Baralho criado! Adicione agora o primeiro cartão.');
+    }
+    setCreatingDeckBusy(false);
   };
 
   const deleteDeck = async (deckId: string) => {
@@ -1075,15 +1191,23 @@ function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; re
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !selectedDeckId) return;
     setMessage('');
-    const form = new FormData(event.currentTarget);
-    const { error } = await supabase.from('flashcards').insert({
+    setCreatingCardBusy(true);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const { data, error } = await supabase.from('flashcards').insert({
       deck_id: selectedDeckId,
       front: String(form.get('front') || '').trim(),
       back: String(form.get('back') || '').trim(),
       example: String(form.get('example') || '').trim(),
-    });
-    if (error) setMessage(error.message);
-    else { event.currentTarget.reset(); setCreatingCard(false); await loadFlashcards(); }
+    }).select('*').single();
+    if (error || !data) setMessage(error?.message ?? 'Não foi possível salvar o cartão.');
+    else {
+      const createdCard = data as Flashcard;
+      formElement.reset();
+      setCards((current) => [...current.filter((card) => card.id !== createdCard.id), createdCard]);
+      setMessage('Cartão salvo! Você pode adicionar outro ou começar a estudar.');
+    }
+    setCreatingCardBusy(false);
   };
 
   const deleteCard = async (cardId: string) => {
@@ -1146,6 +1270,7 @@ function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; re
       setShowAnswer(false);
       setMessage(`Sessão concluída! ${studyCards.length} cartão(ões) revisado(s).`);
       await loadFlashcards();
+      await onActivity();
     } else {
       setStudyIndex((current) => current + 1);
       setShowAnswer(false);
@@ -1162,11 +1287,11 @@ function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; re
   const mastery = cards.length ? Math.round((learnedCount / cards.length) * 100) : 0;
 
   return <div className="student-page flashcards-page">
-    <section className="student-goals-hero flashcards-goal-hero"><div><p className="eyebrow">REPETIÇÃO ESPAÇADA</p><h2>Meus flashcards</h2><p>Organize o que deseja memorizar e revise cada conteúdo no momento certo.</p></div><div className="flashcards-hero-actions"><button className="cancel-button" onClick={() => setCreatingDeck((value) => !value)}><Plus size={16} />Novo baralho</button><button className="student-primary" onClick={() => beginStudy(dueCards)} disabled={!dueCards.length}><Brain size={16} />Estudar agora ({dueCards.length})</button></div></section>
+    <section className="student-goals-hero flashcards-goal-hero"><div><p className="eyebrow">REPETIÇÃO ESPAÇADA</p><h2>Meus flashcards</h2><p>Organize o que deseja memorizar e revise cada conteúdo no momento certo.</p></div><div className="flashcards-hero-actions"><button className="cancel-button" onClick={openDeckCreator}><Plus size={16} />Novo baralho</button><button className="student-primary" onClick={() => beginStudy(dueCards)} disabled={!dueCards.length}><Brain size={16} />Estudar agora ({dueCards.length})</button></div></section>
     <section className="student-goal-stats flashcard-stat-grid"><article><Layers3 size={20} /><span>Baralhos</span><strong>{decks.length}</strong></article><article><Clock3 size={20} /><span>Para revisar</span><strong>{dueCards.length}</strong></article><article><Sparkles size={20} /><span>Progresso de estudo</span><strong>{mastery}%</strong></article></section>
     {message && <div className="auth-message">{message}</div>}
-    {creatingDeck && !selectedDeck && <section className="student-panel"><form className="student-interactive-form" onSubmit={createDeck}><label>Título do baralho<input name="title" required placeholder="Ex.: Phrasal verbs" /></label><label>Descrição <span>(opcional)</span><input name="description" placeholder="Ex.: Vocabulário da unidade 4" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreatingDeck(false)}>Cancelar</button><button className="primary-button">Criar baralho</button></div></form></section>}
-    {selectedDeck ? <section className="student-panel flashcard-deck-detail"><div className="student-section-heading"><div><button className="flashcard-back-button" onClick={() => setSelectedDeckId(null)}><ArrowLeft size={15} />Todos os baralhos</button><p className="eyebrow">BARALHO ATUAL</p><h2>{selectedDeck.title}</h2><p>{selectedDeck.description || 'Sem descrição.'}</p></div><div className="flashcard-deck-actions"><button className="cancel-button" onClick={() => beginStudy(deckDueCards)} disabled={!deckDueCards.length}><Brain size={15} />Estudar ({deckDueCards.length})</button><button className="danger-text-button" onClick={() => deleteDeck(selectedDeck.id)}><Trash2 size={15} />Excluir</button></div></div><div className="flashcard-deck-progress"><div><span>Cartões estudados</span><strong>{deckCards.filter((card) => reviewByCard.has(card.id)).length}/{deckCards.length}</strong></div><i><b style={{ width: `${deckCards.length ? (deckCards.filter((card) => reviewByCard.has(card.id)).length / deckCards.length) * 100 : 0}%` }} /></i></div><div className="flashcard-card-toolbar"><span>{deckCards.length} cartão(ões) · {deckDueCards.length} para revisar</span><button className="student-primary" onClick={() => setCreatingCard((value) => !value)}><Plus size={15} />Novo cartão</button></div>{creatingCard && <form className="student-interactive-form flashcard-editor" onSubmit={createCard}><label>Frente do cartão<textarea name="front" rows={3} required placeholder="Ex.: What does 'borrow' mean?" /></label><label>Verso do cartão<textarea name="back" rows={3} required placeholder="Ex.: Pedir algo emprestado" /></label><label className="full-field">Exemplo ou observação <span>(opcional)</span><textarea name="example" rows={2} placeholder="Ex.: Can I borrow your pencil?" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreatingCard(false)}>Cancelar</button><button className="primary-button">Salvar cartão</button></div></form>}<div className="flashcard-list">{deckCards.length ? deckCards.map((card) => { const review = reviewByCard.get(card.id); return <article key={card.id}><div><span>{review ? `Próxima revisão: ${new Date(review.due_at).toLocaleDateString('pt-BR')}` : 'Novo cartão'}</span><h3>{card.front}</h3><p>{card.back}</p>{card.example && <small>{card.example}</small>}</div><button className="icon-button danger" title="Excluir cartão" onClick={() => deleteCard(card.id)}><Trash2 size={15} /></button></article>; }) : <EmptyPortal icon={Brain} title="Este baralho ainda está vazio" text="Adicione o primeiro cartão para começar seus estudos." />}</div></section> : <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">SEUS BARALHOS</p><h2>Conteúdos em estudo</h2></div></div><div className="flashcard-deck-grid goal-inspired-decks">{decks.length ? decks.map((deck) => { const deckItems = cards.filter((card) => card.deck_id === deck.id); const due = dueCards.filter((card) => card.deck_id === deck.id).length; const studied = deckItems.filter((card) => reviewByCard.has(card.id)).length; const progress = deckItems.length ? Math.round((studied / deckItems.length) * 100) : 0; return <article key={deck.id}><button className="flashcard-deck-open" onClick={() => setSelectedDeckId(deck.id)}><div className="goal-card-heading"><div><span>{due ? `${due} PARA REVISAR` : 'EM DIA'}</span><h3>{deck.title}</h3></div><Brain size={20} /></div><p>{deck.description || 'Baralho pessoal'}</p><div className="goal-progress-heading"><span>Cartões estudados</span><strong>{progress}%</strong></div><i><b style={{ width: `${progress}%` }} /></i><small>{deckItems.length} cartão(ões) · {studied} estudado(s)</small></button><div className="flashcard-deck-footer"><button onClick={() => setSelectedDeckId(deck.id)}>Abrir baralho</button><button disabled={!due} onClick={() => beginStudy(dueCards.filter((card) => card.deck_id === deck.id))}><Brain size={14} />Estudar</button></div></article>; }) : <EmptyPortal icon={Brain} title="Crie seu primeiro baralho" text="Organize palavras, expressões, perguntas e respostas para revisar com repetição espaçada." />}</div></section>}
+    {creatingDeck && !selectedDeck && <section className="student-panel"><form className="student-interactive-form" onSubmit={createDeck}><label>Título do baralho<input name="title" required placeholder="Ex.: Phrasal verbs" /></label><label>Descrição <span>(opcional)</span><input name="description" placeholder="Ex.: Vocabulário da unidade 4" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" disabled={creatingDeckBusy} onClick={() => setCreatingDeck(false)}>Cancelar</button><button className="primary-button" disabled={creatingDeckBusy}>{creatingDeckBusy ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}{creatingDeckBusy ? 'Criando...' : 'Criar baralho'}</button></div></form></section>}
+    {selectedDeck ? <section className="student-panel flashcard-deck-detail"><div className="student-section-heading"><div><button className="flashcard-back-button" onClick={() => setSelectedDeckId(null)}><ArrowLeft size={15} />Todos os baralhos</button><p className="eyebrow">BARALHO ATUAL</p><h2>{selectedDeck.title}</h2><p>{selectedDeck.description || 'Sem descrição.'}</p></div><div className="flashcard-deck-actions"><button className="cancel-button" onClick={() => beginStudy(deckDueCards)} disabled={!deckDueCards.length}><Brain size={15} />Estudar ({deckDueCards.length})</button><button className="danger-text-button" onClick={() => deleteDeck(selectedDeck.id)}><Trash2 size={15} />Excluir</button></div></div><div className="flashcard-deck-progress"><div><span>Cartões estudados</span><strong>{deckCards.filter((card) => reviewByCard.has(card.id)).length}/{deckCards.length}</strong></div><i><b style={{ width: `${deckCards.length ? (deckCards.filter((card) => reviewByCard.has(card.id)).length / deckCards.length) * 100 : 0}%` }} /></i></div><div className="flashcard-card-toolbar"><span>{deckCards.length} cartão(ões) · {deckDueCards.length} para revisar</span><button className="student-primary" onClick={() => setCreatingCard((value) => !value)}><Plus size={15} />Novo cartão</button></div>{creatingCard && <form className="student-interactive-form flashcard-editor" onSubmit={createCard}><label>Frente do cartão<textarea name="front" rows={3} required placeholder="Ex.: What does 'borrow' mean?" /></label><label>Verso do cartão<textarea name="back" rows={3} required placeholder="Ex.: Pedir algo emprestado" /></label><label className="full-field">Exemplo ou observação <span>(opcional)</span><textarea name="example" rows={2} placeholder="Ex.: Can I borrow your pencil?" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" disabled={creatingCardBusy} onClick={() => setCreatingCard(false)}>Concluir</button><button className="primary-button" disabled={creatingCardBusy}>{creatingCardBusy ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}{creatingCardBusy ? 'Salvando...' : 'Salvar cartão'}</button></div></form>}<div className="flashcard-list">{deckCards.length ? deckCards.map((card) => { const review = reviewByCard.get(card.id); return <article key={card.id}><div><span>{review ? `Próxima revisão: ${new Date(review.due_at).toLocaleDateString('pt-BR')}` : 'Novo cartão'}</span><h3>{card.front}</h3><p>{card.back}</p>{card.example && <small>{card.example}</small>}</div><button className="icon-button danger" title="Excluir cartão" onClick={() => deleteCard(card.id)}><Trash2 size={15} /></button></article>; }) : <EmptyPortal icon={Brain} title="Este baralho ainda está vazio" text="Adicione o primeiro cartão para começar seus estudos." />}</div></section> : <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">SEUS BARALHOS</p><h2>Conteúdos em estudo</h2></div></div><div className="flashcard-deck-grid goal-inspired-decks">{decks.length ? decks.map((deck) => { const deckItems = cards.filter((card) => card.deck_id === deck.id); const due = dueCards.filter((card) => card.deck_id === deck.id).length; const studied = deckItems.filter((card) => reviewByCard.has(card.id)).length; const progress = deckItems.length ? Math.round((studied / deckItems.length) * 100) : 0; return <article key={deck.id}><button className="flashcard-deck-open" onClick={() => setSelectedDeckId(deck.id)}><div className="goal-card-heading"><div><span>{due ? `${due} PARA REVISAR` : 'EM DIA'}</span><h3>{deck.title}</h3></div><Brain size={20} /></div><p>{deck.description || 'Baralho pessoal'}</p><div className="goal-progress-heading"><span>Cartões estudados</span><strong>{progress}%</strong></div><i><b style={{ width: `${progress}%` }} /></i><small>{deckItems.length} cartão(ões) · {studied} estudado(s)</small></button><div className="flashcard-deck-footer"><button onClick={() => setSelectedDeckId(deck.id)}>Abrir baralho</button><button disabled={!due} onClick={() => beginStudy(dueCards.filter((card) => card.deck_id === deck.id))}><Brain size={14} />Estudar</button></div></article>; }) : <EmptyPortal icon={Brain} title="Crie seu primeiro baralho" text="Organize palavras, expressões, perguntas e respostas para revisar com repetição espaçada." />}</div></section>}
   </div>;
 }
 
@@ -1217,7 +1342,17 @@ function StudentProfilePage({ profile, record, email, onProfileChange, readOnly 
     setMessage(error ? error.message : 'Senha atualizada com sucesso.');
     if (!error) event.currentTarget.reset();
   };
-  return <div className="student-page student-profile-grid">{readOnly && <div className="student-readonly-note"><Eye size={16} /><span>Visualização somente leitura. Os dados abaixo são os dados reais do aluno.</span></div>}<section className="student-panel profile-details"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><h2>{profile.full_name}</h2><p>{email}</p><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}<form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label>{profileMessage && <div className="auth-message">{profileMessage}</div>}<button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></form></section><section className="student-panel password-panel"><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section></div>;
+  return <div className="student-page student-profile-page">
+    {readOnly && <div className="student-readonly-note"><Eye size={16} /><span>Visualização somente leitura. Os dados abaixo são os dados reais do aluno.</span></div>}
+    <section className="student-profile-hero"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><div><p className="eyebrow">MEU PERFIL</p><h2>{profile.full_name}</h2><p>{email}</p><span>{record?.level ?? 'Nível não informado'} · {record?.goal || 'Objetivo ainda não definido'}</span></div><UserRound size={66} /></section>
+    <div className="student-profile-layout">
+      <section className="student-panel student-profile-information"><div className="student-section-heading"><div><p className="eyebrow">INFORMAÇÕES PESSOAIS</p><h2>Seus dados de aprendizagem</h2></div><UserRound size={19} /></div><p className="profile-section-description">Mantenha seus dados atualizados para que o professor acompanhe melhor seus objetivos.</p><form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível atual<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo de aprendizagem<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label>{profileMessage && <div className="auth-message full-field">{profileMessage}</div>}<div className="profile-form-actions full-field"><button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></div></form></section>
+      <aside className="student-profile-side">
+        <section className="student-panel profile-photo-card"><div className="student-section-heading"><div><p className="eyebrow">APARÊNCIA</p><h2>Foto de perfil</h2></div><ImagePlus size={19} /></div><div className="profile-photo-preview"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Pré-visualização de ${profile.full_name}`} /> : initials(profile.full_name)}</div><p>JPG, PNG ou WebP de até 5 MB.</p></div><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}</section>
+        <section className="student-panel password-panel"><div className="student-section-heading"><div><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2></div><LockKeyhole size={19} /></div><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section>
+      </aside>
+    </div>
+  </div>;
 }
 
 function CancellationModal({ lesson, profile, onClose, onSent }: { lesson: DbLesson; profile: Profile; onClose: () => void; onSent: () => void }) {

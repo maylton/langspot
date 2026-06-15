@@ -58,14 +58,13 @@ Deno.serve(async (request) => {
       );
     }
 
-    // Check if user is admin (first teacher or has admin role)
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Only the platform owner may create teacher invitations.
+    const { data: isAdmin, error: adminCheckError } = await admin.rpc(
+      'is_platform_admin',
+      { target_user: user.id }
+    );
 
-    if (profile?.role !== 'teacher') {
+    if (adminCheckError || !isAdmin) {
       return Response.json(
         { error: 'Apenas administradores podem convidar novos professores' },
         { status: 403, headers: cors }
