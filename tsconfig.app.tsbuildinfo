@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/AuthApp.tsx","./src/ErrorBoundary.tsx","./src/main.tsx","./src/supabase.ts","./src/vite-env.d.ts","./src/components/InviteAcceptance.tsx","./src/components/InviteTeacherModal.tsx","./src/config/env.ts","./src/config/mockData.ts"],"errors":true,"version":"5.8.3"}
+{"root":["./src/App.tsx","./src/AuthApp.tsx","./src/ErrorBoundary.tsx","./src/main.tsx","./src/supabase.ts","./src/vite-env.d.ts","./src/components/InviteAcceptance.tsx","./src/components/InviteTeacherModal.tsx","./src/config/env.ts","./src/config/mockData.ts"],"version":"5.7.3"}

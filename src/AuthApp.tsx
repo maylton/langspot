@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, FileText, Flag, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, NotebookPen, Plus, RotateCcw, Sparkles, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, Eye, FileText, Flag, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, NotebookPen, Plus, RotateCcw, Sparkles, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
 import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student, StudentCreateInput } from './App';
 import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StudentRecord, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
@@ -157,6 +157,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [subscriptionError, setSubscriptionError] = useState('');
   const [showAccessToast, setShowAccessToast] = useState(false);
+  const [previewStudent, setPreviewStudent] = useState<Student | null>(null);
 
   const openStudentInvite = () => {
     setInviteMessage('');
@@ -465,6 +466,21 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     status: subscription.plan === 'owner' ? 'permanent' as const : subscriptionActive ? 'active' as const : 'inactive' as const,
   } : undefined;
 
+  if (previewStudent) {
+    const previewProfile: Profile = {
+      id: previewStudent.id,
+      role: 'student',
+      full_name: previewStudent.name,
+      teacher_id: profile.id,
+      must_change_password: false,
+      email: previewStudent.email,
+      avatar_url: '',
+      school_name: '',
+      onboarding_completed: true,
+    };
+    return <StudentPortal profile={previewProfile} onLogout={() => setPreviewStudent(null)} previewMode previewTeacherName={profile.full_name} />;
+  }
+
   return <div className={`authenticated-app ${subscription && !subscriptionActive ? 'subscription-locked' : ''}`}>
     {subscriptionLoading && <div className="subscription-banner"><strong>Carregando seu período de teste…</strong><span>Estamos verificando o status da sua conta.</span></div>}
     {subscriptionError && <div className="subscription-banner subscription-banner-expired"><strong>Período de teste indisponível</strong><span>{subscriptionError}</span></div>}
@@ -489,6 +505,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       onUpdateStudentSkills={updateStudentSkills}
       onUpdateStudentProfile={updateStudentProfile}
       onDeleteStudent={deleteStudent}
+      onPreviewStudent={setPreviewStudent}
       onCreateMaterial={createMaterial}
       onDeleteMaterial={deleteMaterial}
       onAssignMaterial={assignMaterial}
@@ -686,7 +703,7 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
 
 type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Flashcards' | 'Metas' | 'Diário' | 'Perfil';
 
-function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () => void }) {
+function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherName = '' }: { profile: Profile; onLogout: () => void; previewMode?: boolean; previewTeacherName?: string }) {
   const [portalProfile, setPortalProfile] = useState(profile);
   const [tab, setTab] = useState<StudentTab>('Visão geral');
   const [record, setRecord] = useState<StudentRecord | null>(null);
@@ -704,13 +721,13 @@ function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () =
     if (!supabase) return;
     const [recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, requestResult, userResult] = await Promise.all([
       supabase.from('student_records').select('*').eq('student_id', profile.id).maybeSingle(),
-      supabase.from('lessons').select('*').order('starts_at'),
-      supabase.from('material_assignments').select('materials(*)'),
-      supabase.from('assignments').select('*').order('due_date', { ascending: true }),
-      supabase.from('learning_goals').select('*').order('created_at', { ascending: false }),
-      supabase.from('learning_journal_entries').select('*').order('created_at', { ascending: false }).limit(30),
-      supabase.from('cancellation_requests').select('*').order('created_at', { ascending: false }),
-      supabase.auth.getUser(),
+      supabase.from('lessons').select('*').eq('student_id', profile.id).order('starts_at'),
+      supabase.from('material_assignments').select('materials(*)').eq('student_id', profile.id),
+      supabase.from('assignments').select('*').eq('student_id', profile.id).order('due_date', { ascending: true }),
+      supabase.from('learning_goals').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }),
+      supabase.from('learning_journal_entries').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('cancellation_requests').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }),
+      previewMode ? Promise.resolve({ data: { user: null }, error: null }) : supabase.auth.getUser(),
     ]);
     setRecord(recordResult.data as StudentRecord | null);
     setLessons((lessonResult.data ?? []) as DbLesson[]);
@@ -725,7 +742,7 @@ function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () =
     setGoals((goalResult.data ?? []) as LearningGoal[]);
     setJournal((journalResult.data ?? []) as LearningJournalEntry[]);
     setRequests((requestResult.data ?? []) as CancellationRequest[]);
-    setEmail(userResult.data.user?.email ?? '');
+    setEmail(userResult.data.user?.email ?? profile.email ?? '');
     setLoading(false);
   };
   useEffect(() => { setPortalProfile(profile); }, [profile]);
@@ -748,7 +765,7 @@ function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () =
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className="student-app"><aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}><LogOut size={16} />Sair</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} onNavigate={setTab} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} />}</main>{lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} onNavigate={setTab} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -967,15 +984,18 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
   const loadFlashcards = async () => {
     if (!supabase) return;
     setLoading(true);
-    const [deckResult, cardResult, reviewResult] = await Promise.all([
-      supabase.from('flashcard_decks').select('*').order('updated_at', { ascending: false }),
-      supabase.from('flashcards').select('*').order('created_at', { ascending: true }),
-      supabase.from('flashcard_reviews').select('*'),
+    setMessage('');
+    const deckResult = await supabase.from('flashcard_decks').select('*').eq('user_id', profile.id).order('updated_at', { ascending: false });
+    const deckRows = (deckResult.data ?? []) as FlashcardDeck[];
+    const deckIds = deckRows.map((deck) => deck.id);
+    const [cardResult, reviewResult] = await Promise.all([
+      deckIds.length ? supabase.from('flashcards').select('*').in('deck_id', deckIds).order('created_at', { ascending: true }) : Promise.resolve({ data: [], error: null }),
+      supabase.from('flashcard_reviews').select('*').eq('user_id', profile.id),
     ]);
     if (deckResult.error || cardResult.error || reviewResult.error) {
       setMessage(deckResult.error?.message ?? cardResult.error?.message ?? reviewResult.error?.message ?? 'Não foi possível carregar os flashcards.');
     } else {
-      setDecks((deckResult.data ?? []) as FlashcardDeck[]);
+      setDecks(deckRows);
       setCards((cardResult.data ?? []) as Flashcard[]);
       setReviews((reviewResult.data ?? []) as FlashcardReview[]);
     }
