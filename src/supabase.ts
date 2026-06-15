@@ -81,6 +81,64 @@ export type DbAssignment = {
   created_at: string;
 };
 
+
+export type FlashcardDeck = {
+  id: string;
+  user_id: string;
+  teacher_id: string | null;
+  title: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Flashcard = {
+  id: string;
+  deck_id: string;
+  front: string;
+  back: string;
+  example: string;
+  created_at: string;
+};
+
+export type FlashcardReview = {
+  id: string;
+  card_id: string;
+  user_id: string;
+  due_at: string;
+  interval_days: number;
+  ease_factor: number;
+  repetitions: number;
+  last_reviewed_at: string | null;
+};
+
+
+export type LearningGoal = {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  title: string;
+  description: string;
+  category: string;
+  target_date: string | null;
+  progress: number;
+  status: 'active' | 'completed';
+  created_at: string;
+  updated_at: string;
+};
+
+export type LearningJournalEntry = {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  title: string;
+  content: string;
+  mood: 'great' | 'good' | 'neutral' | 'hard';
+  study_minutes: number;
+  new_words: string[];
+  created_at: string;
+};
+
 export type CancellationStatus = 'pending' | 'approved' | 'rejected';
 
 export type CancellationRequest = {

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Ban, BookOpen, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, FileText, GraduationCap, ImagePlus, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Target, UserRound, UserPlus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, ExternalLink, FileText, Flag, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, NotebookPen, Plus, RotateCcw, Sparkles, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
 import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student, StudentCreateInput } from './App';
-import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, isSupabaseConfigured, Profile, StudentRecord, TeacherSubscription, supabase } from './supabase';
+import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StudentRecord, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
@@ -684,7 +684,7 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
   return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" autoComplete="email" required autoFocus /></label>{mode !== 'forgot' && <label>Senha<input name="password" type="password" minLength={6} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required /></label>}{mode === 'login' && <button type="button" className="forgot-password-link" onClick={() => changeMode('forgot')}>Esqueci minha senha</button>}{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : mode === 'register' ? <UserPlus size={17} /> : <ArrowRight size={17} />}{busy ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : 'Enviar link'}{!busy && mode !== 'forgot' && <ArrowRight size={16} />}</button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}{mode === 'forgot' ? <button className="auth-switch" onClick={() => changeMode('login')}>Voltar para o login</button> : <button className="auth-switch" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>}{can.useDemoMode() && mode !== 'forgot' && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
 }
 
-type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Perfil';
+type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Flashcards' | 'Metas' | 'Diário' | 'Perfil';
 
 function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () => void }) {
   const [portalProfile, setPortalProfile] = useState(profile);
@@ -693,6 +693,8 @@ function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () =
   const [lessons, setLessons] = useState<DbLesson[]>([]);
   const [materials, setMaterials] = useState<DbMaterial[]>([]);
   const [assignments, setAssignments] = useState<DbAssignment[]>([]);
+  const [goals, setGoals] = useState<LearningGoal[]>([]);
+  const [journal, setJournal] = useState<LearningJournalEntry[]>([]);
   const [requests, setRequests] = useState<CancellationRequest[]>([]);
   const [lessonToCancel, setLessonToCancel] = useState<DbLesson | null>(null);
   const [email, setEmail] = useState('');
@@ -700,11 +702,13 @@ function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () =
 
   const loadPortal = async () => {
     if (!supabase) return;
-    const [recordResult, lessonResult, assignmentResult, taskResult, requestResult, userResult] = await Promise.all([
+    const [recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, requestResult, userResult] = await Promise.all([
       supabase.from('student_records').select('*').eq('student_id', profile.id).maybeSingle(),
       supabase.from('lessons').select('*').order('starts_at'),
       supabase.from('material_assignments').select('materials(*)'),
       supabase.from('assignments').select('*').order('due_date', { ascending: true }),
+      supabase.from('learning_goals').select('*').order('created_at', { ascending: false }),
+      supabase.from('learning_journal_entries').select('*').order('created_at', { ascending: false }).limit(30),
       supabase.from('cancellation_requests').select('*').order('created_at', { ascending: false }),
       supabase.auth.getUser(),
     ]);
@@ -718,21 +722,33 @@ function StudentPortal({ profile, onLogout }: { profile: Profile; onLogout: () =
     }));
     setMaterials(resolvedMaterials);
     setAssignments((taskResult.data ?? []) as DbAssignment[]);
+    setGoals((goalResult.data ?? []) as LearningGoal[]);
+    setJournal((journalResult.data ?? []) as LearningJournalEntry[]);
     setRequests((requestResult.data ?? []) as CancellationRequest[]);
     setEmail(userResult.data.user?.email ?? '');
     setLoading(false);
   };
   useEffect(() => { setPortalProfile(profile); }, [profile]);
-  useEffect(() => { loadPortal(); }, [profile.id]);
+  useEffect(() => { void loadPortal(); }, [profile.id]);
 
   const upcoming = useMemo(() => lessons.filter((lesson) => lesson.status === 'scheduled' && new Date(lesson.starts_at) > new Date()), [lessons]);
   const history = useMemo(() => lessons.filter((lesson) => lesson.status !== 'scheduled' || new Date(lesson.starts_at) <= new Date()).reverse(), [lessons]);
   const nextLesson = upcoming[0];
   const requestByLesson = (lessonId: string) => requests.find((request) => request.lesson_id === lessonId);
-  const nav: { label: StudentTab; icon: typeof LayoutDashboard }[] = [{ label: 'Visão geral', icon: LayoutDashboard }, { label: 'Aulas', icon: CalendarDays }, { label: 'Progresso', icon: GraduationCap }, { label: 'Materiais', icon: BookOpen }, { label: 'Tarefas', icon: ClipboardList }, { label: 'Perfil', icon: UserRound }];
+  const nav: { label: StudentTab; icon: typeof LayoutDashboard }[] = [
+    { label: 'Visão geral', icon: LayoutDashboard },
+    { label: 'Aulas', icon: CalendarDays },
+    { label: 'Tarefas', icon: ClipboardList },
+    { label: 'Materiais', icon: BookOpen },
+    { label: 'Flashcards', icon: Brain },
+    { label: 'Metas', icon: Flag },
+    { label: 'Diário', icon: NotebookPen },
+    { label: 'Progresso', icon: GraduationCap },
+    { label: 'Perfil', icon: UserRound },
+  ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className="student-app"><aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}><LogOut size={16} />Sair</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} />}</main>{lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className="student-app"><aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}><LogOut size={16} />Sair</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} onNavigate={setTab} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} />}</main>{lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -740,8 +756,25 @@ function CancellationRequestsModal({ requests, onClose, onResolve }: { requests:
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">AGENDA</p><h2>Solicitações de cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><div className="request-list">{requests.length ? requests.map((request) => <article className="request-card" key={request.id}><div className="request-heading"><div><strong>{request.student?.full_name ?? 'Aluno'}</strong><span>{request.lessons ? `${formatPortalDate(request.lessons.starts_at)} · ${request.lessons.topic}` : 'Aula'}</span></div><StatusBadge status={request.status} /></div><p>{request.reason}</p>{request.status === 'pending' ? <><textarea value={responses[request.id] ?? ''} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Resposta opcional para o aluno" /><div className="request-actions"><button className="reject-button" onClick={() => onResolve(request, 'rejected', responses[request.id] ?? '')}><Ban size={15} />Recusar</button><button className="approve-button" onClick={() => onResolve(request, 'approved', responses[request.id] ?? '')}><Check size={15} />Aprovar</button></div></> : request.teacher_response && <small>Resposta: {request.teacher_response}</small>}</article>) : <div className="empty-state small"><Check size={30} /><h3>Nenhuma solicitação</h3><p>Os pedidos dos alunos aparecerão aqui.</p></div>}</div></section></div>;
 }
 
-function StudentOverview({ profile, record, nextLesson, materialCount }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number }) {
-  return <div className="student-page"><section className="student-welcome"><span>BEM-VINDO DE VOLTA</span><h1>Olá, {profile.full_name}!</h1><p>{record?.goal ? `Seu objetivo: ${record.goal}.` : 'Continue avançando um passo por vez.'}</p></section><section className="student-summary-grid"><article><CalendarDays size={22} /><span>Próxima aula</span><strong>{nextLesson ? formatPortalDate(nextLesson.starts_at) : 'Não agendada'}</strong>{nextLesson?.online_url && <a href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={13} /></a>}</article><article><Target size={22} /><span>Nível atual</span><strong>{record?.level ?? 'Não informado'}</strong><small>{record?.goal || 'Objetivo ainda não definido'}</small></article><article><BookOpen size={22} /><span>Materiais disponíveis</span><strong>{materialCount}</strong><small>Compartilhados pelo professor</small></article></section>{nextLesson && <section className="student-panel next-lesson-panel"><div><p className="eyebrow">PRÓXIMO ENCONTRO</p><h2>{nextLesson.topic}</h2><p><Clock3 size={15} />{formatPortalDate(nextLesson.starts_at)} · {nextLesson.duration_minutes} minutos</p></div>{nextLesson.online_url && <a className="student-primary" href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={15} /></a>}</section>}</div>;
+function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, onNavigate }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; onNavigate: (tab: StudentTab) => void }) {
+  const pending = assignments.filter((item) => item.status === 'pending');
+  const urgent = [...pending].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+  const activeGoals = goals.filter((goal) => goal.status === 'active');
+  const average = record ? Object.values(record.skills ?? {}).reduce((sum, value) => sum + value, 0) / Math.max(Object.values(record.skills ?? {}).length, 1) : 0;
+  const timeline = [
+    ...history.slice(0, 4).map((lesson) => ({ date: lesson.starts_at, icon: 'lesson', title: `Aula: ${lesson.topic}`, text: lesson.notes || 'Aula registrada no seu histórico.' })),
+    ...assignments.filter((item) => item.status !== 'pending').slice(0, 4).map((item) => ({ date: item.submitted_at ?? item.created_at, icon: 'task', title: item.status === 'reviewed' ? `Tarefa corrigida: ${item.title}` : `Tarefa enviada: ${item.title}`, text: item.feedback || (item.status === 'reviewed' ? 'Confira o feedback do professor.' : 'Aguardando correção.') })),
+    ...journal.slice(0, 3).map((entry) => ({ date: entry.created_at, icon: 'journal', title: entry.title, text: `${entry.study_minutes} min de estudo${entry.new_words.length ? ` · ${entry.new_words.length} nova(s) palavra(s)` : ''}` })),
+    ...goals.filter((goal) => goal.status === 'completed').slice(0, 3).map((goal) => ({ date: goal.updated_at, icon: 'goal', title: `Meta concluída: ${goal.title}`, text: goal.description || 'Mais uma conquista no seu aprendizado.' })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
+
+  return <div className="student-page student-dashboard-page">
+    <section className="student-welcome student-welcome-enhanced"><div><span>BEM-VINDO DE VOLTA</span><h1>Olá, {profile.full_name}!</h1><p>{record?.goal ? `Seu objetivo: ${record.goal}.` : 'Continue avançando um passo por vez.'}</p></div><div className="student-level-ring"><strong>{Math.round(average)}%</strong><span>progresso</span></div></section>
+    <section className="student-summary-grid enhanced"><button onClick={() => onNavigate('Aulas')}><CalendarDays size={22} /><span>Próxima aula</span><strong>{nextLesson ? formatPortalDate(nextLesson.starts_at) : 'Não agendada'}</strong><small>{nextLesson?.topic || 'Confira sua agenda'}</small></button><button onClick={() => onNavigate('Tarefas')}><ClipboardList size={22} /><span>Tarefas pendentes</span><strong>{pending.length}</strong><small>{urgent ? `Próxima: ${new Date(`${urgent.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'Tudo em dia!'}</small></button><button onClick={() => onNavigate('Metas')}><Flag size={22} /><span>Metas ativas</span><strong>{activeGoals.length}</strong><small>{activeGoals[0]?.title || 'Crie uma meta de estudo'}</small></button><button onClick={() => onNavigate('Materiais')}><BookOpen size={22} /><span>Materiais</span><strong>{materialCount}</strong><small>Compartilhados pelo professor</small></button></section>
+    <section className="student-dashboard-columns"><div className="student-dashboard-main">{nextLesson && <section className="student-panel next-lesson-panel"><div><p className="eyebrow">PRÓXIMO ENCONTRO</p><h2>{nextLesson.topic}</h2><p><Clock3 size={15} />{formatPortalDate(nextLesson.starts_at)} · {nextLesson.duration_minutes} minutos</p></div>{nextLesson.online_url && <a className="student-primary" href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={15} /></a>}</section>}
+      <section className="student-panel student-timeline-panel"><div className="student-section-heading"><div><p className="eyebrow">SUA JORNADA</p><h2>Linha do tempo</h2></div></div>{timeline.length ? <div className="student-learning-timeline">{timeline.map((item, index) => <article key={`${item.date}-${index}`}><span className={`timeline-icon ${item.icon}`}>{item.icon === 'lesson' ? <CalendarDays size={15} /> : item.icon === 'task' ? <Check size={15} /> : item.icon === 'goal' ? <Flag size={15} /> : <NotebookPen size={15} />}</span><div><time>{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</time><strong>{item.title}</strong><p>{item.text}</p></div></article>)}</div> : <EmptyPortal icon={Sparkles} title="Sua jornada está começando" text="Aulas, tarefas, metas e registros de estudo aparecerão aqui." />}</section></div>
+      <aside className="student-dashboard-side"><section className="student-panel quick-actions"><h2>Ações rápidas</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
+  </div>;
 }
 
 function StudentLessons({ upcoming, history, requestByLesson, onCancel }: { upcoming: DbLesson[]; history: DbLesson[]; requestByLesson: (id: string) => CancellationRequest | undefined; onCancel: (lesson: DbLesson) => void }) {
@@ -816,6 +849,260 @@ function StudentAssignments({ assignments, materials, onSubmitted }: { assignmen
       }) : <EmptyPortal icon={ClipboardList} title={assignments.length ? 'Nenhuma tarefa neste filtro' : 'Nenhuma tarefa por enquanto'} text={assignments.length ? 'Escolha outro filtro para visualizar suas atividades.' : 'As atividades enviadas pelo professor aparecerão aqui.'} />}</div>
     </section>
   </div>;
+}
+
+
+
+function StudentGoals({ profile, goals, onChanged }: { profile: Profile; goals: LearningGoal[]; onChanged: () => Promise<void> }) {
+  const [creating, setCreating] = useState(false);
+  const [message, setMessage] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const active = goals.filter((goal) => goal.status === 'active');
+  const completed = goals.filter((goal) => goal.status === 'completed');
+
+  const createGoal = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !profile.teacher_id) return;
+    setMessage('');
+    const form = new FormData(event.currentTarget);
+    const { error } = await supabase.from('learning_goals').insert({
+      student_id: profile.id,
+      teacher_id: profile.teacher_id,
+      title: String(form.get('title') ?? '').trim(),
+      description: String(form.get('description') ?? '').trim(),
+      category: String(form.get('category') ?? 'Geral'),
+      target_date: String(form.get('targetDate') ?? '') || null,
+      progress: 0,
+      status: 'active',
+    });
+    if (error) setMessage(error.message);
+    else { event.currentTarget.reset(); setCreating(false); setMessage('Meta criada com sucesso.'); await onChanged(); }
+  };
+
+  const updateProgress = async (goal: LearningGoal, progress: number) => {
+    if (!supabase) return;
+    setBusyId(goal.id);
+    const normalized = Math.max(0, Math.min(100, progress));
+    const { error } = await supabase.from('learning_goals').update({
+      progress: normalized,
+      status: normalized === 100 ? 'completed' : 'active',
+      updated_at: new Date().toISOString(),
+    }).eq('id', goal.id).eq('student_id', profile.id);
+    if (error) setMessage(error.message); else await onChanged();
+    setBusyId(null);
+  };
+
+  const deleteGoal = async (goalId: string) => {
+    if (!supabase || !window.confirm('Excluir esta meta?')) return;
+    const { error } = await supabase.from('learning_goals').delete().eq('id', goalId).eq('student_id', profile.id);
+    if (error) setMessage(error.message); else await onChanged();
+  };
+
+  return <div className="student-page student-goals-page">
+    <section className="student-goals-hero"><div><p className="eyebrow">PLANO DE APRENDIZAGEM</p><h2>Minhas metas</h2><p>Transforme seus objetivos em pequenos passos e acompanhe cada conquista.</p></div><button className="student-primary" onClick={() => setCreating((value) => !value)}><Plus size={16} />Nova meta</button></section>
+    <section className="student-goal-stats"><article><Flag size={20} /><span>Em andamento</span><strong>{active.length}</strong></article><article><Check size={20} /><span>Concluídas</span><strong>{completed.length}</strong></article><article><Target size={20} /><span>Progresso médio</span><strong>{goals.length ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length) : 0}%</strong></article></section>
+    {message && <div className="auth-message">{message}</div>}
+    {creating && <section className="student-panel"><form className="student-interactive-form" onSubmit={createGoal}><label>Título da meta<input name="title" required placeholder="Ex.: Melhorar minha conversação" /></label><label>Categoria<select name="category" defaultValue="Speaking"><option>Speaking</option><option>Listening</option><option>Reading</option><option>Writing</option><option>Grammar</option><option>Vocabulary</option><option>Geral</option></select></label><label className="full-field">Como você pretende alcançar essa meta?<textarea name="description" rows={3} placeholder="Ex.: Praticar 15 minutos três vezes por semana." /></label><label>Data-alvo <span>(opcional)</span><input name="targetDate" type="date" /></label><div className="form-actions"><button type="button" className="cancel-button" onClick={() => setCreating(false)}>Cancelar</button><button className="primary-button">Criar meta</button></div></form></section>}
+    <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Objetivos atuais</h2></div></div><div className="student-goal-list">{active.length ? active.map((goal) => <article key={goal.id}><div className="goal-card-heading"><div><span>{goal.category}</span><h3>{goal.title}</h3></div><button className="icon-button danger" onClick={() => deleteGoal(goal.id)}><Trash2 size={15} /></button></div>{goal.description && <p>{goal.description}</p>}<div className="goal-progress-heading"><span>Progresso</span><strong>{goal.progress}%</strong></div><i><b style={{ width: `${goal.progress}%` }} /></i><div className="goal-progress-actions"><button disabled={busyId === goal.id || goal.progress === 0} onClick={() => updateProgress(goal, goal.progress - 10)}>−10%</button><button disabled={busyId === goal.id || goal.progress === 100} onClick={() => updateProgress(goal, goal.progress + 10)}>+10%</button><button className="goal-complete-button" disabled={busyId === goal.id} onClick={() => updateProgress(goal, 100)}><Check size={14} />Concluir</button></div>{goal.target_date && <small><CalendarDays size={13} />Data-alvo: {new Date(`${goal.target_date}T12:00:00`).toLocaleDateString('pt-BR')}</small>}</article>) : <EmptyPortal icon={Flag} title="Nenhuma meta em andamento" text="Crie uma meta pequena e específica para orientar seus estudos." />}</div></section>
+    {completed.length > 0 && <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">CONQUISTAS</p><h2>Metas concluídas</h2></div></div><div className="completed-goals-list">{completed.map((goal) => <article key={goal.id}><Check size={17} /><div><strong>{goal.title}</strong><small>{goal.category} · concluída em {new Date(goal.updated_at).toLocaleDateString('pt-BR')}</small></div><button onClick={() => updateProgress(goal, 90)}>Reabrir</button></article>)}</div></section>}
+  </div>;
+}
+
+function StudentJournal({ profile, entries, onChanged }: { profile: Profile; entries: LearningJournalEntry[]; onChanged: () => Promise<void> }) {
+  const [creating, setCreating] = useState(false);
+  const [message, setMessage] = useState('');
+  const totalMinutes = entries.reduce((sum, entry) => sum + entry.study_minutes, 0);
+  const totalWords = entries.reduce((sum, entry) => sum + entry.new_words.length, 0);
+  const moodLabel: Record<LearningJournalEntry['mood'], string> = { great: 'Excelente', good: 'Bem', neutral: 'Normal', hard: 'Difícil' };
+
+  const createEntry = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !profile.teacher_id) return;
+    const form = new FormData(event.currentTarget);
+    const words = String(form.get('newWords') ?? '').split(',').map((word) => word.trim()).filter(Boolean);
+    const { error } = await supabase.from('learning_journal_entries').insert({
+      student_id: profile.id,
+      teacher_id: profile.teacher_id,
+      title: String(form.get('title') ?? '').trim(),
+      content: String(form.get('content') ?? '').trim(),
+      mood: String(form.get('mood') ?? 'good'),
+      study_minutes: Number(form.get('studyMinutes') ?? 0),
+      new_words: words,
+    });
+    if (error) setMessage(error.message);
+    else { event.currentTarget.reset(); setCreating(false); setMessage('Registro adicionado ao seu diário.'); await onChanged(); }
+  };
+
+  const deleteEntry = async (entryId: string) => {
+    if (!supabase || !window.confirm('Excluir este registro do diário?')) return;
+    const { error } = await supabase.from('learning_journal_entries').delete().eq('id', entryId).eq('student_id', profile.id);
+    if (error) setMessage(error.message); else await onChanged();
+  };
+
+  return <div className="student-page student-journal-page">
+    <section className="student-journal-hero"><div><p className="eyebrow">REFLEXÃO E AUTONOMIA</p><h2>Diário de aprendizagem</h2><p>Registre o que estudou, suas dificuldades, descobertas e dúvidas para a próxima aula.</p></div><button className="student-primary" onClick={() => setCreating((value) => !value)}><NotebookPen size={16} />Novo registro</button></section>
+    <section className="student-journal-stats"><article><NotebookPen size={20} /><span>Registros</span><strong>{entries.length}</strong></article><article><Clock3 size={20} /><span>Tempo estudado</span><strong>{Math.floor(totalMinutes / 60)}h {totalMinutes % 60}min</strong></article><article><Sparkles size={20} /><span>Novas palavras</span><strong>{totalWords}</strong></article></section>
+    {message && <div className="auth-message">{message}</div>}
+    {creating && <section className="student-panel"><form className="student-interactive-form journal-form" onSubmit={createEntry}><label>Título<input name="title" required placeholder="Ex.: Revisão de Past Simple" /></label><label>Como foi o estudo?<select name="mood" defaultValue="good"><option value="great">Excelente</option><option value="good">Bem</option><option value="neutral">Normal</option><option value="hard">Difícil</option></select></label><label className="full-field">O que você estudou ou aprendeu?<textarea name="content" rows={5} required placeholder="Conte o que praticou, o que entendeu e o que ainda ficou difícil." /></label><label>Tempo de estudo (minutos)<input name="studyMinutes" type="number" min="0" max="1440" defaultValue="20" /></label><label>Novas palavras <span>(separe por vírgulas)</span><input name="newWords" placeholder="borrow, lend, save" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreating(false)}>Cancelar</button><button className="primary-button">Salvar registro</button></div></form></section>}
+    <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">HISTÓRICO</p><h2>Seus registros</h2></div></div><div className="student-journal-list">{entries.length ? entries.map((entry) => <article key={entry.id}><div className="journal-entry-heading"><div><time>{new Date(entry.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</time><h3>{entry.title}</h3></div><div><span className={`journal-mood ${entry.mood}`}>{moodLabel[entry.mood]}</span><button className="icon-button danger" onClick={() => deleteEntry(entry.id)}><Trash2 size={15} /></button></div></div><p>{entry.content}</p><footer>{entry.study_minutes > 0 && <span><Clock3 size={13} />{entry.study_minutes} min</span>}{entry.new_words.length > 0 && <div className="journal-word-tags">{entry.new_words.map((word) => <span key={word}>{word}</span>)}</div>}</footer></article>) : <EmptyPortal icon={NotebookPen} title="Seu diário está vazio" text="Depois de estudar, registre o que aprendeu e as dúvidas que deseja levar à próxima aula." />}</div></section>
+  </div>;
+}
+
+type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
+
+function StudentFlashcards({ profile }: { profile: Profile }) {
+  const [decks, setDecks] = useState<FlashcardDeck[]>([]);
+  const [cards, setCards] = useState<Flashcard[]>([]);
+  const [reviews, setReviews] = useState<FlashcardReview[]>([]);
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
+  const [studyCards, setStudyCards] = useState<Flashcard[]>([]);
+  const [studyIndex, setStudyIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [creatingDeck, setCreatingDeck] = useState(false);
+  const [creatingCard, setCreatingCard] = useState(false);
+  const selectedDeck = decks.find((deck) => deck.id === selectedDeckId) ?? null;
+
+  const loadFlashcards = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const [deckResult, cardResult, reviewResult] = await Promise.all([
+      supabase.from('flashcard_decks').select('*').order('updated_at', { ascending: false }),
+      supabase.from('flashcards').select('*').order('created_at', { ascending: true }),
+      supabase.from('flashcard_reviews').select('*'),
+    ]);
+    if (deckResult.error || cardResult.error || reviewResult.error) {
+      setMessage(deckResult.error?.message ?? cardResult.error?.message ?? reviewResult.error?.message ?? 'Não foi possível carregar os flashcards.');
+    } else {
+      setDecks((deckResult.data ?? []) as FlashcardDeck[]);
+      setCards((cardResult.data ?? []) as Flashcard[]);
+      setReviews((reviewResult.data ?? []) as FlashcardReview[]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { void loadFlashcards(); }, [profile.id]);
+
+  const reviewByCard = useMemo(() => new Map(reviews.map((review) => [review.card_id, review])), [reviews]);
+  const now = Date.now();
+  const dueCards = cards.filter((card) => {
+    const review = reviewByCard.get(card.id);
+    return !review || new Date(review.due_at).getTime() <= now;
+  });
+  const learnedCount = reviews.filter((review) => review.repetitions > 0).length;
+  const deckCards = selectedDeckId ? cards.filter((card) => card.deck_id === selectedDeckId) : [];
+  const deckDueCards = selectedDeckId ? dueCards.filter((card) => card.deck_id === selectedDeckId) : dueCards;
+
+  const createDeck = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setMessage('');
+    const form = new FormData(event.currentTarget);
+    const { error } = await supabase.from('flashcard_decks').insert({
+      user_id: profile.id,
+      teacher_id: profile.teacher_id,
+      title: String(form.get('title') || '').trim(),
+      description: String(form.get('description') || '').trim(),
+    });
+    if (error) setMessage(error.message);
+    else { event.currentTarget.reset(); setCreatingDeck(false); await loadFlashcards(); }
+  };
+
+  const deleteDeck = async (deckId: string) => {
+    if (!supabase || !window.confirm('Excluir este baralho e todos os cartões?')) return;
+    const { error } = await supabase.from('flashcard_decks').delete().eq('id', deckId);
+    if (error) setMessage(error.message);
+    else { setSelectedDeckId(null); await loadFlashcards(); }
+  };
+
+  const createCard = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !selectedDeckId) return;
+    setMessage('');
+    const form = new FormData(event.currentTarget);
+    const { error } = await supabase.from('flashcards').insert({
+      deck_id: selectedDeckId,
+      front: String(form.get('front') || '').trim(),
+      back: String(form.get('back') || '').trim(),
+      example: String(form.get('example') || '').trim(),
+    });
+    if (error) setMessage(error.message);
+    else { event.currentTarget.reset(); setCreatingCard(false); await loadFlashcards(); }
+  };
+
+  const deleteCard = async (cardId: string) => {
+    if (!supabase || !window.confirm('Excluir este cartão?')) return;
+    const { error } = await supabase.from('flashcards').delete().eq('id', cardId);
+    if (error) setMessage(error.message); else await loadFlashcards();
+  };
+
+  const beginStudy = (scope: Flashcard[]) => {
+    if (!scope.length) { setMessage('Nenhum cartão está programado para revisão agora.'); return; }
+    setMessage('');
+    setStudyCards([...scope].sort(() => Math.random() - 0.5));
+    setStudyIndex(0);
+    setShowAnswer(false);
+  };
+
+  const rateCard = async (rating: FlashcardRating) => {
+    if (!supabase) return;
+    const card = studyCards[studyIndex];
+    const previous = reviewByCard.get(card.id);
+    const previousInterval = previous?.interval_days ?? 0;
+    const previousEase = previous?.ease_factor ?? 2.5;
+    const previousRepetitions = previous?.repetitions ?? 0;
+    let repetitions = previousRepetitions + 1;
+    let intervalDays = 1;
+    let easeFactor = previousEase;
+
+    if (rating === 'again') {
+      repetitions = 0;
+      intervalDays = 1;
+      easeFactor = Math.max(1.3, previousEase - 0.2);
+    } else if (rating === 'hard') {
+      intervalDays = Math.max(1, Math.round(Math.max(1, previousInterval) * 1.2));
+      easeFactor = Math.max(1.3, previousEase - 0.15);
+    } else if (rating === 'good') {
+      intervalDays = previousRepetitions === 0 ? 1 : previousRepetitions === 1 ? 3 : Math.max(4, Math.round(previousInterval * previousEase));
+    } else {
+      intervalDays = previousRepetitions === 0 ? 4 : Math.max(6, Math.round(Math.max(1, previousInterval) * previousEase * 1.3));
+      easeFactor = Math.min(3.2, previousEase + 0.15);
+    }
+
+    const reviewedAt = new Date();
+    const dueAt = new Date(reviewedAt.getTime() + intervalDays * 86400000);
+    const { error } = await supabase.from('flashcard_reviews').upsert({
+      card_id: card.id,
+      user_id: profile.id,
+      due_at: dueAt.toISOString(),
+      interval_days: intervalDays,
+      ease_factor: easeFactor,
+      repetitions,
+      last_reviewed_at: reviewedAt.toISOString(),
+    }, { onConflict: 'card_id,user_id' });
+    if (error) { setMessage(error.message); return; }
+
+    if (studyIndex + 1 >= studyCards.length) {
+      setStudyCards([]);
+      setStudyIndex(0);
+      setShowAnswer(false);
+      setMessage(`Sessão concluída! ${studyCards.length} cartão(ões) revisado(s).`);
+      await loadFlashcards();
+    } else {
+      setStudyIndex((current) => current + 1);
+      setShowAnswer(false);
+    }
+  };
+
+  if (loading) return <div className="auth-loading compact"><LoaderCircle className="spin" size={26} />Carregando seus flashcards...</div>;
+
+  if (studyCards.length) {
+    const card = studyCards[studyIndex];
+    return <div className="student-page flashcard-study-page"><section className="student-panel flashcard-study-shell"><div className="flashcard-study-header"><button className="flashcard-back-button" onClick={() => { setStudyCards([]); setShowAnswer(false); }}><ArrowLeft size={16} />Sair da sessão</button><span>{studyIndex + 1} de {studyCards.length}</span></div><div className={`study-card ${showAnswer ? 'flipped' : ''}`} onClick={() => setShowAnswer(true)} role="button" tabIndex={0}><span>{showAnswer ? 'RESPOSTA' : 'PERGUNTA'}</span><h2>{showAnswer ? card.back : card.front}</h2>{showAnswer && card.example && <p>{card.example}</p>}{!showAnswer && <small>Toque no cartão para revelar a resposta</small>}</div>{showAnswer ? <div className="flashcard-ratings"><button className="again" onClick={() => rateCard('again')}>Errei<small>rever amanhã</small></button><button className="hard" onClick={() => rateCard('hard')}>Difícil<small>intervalo curto</small></button><button className="good" onClick={() => rateCard('good')}>Acertei<small>intervalo normal</small></button><button className="easy" onClick={() => rateCard('easy')}>Fácil<small>intervalo maior</small></button></div> : <button className="student-primary reveal-answer" onClick={() => setShowAnswer(true)}><RotateCcw size={16} />Mostrar resposta</button>}</section></div>;
+  }
+
+  return <div className="student-page flashcards-page"><section className="flashcard-hero"><div><p className="eyebrow">REPETIÇÃO ESPAÇADA</p><h2>Flashcards</h2><p>Crie cartões e revise cada conteúdo no momento certo para memorizar por mais tempo.</p></div><button className="student-primary" onClick={() => beginStudy(dueCards)} disabled={!dueCards.length}><Brain size={16} />Estudar agora ({dueCards.length})</button></section><section className="flashcard-stat-grid"><article><Layers3 size={21} /><span>Baralhos</span><strong>{decks.length}</strong></article><article><Clock3 size={21} /><span>Para revisar</span><strong>{dueCards.length}</strong></article><article><Sparkles size={21} /><span>Já estudados</span><strong>{learnedCount}</strong></article></section>{message && <div className="auth-message">{message}</div>}{selectedDeck ? <section className="student-panel flashcard-deck-detail"><div className="student-section-heading"><div><button className="flashcard-back-button" onClick={() => setSelectedDeckId(null)}><ArrowLeft size={15} />Todos os baralhos</button><h2>{selectedDeck.title}</h2><p>{selectedDeck.description || 'Sem descrição.'}</p></div><div className="flashcard-deck-actions"><button className="cancel-button" onClick={() => beginStudy(deckDueCards)} disabled={!deckDueCards.length}><Brain size={15} />Estudar ({deckDueCards.length})</button><button className="danger-text-button" onClick={() => deleteDeck(selectedDeck.id)}><Trash2 size={15} />Excluir</button></div></div><div className="flashcard-card-toolbar"><span>{deckCards.length} cartão(ões)</span><button className="student-primary" onClick={() => setCreatingCard((value) => !value)}><Plus size={15} />Novo cartão</button></div>{creatingCard && <form className="flashcard-editor" onSubmit={createCard}><label>Frente do cartão<textarea name="front" rows={3} required placeholder="Ex.: What does 'borrow' mean?" /></label><label>Verso do cartão<textarea name="back" rows={3} required placeholder="Ex.: Pedir algo emprestado" /></label><label className="full-field">Exemplo ou observação <span>(opcional)</span><textarea name="example" rows={2} placeholder="Ex.: Can I borrow your pencil?" /></label><div className="form-actions"><button type="button" className="cancel-button" onClick={() => setCreatingCard(false)}>Cancelar</button><button className="primary-button">Salvar cartão</button></div></form>}<div className="flashcard-list">{deckCards.length ? deckCards.map((card) => { const review = reviewByCard.get(card.id); return <article key={card.id}><div><span>{review ? `Próxima revisão: ${new Date(review.due_at).toLocaleDateString('pt-BR')}` : 'Novo cartão'}</span><h3>{card.front}</h3><p>{card.back}</p>{card.example && <small>{card.example}</small>}</div><button className="icon-button danger" title="Excluir cartão" onClick={() => deleteCard(card.id)}><Trash2 size={15} /></button></article>; }) : <EmptyPortal icon={Brain} title="Este baralho ainda está vazio" text="Adicione o primeiro cartão para começar seus estudos." />}</div></section> : <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">SEUS BARALHOS</p><h2>Organize o que deseja memorizar</h2></div><button className="student-primary" onClick={() => setCreatingDeck((value) => !value)}><Plus size={15} />Novo baralho</button></div>{creatingDeck && <form className="flashcard-editor deck-editor" onSubmit={createDeck}><label>Título<input name="title" required placeholder="Ex.: Phrasal verbs" /></label><label>Descrição<input name="description" placeholder="Ex.: Vocabulário da unidade 4" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreatingDeck(false)}>Cancelar</button><button className="primary-button">Criar baralho</button></div></form>}<div className="flashcard-deck-grid">{decks.length ? decks.map((deck) => { const count = cards.filter((card) => card.deck_id === deck.id).length; const due = dueCards.filter((card) => card.deck_id === deck.id).length; return <button key={deck.id} className="flashcard-deck-card" onClick={() => setSelectedDeckId(deck.id)}><Brain size={24} /><span>{due ? `${due} para revisar` : 'Em dia'}</span><h3>{deck.title}</h3><p>{deck.description || 'Baralho pessoal'}</p><small>{count} cartão(ões)</small></button>; }) : <EmptyPortal icon={Brain} title="Crie seu primeiro baralho" text="Organize palavras, expressões, perguntas e respostas para revisar com repetição espaçada." />}</div></section>}</div>;
 }
 
 function StudentProfilePage({ profile, record, email, onProfileChange }: { profile: Profile; record: StudentRecord | null; email: string; onProfileChange: (profile: Profile) => void }) {
