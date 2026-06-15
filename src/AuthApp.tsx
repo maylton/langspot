@@ -467,7 +467,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   } : undefined;
 
   if (previewStudent) {
-    const previewProfile: Profile = {
+    const previewFallback: Profile = {
       id: previewStudent.id,
       role: 'student',
       full_name: previewStudent.name,
@@ -478,7 +478,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       school_name: '',
       onboarding_completed: true,
     };
-    return <StudentPortal profile={previewProfile} onLogout={() => setPreviewStudent(null)} previewMode previewTeacherName={profile.full_name} />;
+    return <StudentPortal profile={previewFallback} onLogout={() => setPreviewStudent(null)} previewMode previewTeacherName={profile.full_name} />;
   }
 
   return <div className={`authenticated-app ${subscription && !subscriptionActive ? 'subscription-locked' : ''}`}>
@@ -716,10 +716,14 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   const [lessonToCancel, setLessonToCancel] = useState<DbLesson | null>(null);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const loadPortal = async () => {
     if (!supabase) return;
-    const [recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, requestResult, userResult] = await Promise.all([
+    setLoading(true);
+    setLoadError('');
+    const [profileResult, recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, requestResult, userResult] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', profile.id).maybeSingle(),
       supabase.from('student_records').select('*').eq('student_id', profile.id).maybeSingle(),
       supabase.from('lessons').select('*').eq('student_id', profile.id).order('starts_at'),
       supabase.from('material_assignments').select('materials(*)').eq('student_id', profile.id),
@@ -729,6 +733,25 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
       supabase.from('cancellation_requests').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }),
       previewMode ? Promise.resolve({ data: { user: null }, error: null }) : supabase.auth.getUser(),
     ]);
+    const errors = [profileResult.error, recordResult.error, lessonResult.error, assignmentResult.error, taskResult.error, goalResult.error, journalResult.error, requestResult.error].filter(Boolean);
+    const warnings = errors.map((error) => error?.message).filter(Boolean) as string[];
+    if (previewMode && !profileResult.data && !profileResult.error) {
+      warnings.unshift('O perfil real do aluno não está acessível para o professor. Aplique a migração de permissões da visualização do aluno no Supabase.');
+    }
+    if (warnings.length) setLoadError(warnings.join(' · '));
+    if (profileResult.data) {
+      const realProfile = profileResult.data as Profile;
+      setPortalProfile({
+        ...realProfile,
+        full_name: realProfile.full_name || profile.full_name,
+        email: realProfile.email || profile.email,
+        avatar_url: realProfile.avatar_url || '',
+        school_name: realProfile.school_name || '',
+        onboarding_completed: Boolean(realProfile.onboarding_completed),
+      });
+    } else {
+      setPortalProfile(profile);
+    }
     setRecord(recordResult.data as StudentRecord | null);
     setLessons((lessonResult.data ?? []) as DbLesson[]);
     const assignedRows = (assignmentResult.data ?? []).flatMap((assignment) => assignment.materials ? [assignment.materials as unknown as DbMaterial] : []);
@@ -742,7 +765,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     setGoals((goalResult.data ?? []) as LearningGoal[]);
     setJournal((journalResult.data ?? []) as LearningJournalEntry[]);
     setRequests((requestResult.data ?? []) as CancellationRequest[]);
-    setEmail(userResult.data.user?.email ?? profile.email ?? '');
+    setEmail(userResult.data.user?.email ?? (profileResult.data as Profile | null)?.email ?? profile.email ?? '');
     setLoading(false);
   };
   useEffect(() => { setPortalProfile(profile); }, [profile]);
@@ -765,7 +788,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} onNavigate={setTab} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -773,7 +796,7 @@ function CancellationRequestsModal({ requests, onClose, onResolve }: { requests:
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">AGENDA</p><h2>Solicitações de cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><div className="request-list">{requests.length ? requests.map((request) => <article className="request-card" key={request.id}><div className="request-heading"><div><strong>{request.student?.full_name ?? 'Aluno'}</strong><span>{request.lessons ? `${formatPortalDate(request.lessons.starts_at)} · ${request.lessons.topic}` : 'Aula'}</span></div><StatusBadge status={request.status} /></div><p>{request.reason}</p>{request.status === 'pending' ? <><textarea value={responses[request.id] ?? ''} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Resposta opcional para o aluno" /><div className="request-actions"><button className="reject-button" onClick={() => onResolve(request, 'rejected', responses[request.id] ?? '')}><Ban size={15} />Recusar</button><button className="approve-button" onClick={() => onResolve(request, 'approved', responses[request.id] ?? '')}><Check size={15} />Aprovar</button></div></> : request.teacher_response && <small>Resposta: {request.teacher_response}</small>}</article>) : <div className="empty-state small"><Check size={30} /><h3>Nenhuma solicitação</h3><p>Os pedidos dos alunos aparecerão aqui.</p></div>}</div></section></div>;
 }
 
-function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, onNavigate }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; onNavigate: (tab: StudentTab) => void }) {
+function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, onNavigate, readOnly = false }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; onNavigate: (tab: StudentTab) => void; readOnly?: boolean }) {
   const pending = assignments.filter((item) => item.status === 'pending');
   const urgent = [...pending].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
   const activeGoals = goals.filter((goal) => goal.status === 'active');
@@ -787,10 +810,15 @@ function StudentOverview({ profile, record, nextLesson, materialCount, assignmen
 
   return <div className="student-page student-dashboard-page">
     <section className="student-welcome student-welcome-enhanced"><div><span>BEM-VINDO DE VOLTA</span><h1>Olá, {profile.full_name}!</h1><p>{record?.goal ? `Seu objetivo: ${record.goal}.` : 'Continue avançando um passo por vez.'}</p></div><div className="student-level-ring"><strong>{Math.round(average)}%</strong><span>progresso</span></div></section>
-    <section className="student-summary-grid enhanced"><button onClick={() => onNavigate('Aulas')}><CalendarDays size={22} /><span>Próxima aula</span><strong>{nextLesson ? formatPortalDate(nextLesson.starts_at) : 'Não agendada'}</strong><small>{nextLesson?.topic || 'Confira sua agenda'}</small></button><button onClick={() => onNavigate('Tarefas')}><ClipboardList size={22} /><span>Tarefas pendentes</span><strong>{pending.length}</strong><small>{urgent ? `Próxima: ${new Date(`${urgent.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'Tudo em dia!'}</small></button><button onClick={() => onNavigate('Metas')}><Flag size={22} /><span>Metas ativas</span><strong>{activeGoals.length}</strong><small>{activeGoals[0]?.title || 'Crie uma meta de estudo'}</small></button><button onClick={() => onNavigate('Materiais')}><BookOpen size={22} /><span>Materiais</span><strong>{materialCount}</strong><small>Compartilhados pelo professor</small></button></section>
+    <section className="stats-grid student-dashboard-stats">
+      <button className="stat-card next-lesson-stat" onClick={() => onNavigate('Aulas')}><i className="student-stat-icon"><CalendarDays size={20} /></i><span>Próxima aula</span><strong>{nextLesson ? shortPortalDate(nextLesson.starts_at) : '—'}</strong><small>{nextLesson?.topic || 'Nenhuma aula agendada'}</small></button>
+      <button className="stat-card" onClick={() => onNavigate('Tarefas')}><i className="student-stat-icon"><ClipboardList size={20} /></i><span>Tarefas pendentes</span><strong>{pending.length}</strong><small>{urgent ? `Próximo prazo: ${new Date(`${urgent.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'Tudo em dia'}</small></button>
+      <button className="stat-card" onClick={() => onNavigate('Metas')}><i className="student-stat-icon"><Flag size={20} /></i><span>Metas ativas</span><strong>{activeGoals.length}</strong><small>{activeGoals.length ? `${Math.round(activeGoals.reduce((sum, goal) => sum + goal.progress, 0) / activeGoals.length)}% de progresso médio` : 'Nenhuma meta em andamento'}</small></button>
+      <button className="stat-card" onClick={() => onNavigate('Materiais')}><i className="student-stat-icon"><BookOpen size={20} /></i><span>Materiais disponíveis</span><strong>{materialCount}</strong><small>{materialCount === 1 ? '1 recurso compartilhado' : `${materialCount} recursos compartilhados`}</small></button>
+    </section>
     <section className="student-dashboard-columns"><div className="student-dashboard-main">{nextLesson && <section className="student-panel next-lesson-panel"><div><p className="eyebrow">PRÓXIMO ENCONTRO</p><h2>{nextLesson.topic}</h2><p><Clock3 size={15} />{formatPortalDate(nextLesson.starts_at)} · {nextLesson.duration_minutes} minutos</p></div>{nextLesson.online_url && <a className="student-primary" href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={15} /></a>}</section>}
       <section className="student-panel student-timeline-panel"><div className="student-section-heading"><div><p className="eyebrow">SUA JORNADA</p><h2>Linha do tempo</h2></div></div>{timeline.length ? <div className="student-learning-timeline">{timeline.map((item, index) => <article key={`${item.date}-${index}`}><span className={`timeline-icon ${item.icon}`}>{item.icon === 'lesson' ? <CalendarDays size={15} /> : item.icon === 'task' ? <Check size={15} /> : item.icon === 'goal' ? <Flag size={15} /> : <NotebookPen size={15} />}</span><div><time>{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</time><strong>{item.title}</strong><p>{item.text}</p></div></article>)}</div> : <EmptyPortal icon={Sparkles} title="Sua jornada está começando" text="Aulas, tarefas, metas e registros de estudo aparecerão aqui." />}</section></div>
-      <aside className="student-dashboard-side"><section className="student-panel quick-actions"><h2>Ações rápidas</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
+      <aside className="student-dashboard-side"><section className="student-panel quick-actions"><h2>{readOnly ? 'Explorar portal' : 'Ações rápidas'}</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
   </div>;
 }
 
@@ -811,7 +839,7 @@ function StudentMaterials({ materials }: { materials: DbMaterial[] }) {
 }
 
 
-function StudentAssignments({ assignments, materials, onSubmitted }: { assignments: DbAssignment[]; materials: DbMaterial[]; onSubmitted: () => Promise<void> }) {
+function StudentAssignments({ assignments, materials, onSubmitted, readOnly = false }: { assignments: DbAssignment[]; materials: DbMaterial[]; onSubmitted: () => Promise<void>; readOnly?: boolean }) {
   type TaskFilter = 'all' | 'pending' | 'submitted' | 'reviewed';
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
@@ -831,6 +859,7 @@ function StudentAssignments({ assignments, materials, onSubmitted }: { assignmen
   };
   const submit = async (assignment: DbAssignment) => {
     const text = (drafts[assignment.id] ?? '').trim();
+    if (readOnly) { setMessage('Modo de visualização: o envio de tarefas está desativado.'); return; }
     if (!text) { setMessage('Escreva sua resposta antes de enviar.'); return; }
     setSendingId(assignment.id); setMessage('');
     const { error } = await supabase!.from('assignments').update({ submission_text: text, submitted_at: new Date().toISOString(), status: 'submitted' }).eq('id', assignment.id).eq('student_id', assignment.student_id);
@@ -870,7 +899,7 @@ function StudentAssignments({ assignments, materials, onSubmitted }: { assignmen
 
 
 
-function StudentGoals({ profile, goals, onChanged }: { profile: Profile; goals: LearningGoal[]; onChanged: () => Promise<void> }) {
+function StudentGoals({ profile, goals, onChanged, readOnly = false }: { profile: Profile; goals: LearningGoal[]; onChanged: () => Promise<void>; readOnly?: boolean }) {
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -879,6 +908,7 @@ function StudentGoals({ profile, goals, onChanged }: { profile: Profile; goals: 
 
   const createGoal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !profile.teacher_id) return;
     setMessage('');
     const form = new FormData(event.currentTarget);
@@ -910,6 +940,7 @@ function StudentGoals({ profile, goals, onChanged }: { profile: Profile; goals: 
   };
 
   const deleteGoal = async (goalId: string) => {
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !window.confirm('Excluir esta meta?')) return;
     const { error } = await supabase.from('learning_goals').delete().eq('id', goalId).eq('student_id', profile.id);
     if (error) setMessage(error.message); else await onChanged();
@@ -925,7 +956,7 @@ function StudentGoals({ profile, goals, onChanged }: { profile: Profile; goals: 
   </div>;
 }
 
-function StudentJournal({ profile, entries, onChanged }: { profile: Profile; entries: LearningJournalEntry[]; onChanged: () => Promise<void> }) {
+function StudentJournal({ profile, entries, onChanged, readOnly = false }: { profile: Profile; entries: LearningJournalEntry[]; onChanged: () => Promise<void>; readOnly?: boolean }) {
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState('');
   const totalMinutes = entries.reduce((sum, entry) => sum + entry.study_minutes, 0);
@@ -951,6 +982,7 @@ function StudentJournal({ profile, entries, onChanged }: { profile: Profile; ent
   };
 
   const deleteEntry = async (entryId: string) => {
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !window.confirm('Excluir este registro do diário?')) return;
     const { error } = await supabase.from('learning_journal_entries').delete().eq('id', entryId).eq('student_id', profile.id);
     if (error) setMessage(error.message); else await onChanged();
@@ -967,7 +999,7 @@ function StudentJournal({ profile, entries, onChanged }: { profile: Profile; ent
 
 type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
 
-function StudentFlashcards({ profile }: { profile: Profile }) {
+function StudentFlashcards({ profile, readOnly = false }: { profile: Profile; readOnly?: boolean }) {
   const [decks, setDecks] = useState<FlashcardDeck[]>([]);
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [reviews, setReviews] = useState<FlashcardReview[]>([]);
@@ -1016,6 +1048,7 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
 
   const createDeck = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase) return;
     setMessage('');
     const form = new FormData(event.currentTarget);
@@ -1030,6 +1063,7 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
   };
 
   const deleteDeck = async (deckId: string) => {
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !window.confirm('Excluir este baralho e todos os cartões?')) return;
     const { error } = await supabase.from('flashcard_decks').delete().eq('id', deckId);
     if (error) setMessage(error.message);
@@ -1038,6 +1072,7 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
 
   const createCard = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !selectedDeckId) return;
     setMessage('');
     const form = new FormData(event.currentTarget);
@@ -1052,6 +1087,7 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
   };
 
   const deleteCard = async (cardId: string) => {
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !window.confirm('Excluir este cartão?')) return;
     const { error } = await supabase.from('flashcards').delete().eq('id', cardId);
     if (error) setMessage(error.message); else await loadFlashcards();
@@ -1066,6 +1102,7 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
   };
 
   const rateCard = async (rating: FlashcardRating) => {
+    if (readOnly) { setMessage('Modo de visualização: avaliações de estudo estão desativadas.'); return; }
     if (!supabase) return;
     const card = studyCards[studyIndex];
     const previous = reviewByCard.get(card.id);
@@ -1122,10 +1159,18 @@ function StudentFlashcards({ profile }: { profile: Profile }) {
     return <div className="student-page flashcard-study-page"><section className="student-panel flashcard-study-shell"><div className="flashcard-study-header"><button className="flashcard-back-button" onClick={() => { setStudyCards([]); setShowAnswer(false); }}><ArrowLeft size={16} />Sair da sessão</button><span>{studyIndex + 1} de {studyCards.length}</span></div><div className={`study-card ${showAnswer ? 'flipped' : ''}`} onClick={() => setShowAnswer(true)} role="button" tabIndex={0}><span>{showAnswer ? 'RESPOSTA' : 'PERGUNTA'}</span><h2>{showAnswer ? card.back : card.front}</h2>{showAnswer && card.example && <p>{card.example}</p>}{!showAnswer && <small>Toque no cartão para revelar a resposta</small>}</div>{showAnswer ? <div className="flashcard-ratings"><button className="again" onClick={() => rateCard('again')}>Errei<small>rever amanhã</small></button><button className="hard" onClick={() => rateCard('hard')}>Difícil<small>intervalo curto</small></button><button className="good" onClick={() => rateCard('good')}>Acertei<small>intervalo normal</small></button><button className="easy" onClick={() => rateCard('easy')}>Fácil<small>intervalo maior</small></button></div> : <button className="student-primary reveal-answer" onClick={() => setShowAnswer(true)}><RotateCcw size={16} />Mostrar resposta</button>}</section></div>;
   }
 
-  return <div className="student-page flashcards-page"><section className="flashcard-hero"><div><p className="eyebrow">REPETIÇÃO ESPAÇADA</p><h2>Flashcards</h2><p>Crie cartões e revise cada conteúdo no momento certo para memorizar por mais tempo.</p></div><button className="student-primary" onClick={() => beginStudy(dueCards)} disabled={!dueCards.length}><Brain size={16} />Estudar agora ({dueCards.length})</button></section><section className="flashcard-stat-grid"><article><Layers3 size={21} /><span>Baralhos</span><strong>{decks.length}</strong></article><article><Clock3 size={21} /><span>Para revisar</span><strong>{dueCards.length}</strong></article><article><Sparkles size={21} /><span>Já estudados</span><strong>{learnedCount}</strong></article></section>{message && <div className="auth-message">{message}</div>}{selectedDeck ? <section className="student-panel flashcard-deck-detail"><div className="student-section-heading"><div><button className="flashcard-back-button" onClick={() => setSelectedDeckId(null)}><ArrowLeft size={15} />Todos os baralhos</button><h2>{selectedDeck.title}</h2><p>{selectedDeck.description || 'Sem descrição.'}</p></div><div className="flashcard-deck-actions"><button className="cancel-button" onClick={() => beginStudy(deckDueCards)} disabled={!deckDueCards.length}><Brain size={15} />Estudar ({deckDueCards.length})</button><button className="danger-text-button" onClick={() => deleteDeck(selectedDeck.id)}><Trash2 size={15} />Excluir</button></div></div><div className="flashcard-card-toolbar"><span>{deckCards.length} cartão(ões)</span><button className="student-primary" onClick={() => setCreatingCard((value) => !value)}><Plus size={15} />Novo cartão</button></div>{creatingCard && <form className="flashcard-editor" onSubmit={createCard}><label>Frente do cartão<textarea name="front" rows={3} required placeholder="Ex.: What does 'borrow' mean?" /></label><label>Verso do cartão<textarea name="back" rows={3} required placeholder="Ex.: Pedir algo emprestado" /></label><label className="full-field">Exemplo ou observação <span>(opcional)</span><textarea name="example" rows={2} placeholder="Ex.: Can I borrow your pencil?" /></label><div className="form-actions"><button type="button" className="cancel-button" onClick={() => setCreatingCard(false)}>Cancelar</button><button className="primary-button">Salvar cartão</button></div></form>}<div className="flashcard-list">{deckCards.length ? deckCards.map((card) => { const review = reviewByCard.get(card.id); return <article key={card.id}><div><span>{review ? `Próxima revisão: ${new Date(review.due_at).toLocaleDateString('pt-BR')}` : 'Novo cartão'}</span><h3>{card.front}</h3><p>{card.back}</p>{card.example && <small>{card.example}</small>}</div><button className="icon-button danger" title="Excluir cartão" onClick={() => deleteCard(card.id)}><Trash2 size={15} /></button></article>; }) : <EmptyPortal icon={Brain} title="Este baralho ainda está vazio" text="Adicione o primeiro cartão para começar seus estudos." />}</div></section> : <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">SEUS BARALHOS</p><h2>Organize o que deseja memorizar</h2></div><button className="student-primary" onClick={() => setCreatingDeck((value) => !value)}><Plus size={15} />Novo baralho</button></div>{creatingDeck && <form className="flashcard-editor deck-editor" onSubmit={createDeck}><label>Título<input name="title" required placeholder="Ex.: Phrasal verbs" /></label><label>Descrição<input name="description" placeholder="Ex.: Vocabulário da unidade 4" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreatingDeck(false)}>Cancelar</button><button className="primary-button">Criar baralho</button></div></form>}<div className="flashcard-deck-grid">{decks.length ? decks.map((deck) => { const count = cards.filter((card) => card.deck_id === deck.id).length; const due = dueCards.filter((card) => card.deck_id === deck.id).length; return <button key={deck.id} className="flashcard-deck-card" onClick={() => setSelectedDeckId(deck.id)}><Brain size={24} /><span>{due ? `${due} para revisar` : 'Em dia'}</span><h3>{deck.title}</h3><p>{deck.description || 'Baralho pessoal'}</p><small>{count} cartão(ões)</small></button>; }) : <EmptyPortal icon={Brain} title="Crie seu primeiro baralho" text="Organize palavras, expressões, perguntas e respostas para revisar com repetição espaçada." />}</div></section>}</div>;
+  const mastery = cards.length ? Math.round((learnedCount / cards.length) * 100) : 0;
+
+  return <div className="student-page flashcards-page">
+    <section className="student-goals-hero flashcards-goal-hero"><div><p className="eyebrow">REPETIÇÃO ESPAÇADA</p><h2>Meus flashcards</h2><p>Organize o que deseja memorizar e revise cada conteúdo no momento certo.</p></div><div className="flashcards-hero-actions"><button className="cancel-button" onClick={() => setCreatingDeck((value) => !value)}><Plus size={16} />Novo baralho</button><button className="student-primary" onClick={() => beginStudy(dueCards)} disabled={!dueCards.length}><Brain size={16} />Estudar agora ({dueCards.length})</button></div></section>
+    <section className="student-goal-stats flashcard-stat-grid"><article><Layers3 size={20} /><span>Baralhos</span><strong>{decks.length}</strong></article><article><Clock3 size={20} /><span>Para revisar</span><strong>{dueCards.length}</strong></article><article><Sparkles size={20} /><span>Progresso de estudo</span><strong>{mastery}%</strong></article></section>
+    {message && <div className="auth-message">{message}</div>}
+    {creatingDeck && !selectedDeck && <section className="student-panel"><form className="student-interactive-form" onSubmit={createDeck}><label>Título do baralho<input name="title" required placeholder="Ex.: Phrasal verbs" /></label><label>Descrição <span>(opcional)</span><input name="description" placeholder="Ex.: Vocabulário da unidade 4" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreatingDeck(false)}>Cancelar</button><button className="primary-button">Criar baralho</button></div></form></section>}
+    {selectedDeck ? <section className="student-panel flashcard-deck-detail"><div className="student-section-heading"><div><button className="flashcard-back-button" onClick={() => setSelectedDeckId(null)}><ArrowLeft size={15} />Todos os baralhos</button><p className="eyebrow">BARALHO ATUAL</p><h2>{selectedDeck.title}</h2><p>{selectedDeck.description || 'Sem descrição.'}</p></div><div className="flashcard-deck-actions"><button className="cancel-button" onClick={() => beginStudy(deckDueCards)} disabled={!deckDueCards.length}><Brain size={15} />Estudar ({deckDueCards.length})</button><button className="danger-text-button" onClick={() => deleteDeck(selectedDeck.id)}><Trash2 size={15} />Excluir</button></div></div><div className="flashcard-deck-progress"><div><span>Cartões estudados</span><strong>{deckCards.filter((card) => reviewByCard.has(card.id)).length}/{deckCards.length}</strong></div><i><b style={{ width: `${deckCards.length ? (deckCards.filter((card) => reviewByCard.has(card.id)).length / deckCards.length) * 100 : 0}%` }} /></i></div><div className="flashcard-card-toolbar"><span>{deckCards.length} cartão(ões) · {deckDueCards.length} para revisar</span><button className="student-primary" onClick={() => setCreatingCard((value) => !value)}><Plus size={15} />Novo cartão</button></div>{creatingCard && <form className="student-interactive-form flashcard-editor" onSubmit={createCard}><label>Frente do cartão<textarea name="front" rows={3} required placeholder="Ex.: What does 'borrow' mean?" /></label><label>Verso do cartão<textarea name="back" rows={3} required placeholder="Ex.: Pedir algo emprestado" /></label><label className="full-field">Exemplo ou observação <span>(opcional)</span><textarea name="example" rows={2} placeholder="Ex.: Can I borrow your pencil?" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreatingCard(false)}>Cancelar</button><button className="primary-button">Salvar cartão</button></div></form>}<div className="flashcard-list">{deckCards.length ? deckCards.map((card) => { const review = reviewByCard.get(card.id); return <article key={card.id}><div><span>{review ? `Próxima revisão: ${new Date(review.due_at).toLocaleDateString('pt-BR')}` : 'Novo cartão'}</span><h3>{card.front}</h3><p>{card.back}</p>{card.example && <small>{card.example}</small>}</div><button className="icon-button danger" title="Excluir cartão" onClick={() => deleteCard(card.id)}><Trash2 size={15} /></button></article>; }) : <EmptyPortal icon={Brain} title="Este baralho ainda está vazio" text="Adicione o primeiro cartão para começar seus estudos." />}</div></section> : <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">SEUS BARALHOS</p><h2>Conteúdos em estudo</h2></div></div><div className="flashcard-deck-grid goal-inspired-decks">{decks.length ? decks.map((deck) => { const deckItems = cards.filter((card) => card.deck_id === deck.id); const due = dueCards.filter((card) => card.deck_id === deck.id).length; const studied = deckItems.filter((card) => reviewByCard.has(card.id)).length; const progress = deckItems.length ? Math.round((studied / deckItems.length) * 100) : 0; return <article key={deck.id}><button className="flashcard-deck-open" onClick={() => setSelectedDeckId(deck.id)}><div className="goal-card-heading"><div><span>{due ? `${due} PARA REVISAR` : 'EM DIA'}</span><h3>{deck.title}</h3></div><Brain size={20} /></div><p>{deck.description || 'Baralho pessoal'}</p><div className="goal-progress-heading"><span>Cartões estudados</span><strong>{progress}%</strong></div><i><b style={{ width: `${progress}%` }} /></i><small>{deckItems.length} cartão(ões) · {studied} estudado(s)</small></button><div className="flashcard-deck-footer"><button onClick={() => setSelectedDeckId(deck.id)}>Abrir baralho</button><button disabled={!due} onClick={() => beginStudy(dueCards.filter((card) => card.deck_id === deck.id))}><Brain size={14} />Estudar</button></div></article>; }) : <EmptyPortal icon={Brain} title="Crie seu primeiro baralho" text="Organize palavras, expressões, perguntas e respostas para revisar com repetição espaçada." />}</div></section>}
+  </div>;
 }
 
-function StudentProfilePage({ profile, record, email, onProfileChange }: { profile: Profile; record: StudentRecord | null; email: string; onProfileChange: (profile: Profile) => void }) {
+function StudentProfilePage({ profile, record, email, onProfileChange, readOnly = false }: { profile: Profile; record: StudentRecord | null; email: string; onProfileChange: (profile: Profile) => void; readOnly?: boolean }) {
   const [message, setMessage] = useState('');
   const [profileMessage, setProfileMessage] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
@@ -1141,6 +1186,7 @@ function StudentProfilePage({ profile, record, email, onProfileChange }: { profi
     event.target.value = '';
   };
   const saveAvatar = async () => {
+    if (readOnly) { setAvatarMessage('Modo de visualização: alterações estão desativadas.'); return; }
     setSavingAvatar(true); setAvatarMessage('');
     const { data, error } = await supabase!.from('profiles').update({ avatar_url: avatar }).eq('id', profile.id).select('*').single();
     if (error) setAvatarMessage(error.message); else { const updated = data as Profile; onProfileChange(updated); setAvatarMessage('Foto de perfil atualizada.'); }
@@ -1148,6 +1194,7 @@ function StudentProfilePage({ profile, record, email, onProfileChange }: { profi
   };
   const saveStudentDetails = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) { setProfileMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !record) return;
     setSavingProfile(true); setProfileMessage('');
     const form = new FormData(event.currentTarget);
@@ -1164,12 +1211,13 @@ function StudentProfilePage({ profile, record, email, onProfileChange }: { profi
   };
   const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     const password = String(new FormData(event.currentTarget).get('password'));
     const { error } = await supabase!.auth.updateUser({ password });
     setMessage(error ? error.message : 'Senha atualizada com sucesso.');
     if (!error) event.currentTarget.reset();
   };
-  return <div className="student-page student-profile-grid"><section className="student-panel profile-details"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><h2>{profile.full_name}</h2><p>{email}</p><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}<form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label>{profileMessage && <div className="auth-message">{profileMessage}</div>}<button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></form></section><section className="student-panel password-panel"><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section></div>;
+  return <div className="student-page student-profile-grid">{readOnly && <div className="student-readonly-note"><Eye size={16} /><span>Visualização somente leitura. Os dados abaixo são os dados reais do aluno.</span></div>}<section className="student-panel profile-details"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><h2>{profile.full_name}</h2><p>{email}</p><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}<form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label>{profileMessage && <div className="auth-message">{profileMessage}</div>}<button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></form></section><section className="student-panel password-panel"><p className="eyebrow">SEGURANÇA</p><h2>Alterar senha</h2><p>Use pelo menos 6 caracteres para manter sua conta protegida.</p><form onSubmit={updatePassword}><label>Nova senha<input name="password" type="password" minLength={6} required /></label>{message && <div className="auth-message">{message}</div>}<button className="student-primary"><LockKeyhole size={15} />Atualizar senha</button></form></section></div>;
 }
 
 function CancellationModal({ lesson, profile, onClose, onSent }: { lesson: DbLesson; profile: Profile; onClose: () => void; onSent: () => void }) {
@@ -1190,6 +1238,10 @@ function StatusBadge({ status }: { status: CancellationRequest['status'] }) {
 
 function EmptyPortal({ icon: Icon, title, text }: { icon: typeof CalendarDays; title: string; text: string }) {
   return <div className="empty-state small"><Icon size={30} /><h3>{title}</h3><p>{text}</p></div>;
+}
+
+function shortPortalDate(value: string) {
+  return new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatPortalDate(value: string) {

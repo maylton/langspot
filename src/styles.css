@@ -623,3 +623,94 @@ button,input,select,textarea{font-size:var(--text-md)}
 .student-preview-mode .student-main-content button{opacity:.58}
 .student-preview-mode .student-main-content a{pointer-events:auto}
 @media(max-width:700px){.student-preview-banner{position:static;align-items:flex-start;flex-wrap:wrap}.student-preview-banner button{margin-left:30px}.student-preview-mode .student-sidebar,.student-preview-mode .student-main-content{grid-row:auto}}
+
+/* 1.4.2 · student preview fidelity and dashboard organization */
+.student-data-warning{display:grid;gap:4px;margin:0 0 18px;padding:12px 14px;border:1px solid #f0c36a;background:#fff8e8;color:#72520c;border-radius:14px;font-size:12px}.student-data-warning span{font-size:10px;opacity:.82;overflow-wrap:anywhere}.student-readonly-note{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:11px 14px;border:1px solid #d9d3fb;background:#f7f5ff;color:#5e4eb0;border-radius:14px;font-size:11px;font-weight:700}.student-summary-grid.enhanced.organized{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.student-summary-grid.enhanced.organized>button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-height:118px;padding:16px;text-align:left}.student-summary-grid.enhanced.organized .summary-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#f0ecff;color:#684be1}.student-summary-grid.enhanced.organized .summary-copy{display:grid;gap:5px;min-width:0}.student-summary-grid.enhanced.organized .summary-copy small{font-size:8px;font-weight:900;letter-spacing:.07em;color:#8b94a5}.student-summary-grid.enhanced.organized .summary-copy strong{font-size:17px;line-height:1.15;color:var(--text,#172033);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.student-summary-grid.enhanced.organized .summary-copy em{font-style:normal;font-size:9px;color:#7d8798;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.student-summary-grid.enhanced.organized>button>svg{color:#a5adba}.student-preview-mode .student-primary,.student-preview-mode .primary-button,.student-preview-mode .danger-text-button,.student-preview-mode .icon-button.danger,.student-preview-mode .goal-progress-actions button,.student-preview-mode .student-avatar-controls,.student-preview-mode .student-profile-form button,.student-preview-mode .password-panel button{opacity:.55}.dark-theme .student-data-warning{background:#332a14;border-color:#66511f;color:#f0d68c}.dark-theme .student-readonly-note{background:#28213f;border-color:#453a69;color:#c9beff}.dark-theme .student-summary-grid.enhanced.organized .summary-icon{background:#28213f;color:#c9beff}
+@media(max-width:1100px){.student-summary-grid.enhanced.organized{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.student-summary-grid.enhanced.organized{grid-template-columns:1fr}.student-summary-grid.enhanced.organized>button{min-height:96px}}
+
+/* Student dashboard metrics use the same visual language as the teacher dashboard. */
+.student-dashboard-stats{margin:0}
+.student-dashboard-stats>button.stat-card{appearance:none;position:relative;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.student-dashboard-stats>button.stat-card:hover{transform:translateY(-2px);border-color:#d9d3fb;box-shadow:0 12px 28px rgba(29,35,58,.1)}
+.student-dashboard-stats>button.stat-card:focus-visible{outline:3px solid #d9d3fb;outline-offset:2px}
+.student-dashboard-stats .next-lesson-stat strong{font-size:clamp(18px,1.7vw,25px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.student-dashboard-stats .stat-card small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.student-stat-icon{position:absolute;top:15px;right:15px;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#eeeaff;color:#684be1;font-style:normal}
+.student-level-ring strong{color:#4f3bc4;font-weight:900;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.student-level-ring span{color:#4f596b;font-weight:700}
+.dark-theme .student-stat-icon{background:#30284c;color:#c9bcff}
+.dark-theme .student-level-ring strong{color:#d4caff;text-shadow:none}
+.dark-theme .student-level-ring span{color:#b8c2d1}
+.student-preview-mode .student-dashboard-stats>button.stat-card{pointer-events:auto;opacity:1}
+
+/* Flashcards aligned with the goals page hierarchy. */
+.flashcards-goal-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--primary,#6558d3) 14%,var(--surface,#fff)),var(--surface,#fff))}
+.flashcards-hero-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.flashcards-hero-actions .cancel-button{margin:0}
+.goal-inspired-decks{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0}
+.goal-inspired-decks>article{display:grid;grid-template-rows:1fr auto;overflow:hidden;border:1px solid var(--border,#e5e7eb);border-radius:17px;background:var(--surface-soft,#fafbff)}
+.flashcard-deck-open{width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:18px;cursor:pointer}
+.flashcard-deck-open .goal-card-heading svg{color:var(--primary,#6558d3)}
+.flashcard-deck-open>p{min-height:42px;margin:10px 0 17px;color:var(--text-muted,#6b7280);line-height:1.55}
+.flashcard-deck-open>i,.flashcard-deck-progress>i{display:block;height:8px;background:var(--border,#e5e7eb);border-radius:999px;overflow:hidden;margin-top:8px}
+.flashcard-deck-open>i b,.flashcard-deck-progress>i b{display:block;height:100%;background:var(--primary,#6558d3);border-radius:inherit}
+.flashcard-deck-open>small{display:block;margin-top:13px;color:var(--text-muted,#6b7280)}
+.flashcard-deck-footer{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border,#e5e7eb);background:var(--surface,#fff)}
+.flashcard-deck-footer button{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:var(--surface,#fff);color:inherit;padding:8px 11px;font-weight:700}
+.flashcard-deck-footer button:last-child{margin-left:auto;color:var(--primary,#6558d3)}
+.flashcard-deck-footer button:disabled{opacity:.45;cursor:not-allowed}
+.flashcard-deck-detail>.student-section-heading{padding-bottom:18px;border-bottom:1px solid var(--border,#e5e7eb)}
+.flashcard-deck-detail .eyebrow{margin:15px 0 4px}
+.flashcard-deck-progress{padding:16px 18px;margin:18px 0;border:1px solid var(--border,#e5e7eb);border-radius:15px;background:var(--surface-soft,#fafbff)}
+.flashcard-deck-progress>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.flashcard-deck-progress span{color:var(--text-muted,#6b7280)}
+.flashcard-deck-progress strong{color:var(--primary,#6558d3)}
+.flashcard-deck-detail .flashcard-editor{margin:16px 0 20px;padding:18px}
+.dark-theme .goal-inspired-decks>article,.dark-theme .flashcard-deck-progress{background:#101827;border-color:#29364b}
+.dark-theme .flashcard-deck-footer{background:#151e2d;border-color:#29364b}
+.dark-theme .flashcard-deck-footer button{background:#202b3e;border-color:#334157}
+.student-preview-mode .flashcard-deck-open,.student-preview-mode .flashcard-back-button,.student-preview-mode .flashcard-deck-footer button:first-child{pointer-events:auto;opacity:1}
+@media(max-width:900px){.goal-inspired-decks{grid-template-columns:1fr}}
+@media(max-width:700px){.flashcards-goal-hero{align-items:stretch}.flashcards-hero-actions{justify-content:stretch}.flashcards-hero-actions button{flex:1}.flashcard-deck-actions{width:100%}.flashcard-deck-actions button{flex:1}}
+
+/* Match goal and flashcard metric icons with the student dashboard cards. */
+.student-goal-stats article,.student-journal-stats article{position:relative;display:block;min-height:105px;padding:18px 68px 18px 18px}
+.student-goal-stats article>svg,.student-journal-stats article>svg{position:absolute;top:15px;right:15px;width:38px;height:38px;padding:9px;border-radius:12px;background:#eeeaff;color:#684be1}
+.student-goal-stats article>span,.student-goal-stats article>strong,.student-journal-stats article>span,.student-journal-stats article>strong{display:block}
+.student-goal-stats article>strong,.student-journal-stats article>strong{margin-top:9px;font-size:27px}
+.student-goal-list>.empty-state{grid-column:1/-1;width:100%;display:grid;place-items:center;text-align:center}
+.student-goal-list>.empty-state p{max-width:480px;text-align:center}
+.goal-inspired-decks>.empty-state{grid-column:1/-1;width:100%;display:grid;place-items:center;text-align:center}
+.goal-inspired-decks>.empty-state p{max-width:520px;text-align:center}
+.dark-theme .student-goal-stats article>svg,.dark-theme .student-journal-stats article>svg{background:#30284c;color:#c9bcff}
+
+/* Student portal design consolidation. */
+.student-page{gap:20px}
+.student-page .student-panel{border-radius:19px;padding:21px}
+.student-page .student-primary,
+.student-page .primary-button,
+.student-page .cancel-button{min-height:42px;padding:10px 15px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap}
+.student-page .student-primary:disabled,
+.student-page .primary-button:disabled,
+.student-page .cancel-button:disabled{cursor:not-allowed;opacity:.5}
+.student-goals-hero,.student-journal-hero,.flashcards-goal-hero{min-height:132px;padding:24px 26px}
+.student-goals-hero>div:first-child,.student-journal-hero>div:first-child,.flashcards-goal-hero>div:first-child{max-width:700px}
+.student-goals-hero>.student-primary,.student-journal-hero>.student-primary,.flashcards-hero-actions>button{width:168px;min-width:168px}
+.flashcards-hero-actions{flex-wrap:nowrap}
+.student-page .student-section-heading{min-height:42px;margin-bottom:17px}
+.student-page .student-section-heading h2,.student-page .student-panel>h2{font-size:18px;line-height:1.25}
+.student-page .student-interactive-form{gap:16px}
+.student-page .student-interactive-form input,
+.student-page .student-interactive-form select,
+.student-page .student-interactive-form textarea{border:1px solid #dfe4ec;border-radius:11px;padding:11px 12px;background:var(--surface-soft,#fafbfc);color:inherit;outline:none}
+.student-page .student-interactive-form input:focus,
+.student-page .student-interactive-form select:focus,
+.student-page .student-interactive-form textarea:focus{border-color:#8d75ed;box-shadow:0 0 0 3px #eeeaff}
+.student-page .form-actions{align-items:center;gap:9px}
+.student-page .empty-state{width:100%;text-align:center}
+.student-page .empty-state p{max-width:540px;margin-left:auto;margin-right:auto;line-height:1.55}
+.dark-theme .student-page .student-interactive-form input,
+.dark-theme .student-page .student-interactive-form select,
+.dark-theme .student-page .student-interactive-form textarea{background:#101827;border-color:#334157;color:#e5e9f2}
+@media(max-width:700px){.student-page{gap:16px}.student-page .student-panel{padding:18px}.student-goals-hero,.student-journal-hero,.flashcards-goal-hero{min-height:auto;padding:20px}.student-goals-hero>.student-primary,.student-journal-hero>.student-primary,.flashcards-hero-actions>button{width:100%;min-width:0}.flashcards-hero-actions{width:100%;flex-wrap:wrap}.student-page .form-actions{align-items:stretch;flex-direction:column}.student-page .form-actions button{width:100%}}
