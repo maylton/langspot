@@ -1,4 +1,4 @@
-# LangSpot — 1.0.3
+# LangSpot 1.2.0 — 1.0.3
 
 Workspace para professores independentes de idiomas, com portal do aluno e sincronização pelo Supabase.
 

@@ -432,7 +432,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onCreateStudentAccoun
 
         {!isOnline && <div className="offline-banner" role="status"><WifiOff size={17} /><span>Você está offline. Alterações que dependem do Supabase podem não ser salvas até a conexão voltar.</span></div>}
 
-        {selected ? <StudentProfile student={selected} onNewLesson={() => setShowLessonForm(true)} onSkillChange={updateSkill} onEdit={() => setStudentToEdit(selected)} onDelete={() => setStudentToDelete(selected)} /> : active === 'Visão geral' ? <Dashboard teacherName={settings.teacherName} students={students} schedule={schedule} averageProgress={averageProgress} authenticatedMode={authenticatedMode} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} onOpenSchedule={() => setActive('Aulas')} /> : active === 'Notificações' ? <NotificationsPage notifications={notifications} readIds={readNotificationIds} onOpen={openNotification} onMarkAll={markAllNotificationsRead} /> : active === 'Alunos' ? <StudentsPage students={filteredStudents} schedule={schedule} query={query} setQuery={setQuery} onOpen={setSelectedId} /> : active === 'Aulas' ? <LessonsPage students={students} lessons={schedule} onNew={() => setLessonToEdit(newLessonDraft())} onEdit={setLessonToEdit} onComplete={setLessonToComplete} onCancel={cancelScheduledLesson} /> : active === 'Materiais' ? <MaterialsPage materials={materials} onNew={() => setShowMaterialForm(true)} onDelete={setMaterialToDelete} onAssign={setMaterialToAssign} /> : active === 'Tarefas' ? <AssignmentsPage assignments={assignments} students={students} onNew={() => setShowAssignmentForm(true)} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Financeiro' ? <FinancePage payments={payments} students={students} onNew={() => setShowPaymentForm(true)} onStatus={updatePaymentStatus} onDelete={deletePayment} /> : active === 'Progresso' ? <ProgressPage students={students} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} /> : active === 'Relatórios' ? <ReportsPage students={students} schedule={schedule} assignments={assignments} /> : active === 'Configurações' ? <SettingsPage settings={settings} authenticatedMode={authenticatedMode} accountAccess={accountAccess} onSave={saveSettings} counts={{ students: students.length, lessons: schedule.length, materials: materials.length }} onExport={exportData} onReset={resetData} onInviteTeacher={onInviteTeacher} /> : <PlaceholderPage title={active} />}
+        {selected ? <StudentProfile student={selected} onNewLesson={() => setShowLessonForm(true)} onSkillChange={updateSkill} onEdit={() => setStudentToEdit(selected)} onDelete={() => setStudentToDelete(selected)} /> : active === 'Visão geral' ? <Dashboard teacherName={settings.teacherName} students={students} schedule={schedule} averageProgress={averageProgress} authenticatedMode={authenticatedMode} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} onOpenSchedule={() => setActive('Aulas')} /> : active === 'Notificações' ? <NotificationsPage notifications={notifications} readIds={readNotificationIds} onOpen={openNotification} onMarkAll={markAllNotificationsRead} /> : active === 'Alunos' ? <StudentsPage students={filteredStudents} schedule={schedule} query={query} setQuery={setQuery} onOpen={setSelectedId} /> : active === 'Aulas' ? <LessonsPage students={students} lessons={schedule} onNew={(date) => setLessonToEdit({ ...newLessonDraft(), date: date ?? toDateInput(new Date()) })} onEdit={setLessonToEdit} onComplete={setLessonToComplete} onCancel={cancelScheduledLesson} /> : active === 'Materiais' ? <MaterialsPage materials={materials} onNew={() => setShowMaterialForm(true)} onDelete={setMaterialToDelete} onAssign={setMaterialToAssign} /> : active === 'Tarefas' ? <AssignmentsPage assignments={assignments} students={students} onNew={() => setShowAssignmentForm(true)} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Financeiro' ? <FinancePage payments={payments} students={students} onNew={() => setShowPaymentForm(true)} onStatus={updatePaymentStatus} onDelete={deletePayment} /> : active === 'Progresso' ? <ProgressPage students={students} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} /> : active === 'Relatórios' ? <ReportsPage students={students} schedule={schedule} assignments={assignments} /> : active === 'Configurações' ? <SettingsPage settings={settings} authenticatedMode={authenticatedMode} accountAccess={accountAccess} onSave={saveSettings} counts={{ students: students.length, lessons: schedule.length, materials: materials.length }} onExport={exportData} onReset={resetData} onInviteTeacher={onInviteTeacher} /> : <PlaceholderPage title={active} />}
       </main>
 
       {showStudentForm && <StudentModal onClose={() => setShowStudentForm(false)} onSave={addStudent} defaultDuration={settings.defaultDuration} defaultOnlineUrl={settings.defaultOnlineUrl} />}
@@ -687,32 +687,96 @@ function StatusBars({ data }: { data: { label: string; value: number }[] }) { co
 function EvolutionChart({ points, fallback }: { points: { label: string; value: number }[]; fallback: number }) { const data = points.length ? points : [{ label: 'Atual', value: fallback }]; return <div className="evolution-chart" role="img" aria-label="Gráfico de evolução das avaliações">{data.map((point) => <div className="evolution-column" key={`${point.label}-${point.value}`}><div className="evolution-value">{point.value}%</div><div className="evolution-track"><i style={{ height: `${Math.max(point.value, 6)}%` }} /></div><span>{point.label}</span></div>)}</div>; }
 function ReportKpi({ label, value }: { label: string; value: number }) { return <div className="report-kpi"><div style={{ background: `conic-gradient(#7655f3 ${Math.max(0, Math.min(100, value)) * 3.6}deg, #ece9fb 0deg)` }}><span>{value}%</span></div><strong>{label}</strong></div>; }
 
-function LessonsPage({ students, lessons, onNew, onEdit, onComplete, onCancel }: { students: Student[]; lessons: ScheduledLesson[]; onNew: () => void; onEdit: (lesson: ScheduledLesson) => void; onComplete: (lesson: ScheduledLesson) => void; onCancel: (id: Id) => void }) {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+function LessonsPage({ students, lessons, onNew, onEdit, onComplete, onCancel }: { students: Student[]; lessons: ScheduledLesson[]; onNew: (date?: string) => void; onEdit: (lesson: ScheduledLesson) => void; onComplete: (lesson: ScheduledLesson) => void; onCancel: (id: Id) => void }) {
+  type CalendarView = 'week' | 'month';
+  const [calendarView, setCalendarView] = useState<CalendarView>(() => {
+    const saved = localStorage.getItem('langspot-calendar-view');
+    return saved === 'month' ? 'month' : 'week';
+  });
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [studentFilter, setStudentFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState<LessonStatus | 'Todos'>('Todos');
-  const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  const visible = lessons.filter((lesson) => {
-    const inWeek = lesson.date >= toDateInput(weekStart) && lesson.date <= toDateInput(days[6]);
-    return inWeek && (studentFilter === 'Todos' || lesson.studentId === studentFilter) && (statusFilter === 'Todos' || lesson.status === statusFilter);
-  });
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('langspot-calendar-view', calendarView);
+    setExpandedDay(null);
+  }, [calendarView]);
+
+  const filteredLessons = lessons.filter((lesson) =>
+    (studentFilter === 'Todos' || lesson.studentId === studentFilter)
+    && (statusFilter === 'Todos' || lesson.status === statusFilter),
+  );
+
+  const weekStart = startOfWeek(calendarDate);
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const weekVisible = filteredLessons.filter((lesson) => lesson.date >= toDateInput(weekStart) && lesson.date <= toDateInput(weekDays[6]));
+
+  const monthStart = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1);
+  const monthGridStart = startOfWeek(monthStart);
+  const monthDays = Array.from({ length: 42 }, (_, index) => addDays(monthGridStart, index));
+  const monthGridEnd = monthDays[41];
+  const monthVisible = filteredLessons.filter((lesson) => lesson.date >= toDateInput(monthGridStart) && lesson.date <= toDateInput(monthGridEnd));
+  const visible = calendarView === 'week' ? weekVisible : monthVisible;
+
+  const movePeriod = (direction: -1 | 1) => {
+    if (calendarView === 'week') setCalendarDate(addDays(calendarDate, direction * 7));
+    else setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + direction, 1));
+  };
+
+  const periodLabel = calendarView === 'week'
+    ? formatWeekRange(weekStart)
+    : new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(calendarDate);
+
+  const selectedDayLessons = expandedDay
+    ? monthVisible.filter((lesson) => lesson.date === expandedDay).sort((a, b) => a.startTime.localeCompare(b.startTime))
+    : [];
 
   return <div className="agenda-layout">
     <section className="agenda-toolbar panel">
-      <div className="week-controls"><button className="icon-button" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft size={18} /></button><button className="today-button" onClick={() => setWeekStart(startOfWeek(new Date()))}>Hoje</button><button className="icon-button" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight size={18} /></button><div><p className="eyebrow">SEMANA</p><strong>{formatWeekRange(weekStart)}</strong></div></div>
-      <div className="agenda-filters"><select value={studentFilter} onChange={(event) => setStudentFilter(event.target.value)}><option>Todos</option>{students.map((student) => <option value={student.id} key={student.id}>{student.name}</option>)}</select><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as LessonStatus | 'Todos')}><option>Todos</option><option>Agendada</option><option>Concluída</option><option>Cancelada</option></select></div>
+      <div className="week-controls"><button className="icon-button" onClick={() => movePeriod(-1)} aria-label={calendarView === 'week' ? 'Semana anterior' : 'Mês anterior'}><ChevronLeft size={18} /></button><button className="today-button" onClick={() => setCalendarDate(new Date())}>Hoje</button><button className="icon-button" onClick={() => movePeriod(1)} aria-label={calendarView === 'week' ? 'Próxima semana' : 'Próximo mês'}><ChevronRight size={18} /></button><div><p className="eyebrow">{calendarView === 'week' ? 'SEMANA' : 'MÊS'}</p><strong className="calendar-period-label">{periodLabel}</strong></div></div>
+      <div className="agenda-toolbar-actions">
+        <div className="calendar-view-switch" role="group" aria-label="Visualização da agenda"><button type="button" className={calendarView === 'week' ? 'active' : ''} onClick={() => setCalendarView('week')}>Semana</button><button type="button" className={calendarView === 'month' ? 'active' : ''} onClick={() => setCalendarView('month')}>Mês</button></div>
+        <div className="agenda-filters"><select value={studentFilter} onChange={(event) => setStudentFilter(event.target.value)}><option>Todos</option>{students.map((student) => <option value={student.id} key={student.id}>{student.name}</option>)}</select><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as LessonStatus | 'Todos')}><option>Todos</option><option>Agendada</option><option>Concluída</option><option>Cancelada</option></select><button className="primary-button compact" onClick={() => onNew()}><Plus size={16} />Nova aula</button></div>
+      </div>
     </section>
-    <section className="week-grid">
-      {days.map((day) => {
-        const dayLessons = visible.filter((lesson) => lesson.date === toDateInput(day)).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    {calendarView === 'week' ? <section className="week-grid">
+      {weekDays.map((day) => {
+        const dayLessons = weekVisible.filter((lesson) => lesson.date === toDateInput(day)).sort((a, b) => a.startTime.localeCompare(b.startTime));
         const isToday = toDateInput(day) === toDateInput(new Date());
         return <article className={`day-column${isToday ? ' today' : ''}`} key={day.toISOString()}>
           <header><span>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(day).replace('.', '')}</span><strong>{day.getDate()}</strong></header>
-          <div className="day-lessons">{dayLessons.map((lesson) => <AgendaLessonCard key={lesson.id} lesson={lesson} student={students.find((student) => student.id === lesson.studentId)} onEdit={onEdit} onComplete={onComplete} onCancel={onCancel} />)}{!dayLessons.length && <span className="free-day">Livre</span>}</div>
+          <div className="day-lessons">{dayLessons.map((lesson) => <AgendaLessonCard key={lesson.id} lesson={lesson} student={students.find((student) => student.id === lesson.studentId)} onEdit={onEdit} onComplete={onComplete} onCancel={onCancel} />)}{!dayLessons.length && <button className="free-day" onClick={() => onNew(toDateInput(day))}>Livre</button>}</div>
         </article>;
       })}
-    </section>
-    {!visible.length && <section className="panel empty-state small"><CalendarDays size={34} /><h3>Nenhuma aula nesta semana</h3><p>Ajuste os filtros ou agende uma nova aula.</p><button className="secondary-button compact" onClick={onNew}><Plus size={16} />Nova aula</button></section>}
+    </section> : <>
+      <section className="month-calendar panel">
+        <div className="month-weekdays">{['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day) => <span key={day}>{day}</span>)}</div>
+        <div className="month-grid">
+          {monthDays.map((day) => {
+            const date = toDateInput(day);
+            const dayLessons = monthVisible.filter((lesson) => lesson.date === date).sort((a, b) => a.startTime.localeCompare(b.startTime));
+            const isToday = date === toDateInput(new Date());
+            const outside = day.getMonth() !== calendarDate.getMonth();
+            return <article className={`month-day${isToday ? ' today' : ''}${outside ? ' outside' : ''}`} key={date} onDoubleClick={() => onNew(date)}>
+              <button className="month-day-number" onClick={() => dayLessons.length ? setExpandedDay(date) : onNew(date)} aria-label={`${day.getDate()} de ${new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(day)}`}>{day.getDate()}</button>
+              <div className="month-day-lessons">
+                {dayLessons.slice(0, 3).map((lesson) => {
+                  const student = students.find((item) => item.id === lesson.studentId);
+                  return <button key={lesson.id} className={`month-lesson-chip ${lesson.status.toLowerCase().replace('í', 'i')}`} onClick={() => onEdit(lesson)} title={`${lesson.startTime} · ${student?.name ?? 'Aluno'} · ${lesson.topic}`}><span>{lesson.startTime}</span><strong>{student?.name ?? 'Aluno'}</strong></button>;
+                })}
+                {dayLessons.length > 3 && <button className="month-more" onClick={() => setExpandedDay(date)}>+{dayLessons.length - 3} aula(s)</button>}
+              </div>
+              {!dayLessons.length && <button className="month-add-lesson" onClick={() => onNew(date)} aria-label="Agendar aula neste dia"><Plus size={14} /></button>}
+            </article>;
+          })}
+        </div>
+      </section>
+      {expandedDay && <section className="panel month-day-details"><div className="panel-heading"><div><p className="eyebrow">DETALHES DO DIA</p><h3>{formatDate(expandedDay)}</h3></div><div className="month-detail-actions"><button className="secondary-button compact" onClick={() => onNew(expandedDay)}><Plus size={16} />Nova aula</button><button className="icon-button" onClick={() => setExpandedDay(null)} aria-label="Fechar detalhes"><X size={17} /></button></div></div>{selectedDayLessons.length ? <div className="month-detail-list">{selectedDayLessons.map((lesson) => <AgendaLessonCard key={lesson.id} lesson={lesson} student={students.find((student) => student.id === lesson.studentId)} onEdit={onEdit} onComplete={onComplete} onCancel={onCancel} />)}</div> : <p className="free-day-text">Nenhuma aula neste dia.</p>}</section>}
+    </>}
+
+    {!visible.length && <section className="panel empty-state small"><CalendarDays size={34} /><h3>Nenhuma aula neste {calendarView === 'week' ? 'período' : 'mês'}</h3><p>Ajuste os filtros ou agende uma nova aula.</p><button className="secondary-button compact" onClick={() => onNew()}><Plus size={16} />Nova aula</button></section>}
   </div>;
 }
 
