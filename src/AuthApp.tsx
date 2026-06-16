@@ -851,7 +851,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -1052,8 +1052,9 @@ function StudentGoals({ profile, goals, onChanged, readOnly = false }: { profile
   </div>;
 }
 
-function StudentJournal({ profile, entries, onChanged, readOnly = false }: { profile: Profile; entries: LearningJournalEntry[]; onChanged: () => Promise<void>; readOnly?: boolean }) {
+function StudentJournal({ profile, entries, onEntriesChange, onChanged, readOnly = false }: { profile: Profile; entries: LearningJournalEntry[]; onEntriesChange: React.Dispatch<React.SetStateAction<LearningJournalEntry[]>>; onChanged: () => Promise<void>; readOnly?: boolean }) {
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const totalMinutes = entries.reduce((sum, entry) => sum + entry.study_minutes, 0);
   const totalWords = entries.reduce((sum, entry) => sum + entry.new_words.length, 0);
@@ -1061,34 +1062,51 @@ function StudentJournal({ profile, entries, onChanged, readOnly = false }: { pro
 
   const createEntry = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
+    if (saving) return;
     if (!supabase || !profile.teacher_id) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const words = String(form.get('newWords') ?? '').split(',').map((word) => word.trim()).filter(Boolean);
-    const { error } = await supabase.from('learning_journal_entries').insert({
+    setSaving(true);
+    const { data, error } = await supabase.from('learning_journal_entries').insert({
       student_id: profile.id,
       teacher_id: profile.teacher_id,
       title: String(form.get('title') ?? '').trim(),
       content: String(form.get('content') ?? '').trim(),
-      mood: String(form.get('mood') ?? 'good'),
+      mood: String(form.get('mood') ?? 'good') as LearningJournalEntry['mood'],
       study_minutes: Number(form.get('studyMinutes') ?? 0),
       new_words: words,
-    });
+    }).select('*').single();
     if (error) setMessage(error.message);
-    else { event.currentTarget.reset(); setCreating(false); setMessage('Registro adicionado ao seu diário.'); await onChanged(); }
+    else if (data) {
+      const newEntry = data as LearningJournalEntry;
+      onEntriesChange((current) => [newEntry, ...current.filter((entry) => entry.id !== newEntry.id)]);
+      formElement.reset();
+      setCreating(false);
+      setMessage('Registro adicionado ao seu diário.');
+      await onChanged();
+    }
+    setSaving(false);
   };
 
   const deleteEntry = async (entryId: string) => {
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
     if (!supabase || !window.confirm('Excluir este registro do diário?')) return;
+    const previousEntries = entries;
+    onEntriesChange((current) => current.filter((entry) => entry.id !== entryId));
     const { error } = await supabase.from('learning_journal_entries').delete().eq('id', entryId).eq('student_id', profile.id);
-    if (error) setMessage(error.message); else await onChanged();
+    if (error) {
+      onEntriesChange(previousEntries);
+      setMessage(error.message);
+    } else await onChanged();
   };
 
   return <div className="student-page student-journal-page">
-    <section className="student-journal-hero"><div><p className="eyebrow">REFLEXÃO E AUTONOMIA</p><h2>Diário de aprendizagem</h2><p>Registre o que estudou, suas dificuldades, descobertas e dúvidas para a próxima aula.</p></div><button className="student-primary" onClick={() => setCreating((value) => !value)}><NotebookPen size={16} />Novo registro</button></section>
+    <section className="student-journal-hero"><div><p className="eyebrow">REFLEXÃO E AUTONOMIA</p><h2>Diário de aprendizagem</h2><p>Registre o que estudou, suas dificuldades, descobertas e dúvidas para a próxima aula.</p></div><button className="student-primary" onClick={() => readOnly ? setMessage('Modo de visualização: alterações estão desativadas.') : setCreating((value) => !value)}><NotebookPen size={16} />Novo registro</button></section>
     <section className="student-journal-stats"><article><NotebookPen size={20} /><span>Registros</span><strong>{entries.length}</strong></article><article><Clock3 size={20} /><span>Tempo estudado</span><strong>{Math.floor(totalMinutes / 60)}h {totalMinutes % 60}min</strong></article><article><Sparkles size={20} /><span>Novas palavras</span><strong>{totalWords}</strong></article></section>
     {message && <div className="auth-message">{message}</div>}
-    {creating && <section className="student-panel"><form className="student-interactive-form journal-form" onSubmit={createEntry}><label>Título<input name="title" required placeholder="Ex.: Revisão de Past Simple" /></label><label>Como foi o estudo?<select name="mood" defaultValue="good"><option value="great">Excelente</option><option value="good">Bem</option><option value="neutral">Normal</option><option value="hard">Difícil</option></select></label><label className="full-field">O que você estudou ou aprendeu?<textarea name="content" rows={5} required placeholder="Conte o que praticou, o que entendeu e o que ainda ficou difícil." /></label><label>Tempo de estudo (minutos)<input name="studyMinutes" type="number" min="0" max="1440" defaultValue="20" /></label><label>Novas palavras <span>(separe por vírgulas)</span><input name="newWords" placeholder="borrow, lend, save" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" onClick={() => setCreating(false)}>Cancelar</button><button className="primary-button">Salvar registro</button></div></form></section>}
+    {creating && <section className="student-panel"><form className="student-interactive-form journal-form" onSubmit={createEntry}><label>Título<input name="title" required placeholder="Ex.: Revisão de Past Simple" /></label><label>Como foi o estudo?<select name="mood" defaultValue="good"><option value="great">Excelente</option><option value="good">Bem</option><option value="neutral">Normal</option><option value="hard">Difícil</option></select></label><label className="full-field">O que você estudou ou aprendeu?<textarea name="content" rows={5} required placeholder="Conte o que praticou, o que entendeu e o que ainda ficou difícil." /></label><label>Tempo de estudo (minutos)<input name="studyMinutes" type="number" min="0" max="1440" defaultValue="20" /></label><label>Novas palavras <span>(separe por vírgulas)</span><input name="newWords" placeholder="borrow, lend, save" /></label><div className="form-actions full-field"><button type="button" className="cancel-button" disabled={saving} onClick={() => setCreating(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{saving ? 'Salvando...' : 'Salvar registro'}</button></div></form></section>}
     <section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">HISTÓRICO</p><h2>Seus registros</h2></div></div><div className="student-journal-list">{entries.length ? entries.map((entry) => <article key={entry.id}><div className="journal-entry-heading"><div><time>{new Date(entry.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</time><h3>{entry.title}</h3></div><div><span className={`journal-mood ${entry.mood}`}>{moodLabel[entry.mood]}</span><button className="icon-button danger" onClick={() => deleteEntry(entry.id)}><Trash2 size={15} /></button></div></div><p>{entry.content}</p><footer>{entry.study_minutes > 0 && <span><Clock3 size={13} />{entry.study_minutes} min</span>}{entry.new_words.length > 0 && <div className="journal-word-tags">{entry.new_words.map((word) => <span key={word}>{word}</span>)}</div>}</footer></article>) : <EmptyPortal icon={NotebookPen} title="Seu diário está vazio" text="Depois de estudar, registre o que aprendeu e as dúvidas que deseja levar à próxima aula." />}</div></section>
   </div>;
 }
