@@ -409,6 +409,13 @@ button,input,select,textarea{font-size:var(--text-md)}
 .student-submission-review{margin-top:16px;padding:18px;border-radius:20px;background:linear-gradient(180deg,#f9fafc 0%,#f6f8fc 100%);border:1px solid var(--border)}
 .student-submission-review p{font-size:14px;line-height:1.65;color:#2d3648}
 .student-submission-review>div:first-child strong{font-size:14px}
+.task-pdf-upload{display:block;margin-top:12px;padding:13px 14px;border:1px dashed var(--border);border-radius:16px;background:var(--surface-soft)}
+.task-pdf-upload span{display:block;font-weight:800;color:var(--text)}
+.task-pdf-upload small{color:var(--muted);font-weight:700}
+.task-pdf-upload input{margin-top:9px}
+.task-pdf-upload em{display:block;margin-top:7px;color:var(--primary);font-size:12px;font-style:normal;font-weight:800}
+.submission-file-link{display:inline-flex;align-items:center;gap:7px;margin-top:10px;padding:8px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--primary);font-size:13px;font-weight:800;text-decoration:none}
+.submission-file-link:hover{border-color:color-mix(in srgb,var(--primary,#6558d3) 45%,var(--border));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary,#6558d3) 10%,transparent)}
 .awaiting-review{margin-top:12px;border:1px solid #f3e2a3;box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
 .teacher-feedback{margin-top:15px;padding:15px 16px;border-top:0;border-radius:16px;background:#eef8f4}
 .teacher-feedback strong{font-size:13px;display:block;margin-bottom:7px}
@@ -425,6 +432,7 @@ button,input,select,textarea{font-size:var(--text-md)}
 .dark-theme .task-response-input::placeholder{color:#738198}
 .dark-theme .student-submission-review{background:linear-gradient(180deg,#172033 0%,#1b2436 100%);border-color:#334157}
 .dark-theme .student-submission-review p{color:#d7deea}
+.dark-theme .task-pdf-upload{background:#172033;border-color:#334157}
 .dark-theme .teacher-feedback{background:#162d26}
 .dark-theme .teacher-feedback p{color:#cde6dc}
 @media(max-width:760px){.task-response-header{flex-direction:column}.task-response-count{align-self:flex-start}.student-assignment-list>article{padding:18px}.task-response-box,.student-submission-review{padding:16px}.task-instructions{padding:14px 15px}}

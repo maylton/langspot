@@ -261,7 +261,14 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     setMaterials(signedMaterials);
     const { data: taskRows, error: taskError } = await supabase.from('assignments').select('*').order('due_date', { ascending: true });
     if (taskError) { setAssignments([]); setMessage(`Dados principais carregados, mas houve um problema nas tarefas: ${taskError.message}`); }
-    else setAssignments((taskRows ?? []).map(dbAssignmentToAssignment));
+    else {
+      const signedTasks = await Promise.all((taskRows ?? []).map(async (row: any) => {
+        if (!row.submission_file_path) return row;
+        const { data: signed } = await supabase!.storage.from('assignment-submissions').createSignedUrl(row.submission_file_path, 60 * 60);
+        return { ...row, submission_file_url: signed?.signedUrl ?? '' };
+      }));
+      setAssignments(signedTasks.map(dbAssignmentToAssignment));
+    }
     const { data: paymentRows, error: paymentError } = await supabase.from('payments').select('*').order('due_date', { ascending: true });
     if (paymentError) { setPayments([]); setMessage(`Dados principais carregados, mas houve um problema no financeiro: ${paymentError.message}`); }
     else setPayments((paymentRows ?? []).map((row: any): Payment => ({ id: row.id, studentId: row.student_id, description: row.description, amount: Number(row.amount), dueDate: row.due_date, status: row.status === 'paid' ? 'Pago' : row.status === 'overdue' ? 'Atrasado' : 'Pendente', paidAt: row.paid_at ?? undefined, createdAt: row.created_at })));
@@ -422,6 +429,11 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   };
   const deleteAssignment = async (id: string) => {
     if (!supabase) throw new Error('Supabase não configurado.');
+    const { data: existing } = await supabase.from('assignments').select('submission_file_path').eq('id', id).eq('teacher_id', profile.id).maybeSingle();
+    if (existing?.submission_file_path) {
+      const { error: storageError } = await supabase.storage.from('assignment-submissions').remove([existing.submission_file_path]);
+      if (storageError) console.warn(storageError.message);
+    }
     const { error } = await supabase.from('assignments').delete().eq('id', id).eq('teacher_id', profile.id);
     if (error) throw new Error(error.message);
   };
@@ -556,7 +568,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
 
 function dbAssignmentToAssignment(row: DbAssignment): Assignment {
   const statusMap = { pending: 'Pendente', submitted: 'Entregue', reviewed: 'Corrigida' } as const;
-  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, createdAt: row.created_at };
+  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, submissionFileName: row.submission_file_name ?? undefined, submissionFileUrl: row.submission_file_url ?? undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, createdAt: row.created_at };
 }
 
 function normalizeSkills(value: unknown): Record<Skill, number> {
@@ -821,7 +833,13 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
       return { ...material, url: signed?.signedUrl ?? '' };
     }));
     setMaterials(resolvedMaterials);
-    setAssignments((taskResult.data ?? []) as DbAssignment[]);
+    const resolvedTasks = await Promise.all((taskResult.data ?? []).map(async (assignment) => {
+      const row = assignment as DbAssignment;
+      if (!row.submission_file_path) return row;
+      const { data: signed } = await supabase!.storage.from('assignment-submissions').createSignedUrl(row.submission_file_path, 60 * 60);
+      return { ...row, submission_file_url: signed?.signedUrl ?? '' };
+    }));
+    setAssignments(resolvedTasks as DbAssignment[]);
     setGoals((goalResult.data ?? []) as LearningGoal[]);
     setJournal((journalResult.data ?? []) as LearningJournalEntry[]);
     setStudyActivities((activityResult.data ?? []) as StudyActivity[]);
@@ -851,7 +869,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onSubmitted={loadPortal} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onGoalsChange={setGoals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} lessons={lessons} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => setTab(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-avatar">{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={setTab} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onGoalsChange={setGoals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} lessons={lessons} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -935,9 +953,10 @@ function StudentMaterials({ materials }: { materials: DbMaterial[] }) {
 }
 
 
-function StudentAssignments({ assignments, materials, onSubmitted, readOnly = false }: { assignments: DbAssignment[]; materials: DbMaterial[]; onSubmitted: () => Promise<void>; readOnly?: boolean }) {
+function StudentAssignments({ assignments, materials, onAssignmentsChange, readOnly = false }: { assignments: DbAssignment[]; materials: DbMaterial[]; onAssignmentsChange: React.Dispatch<React.SetStateAction<DbAssignment[]>>; readOnly?: boolean }) {
   type TaskFilter = 'all' | 'pending' | 'submitted' | 'reviewed';
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [files, setFiles] = useState<Record<string, File | null>>({});
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -955,11 +974,43 @@ function StudentAssignments({ assignments, materials, onSubmitted, readOnly = fa
   };
   const submit = async (assignment: DbAssignment) => {
     const text = (drafts[assignment.id] ?? '').trim();
+    const file = files[assignment.id] ?? null;
     if (readOnly) { setMessage('Modo de visualização: o envio de tarefas está desativado.'); return; }
-    if (!text) { setMessage('Escreva sua resposta antes de enviar.'); return; }
+    if (!text && !file) { setMessage('Escreva sua resposta ou anexe um PDF antes de enviar.'); return; }
+    if (file && (file.type !== 'application/pdf' || file.size > 10 * 1024 * 1024)) { setMessage('O anexo precisa ser um PDF de até 10 MB.'); return; }
     setSendingId(assignment.id); setMessage('');
-    const { error } = await supabase!.from('assignments').update({ submission_text: text, submitted_at: new Date().toISOString(), status: 'submitted' }).eq('id', assignment.id).eq('student_id', assignment.student_id);
-    if (error) setMessage(error.message); else { setMessage('Tarefa enviada com sucesso.'); setDrafts((current) => ({ ...current, [assignment.id]: '' })); await onSubmitted(); }
+    let uploadedPath: string | null = null;
+    let signedUrl = '';
+    try {
+      if (file) {
+        const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '-');
+        uploadedPath = `${assignment.student_id}/${assignment.id}/${crypto.randomUUID()}-${safeName}`;
+        const { error: uploadError } = await supabase!.storage.from('assignment-submissions').upload(uploadedPath, file, { contentType: 'application/pdf', upsert: false });
+        if (uploadError) throw new Error(`Falha no upload: ${uploadError.message}`);
+        const { data: signed } = await supabase!.storage.from('assignment-submissions').createSignedUrl(uploadedPath, 60 * 60);
+        signedUrl = signed?.signedUrl ?? '';
+      }
+      const submittedAt = new Date().toISOString();
+      const payload = {
+        submission_text: text,
+        submitted_at: submittedAt,
+        status: 'submitted',
+        submission_file_path: uploadedPath,
+        submission_file_name: file?.name ?? null,
+        submission_file_size: file?.size ?? null,
+        submission_file_mime_type: file?.type ?? null,
+      };
+      const { data, error } = await supabase!.from('assignments').update(payload).eq('id', assignment.id).eq('student_id', assignment.student_id).select('*').single();
+      if (error) throw new Error(error.message);
+      const submitted = { ...(data as DbAssignment), submission_file_url: signedUrl };
+      onAssignmentsChange((current) => current.map((item) => item.id === assignment.id ? submitted : item));
+      setMessage('Tarefa enviada com sucesso.');
+      setDrafts((current) => ({ ...current, [assignment.id]: '' }));
+      setFiles((current) => ({ ...current, [assignment.id]: null }));
+    } catch (error) {
+      if (uploadedPath) await supabase!.storage.from('assignment-submissions').remove([uploadedPath]);
+      setMessage((error as Error).message);
+    }
     setSendingId(null);
   };
   const materialFor = (id: string | null) => materials.find((material) => material.id === id);
@@ -986,7 +1037,7 @@ function StudentAssignments({ assignments, materials, onSubmitted, readOnly = fa
           <div className="student-assignment-heading"><div><div className="task-status-row"><span className={`assignment-status ${assignment.status}`}>{assignment.status === 'pending' ? 'Pendente' : assignment.status === 'submitted' ? 'Entregue' : 'Corrigida'}</span>{overdue && <span className="task-overdue-badge">Atrasada</span>}</div><h3>{assignment.title}</h3></div><strong className={overdue ? 'overdue-text' : ''}>{dueLabel(assignment)}</strong></div>
           <div className="task-instructions"><strong>Instruções</strong><p>{assignment.instructions}</p></div>
           {material && <a className="task-material-link" href={material.url} target="_blank" rel="noreferrer"><FileText size={16} /><span><strong>{material.title}</strong><small>Abrir material de apoio</small></span><ExternalLink size={14} /></a>}
-          {assignment.status === 'pending' ? <div className="task-response-box"><div className="task-response-header"><div><label htmlFor={`assignment-${assignment.id}`}>Sua resposta</label></div><span className="task-response-count">{(drafts[assignment.id] ?? '').length} caracteres</span></div><textarea className="task-response-input" id={`assignment-${assignment.id}`} rows={6} value={drafts[assignment.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [assignment.id]: event.target.value }))} placeholder="Digite sua resposta ou descreva o que realizou." /><div className="task-submit-row"><small>Revise sua resposta antes de enviar.</small><button className="student-primary" disabled={sendingId === assignment.id} onClick={() => submit(assignment)}>{sendingId === assignment.id ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{sendingId === assignment.id ? 'Enviando...' : 'Enviar tarefa'}</button></div></div> : <div className="submission-preview student-submission-review"><div><strong>Sua resposta</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div><p>{assignment.submission_text || 'Nenhuma resposta em texto.'}</p>{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>}
+          {assignment.status === 'pending' ? <div className="task-response-box"><div className="task-response-header"><div><label htmlFor={`assignment-${assignment.id}`}>Sua resposta</label></div><span className="task-response-count">{(drafts[assignment.id] ?? '').length} caracteres</span></div><textarea className="task-response-input" id={`assignment-${assignment.id}`} rows={6} value={drafts[assignment.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [assignment.id]: event.target.value }))} placeholder="Digite sua resposta ou descreva o que realizou." /><label className="task-pdf-upload"><span>Anexo em PDF <small>(opcional)</small></span><input type="file" accept="application/pdf,.pdf" onChange={(event) => setFiles((current) => ({ ...current, [assignment.id]: event.target.files?.[0] ?? null }))} />{files[assignment.id] && <em>{files[assignment.id]?.name} · {(((files[assignment.id]?.size ?? 0) / 1024 / 1024).toFixed(1))} MB</em>}</label><div className="task-submit-row"><small>Você pode enviar texto, PDF ou os dois.</small><button className="student-primary" disabled={sendingId === assignment.id} onClick={() => submit(assignment)}>{sendingId === assignment.id ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{sendingId === assignment.id ? 'Enviando...' : 'Enviar tarefa'}</button></div></div> : <div className="submission-preview student-submission-review"><div><strong>Sua resposta</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div><p>{assignment.submission_text || 'Nenhuma resposta em texto.'}</p>{assignment.submission_file_url && <a className="submission-file-link" href={assignment.submission_file_url} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submission_file_name || 'PDF anexado'}<ExternalLink size={13} /></a>}{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>}
         </article>;
       }) : <EmptyPortal icon={ClipboardList} title={assignments.length ? 'Nenhuma tarefa neste filtro' : 'Nenhuma tarefa por enquanto'} text={assignments.length ? 'Escolha outro filtro para visualizar suas atividades.' : 'As atividades enviadas pelo professor aparecerão aqui.'} />}</div>
     </section>
@@ -1054,7 +1105,9 @@ function StudentGoals({ profile, goals, onGoalsChange, onChanged, readOnly = fal
     if (error) {
       onGoalsChange(previousGoals);
       setMessage(error.message);
-    } else await onChanged();
+    } else {
+      setMessage(normalized === 100 ? 'Meta concluída.' : 'Progresso atualizado.');
+    }
     setBusyId(null);
   };
 

@@ -76,6 +76,11 @@ export type DbAssignment = {
   status: 'pending' | 'submitted' | 'reviewed';
   submission_text: string;
   submitted_at: string | null;
+  submission_file_path?: string | null;
+  submission_file_name?: string | null;
+  submission_file_size?: number | null;
+  submission_file_mime_type?: string | null;
+  submission_file_url?: string | null;
   feedback: string;
   grade: number | null;
   created_at: string;
