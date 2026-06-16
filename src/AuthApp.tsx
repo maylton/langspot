@@ -870,6 +870,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     { label: 'Conquistas', icon: Award },
     { label: 'Diário', icon: NotebookPen },
     { label: 'Progresso', icon: GraduationCap },
+    { label: 'Perfil', icon: UserRound },
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
