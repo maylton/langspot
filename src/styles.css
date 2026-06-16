@@ -881,3 +881,136 @@ button:disabled,button[aria-disabled="true"]{cursor:not-allowed}
   .flashcard-ratings{grid-template-columns:1fr}
   .student-task-summary h2,.student-welcome-enhanced h2,.student-achievements-hero h2{font-size:21px}
 }
+
+/* Teacher mobile experience - 1.5.1 */
+@media(max-width:900px){
+  .app-shell{overflow-x:hidden}
+  .app-shell main{width:100%;overflow-x:hidden;background:var(--bg,#f4f6fb)}
+  .sidebar{max-width:360px}
+  .sidebar nav .nav-item,.sidebar-footer>.nav-item{min-height:44px}
+  .topbar{position:sticky;top:0;z-index:40;margin:-24px -22px 22px;padding:16px 22px;background:color-mix(in srgb,var(--bg,#f4f6fb) 95%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid color-mix(in srgb,var(--border,#e5e7eb) 78%,transparent)}
+  .topbar-actions{gap:8px}
+  .topbar-actions .primary-button,.topbar-actions .invite-button{min-height:42px}
+  .hero-card,.materials-hero,.progress-hero,.settings-hero{border-radius:19px}
+  .content-grid,.profile-layout,.progress-grid,.report-dashboard-grid,.report-columns,.settings-grid{grid-template-columns:1fr!important}
+  .student-row{grid-template-columns:42px minmax(0,1fr) 32px}
+  .student-main{grid-column:2}
+  .student-row>.icon-button{grid-column:3;grid-row:1}
+  .progress-wrap,.next-class{grid-column:2/4}
+  .report-sheet{min-width:0}
+}
+
+@media(max-width:700px){
+  .app-shell main{padding:18px 14px 34px}
+  .topbar{margin:-18px -14px 18px;padding:12px 14px;grid-template-columns:auto minmax(0,1fr);gap:10px}
+  .mobile-menu-button{width:40px;height:40px}
+  .topbar-title h1{font-size:23px;line-height:1.12}
+  .topbar-title .eyebrow{font-size:9px}
+  .topbar-actions{grid-column:1/-1;display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;width:100%}
+  .topbar-actions .notification-button{width:42px;height:42px;min-height:42px}
+  .topbar-actions .primary-button,.topbar-actions .invite-button{width:100%;min-width:0;white-space:normal}
+  .topbar-actions .primary-button:last-child:nth-child(3),.topbar-actions .invite-button:last-child:nth-child(3){grid-column:1/-1}
+  .sidebar{width:min(330px,88vw);padding:18px 14px}
+  .brand{padding:0 4px 18px}
+  .brand-mark{width:39px;height:39px;border-radius:13px}
+  .profile-card{align-items:center}
+  .hero-card,.materials-hero,.progress-hero,.settings-hero{padding:20px;align-items:stretch;flex-direction:column;gap:16px}
+  .hero-card h2,.materials-hero h2,.progress-hero h2,.settings-hero h2{font-size:22px;line-height:1.15}
+  .hero-card .ghost-button,.settings-save{width:100%;min-height:44px}
+  .stats-grid{grid-template-columns:1fr!important;gap:10px;margin:14px 0}
+  .stat-card{position:relative;min-height:96px;padding:16px;border-radius:16px}
+  .stat-card strong{font-size:25px}
+  .panel{padding:15px;border-radius:16px}
+  .panel-heading,.finance-heading,.assignments-heading{align-items:stretch;flex-direction:column;gap:12px}
+  .panel-heading h3{font-size:17px}
+  .panel-heading .secondary-button.compact,.panel-heading .primary-button,.finance-heading .secondary-button,.assignments-heading .secondary-button.compact{width:100%;min-height:42px;margin:0}
+  .search-box{width:100%;min-height:42px}
+  .search-box input{width:100%;min-width:0}
+  .student-row{grid-template-columns:40px minmax(0,1fr) 32px;gap:9px;padding:14px 0}
+  .student-row .avatar{width:38px;height:38px;border-radius:12px}
+  .progress-wrap,.next-class{grid-column:1/-1}
+  .next-class{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:baseline}
+  .next-class strong{text-align:right}
+  .profile-identity{align-items:flex-start;flex-direction:column}
+  .student-profile-actions,.data-actions,.form-actions{align-items:stretch;flex-direction:column}
+  .student-profile-actions button,.data-actions button,.form-actions button{width:100%;justify-content:center}
+  .detail-grid,.settings-fields,.onboarding-fields{display:grid;grid-template-columns:1fr!important}
+  .avatar-setting{align-items:flex-start;flex-direction:column}
+  .avatar-actions{width:100%;display:grid;grid-template-columns:1fr;gap:8px}
+  .avatar-actions label,.avatar-actions button{justify-content:center;width:100%}
+  .toggle-setting{align-items:flex-start;grid-template-columns:1fr auto}
+  .data-summary{display:grid;grid-template-columns:1fr}
+  .agenda-toolbar{gap:14px}
+  .week-controls{display:grid;grid-template-columns:auto auto auto minmax(0,1fr);width:100%}
+  .week-controls>div{min-width:0;margin-left:0}
+  .calendar-period-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .agenda-toolbar-actions,.agenda-filters{width:100%}
+  .calendar-view-switch{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .agenda-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .agenda-filters select{width:100%!important}
+  .agenda-filters .primary-button{grid-column:1/-1}
+  .week-grid,.month-calendar{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px;overflow-x:auto}
+  .week-grid{grid-template-columns:repeat(7,156px)}
+  .month-weekdays,.month-grid{min-width:690px}
+  .month-detail-actions{align-items:stretch;flex-direction:column}
+  .month-detail-actions button{width:100%}
+  .materials-toolbar{gap:12px}
+  .material-filters{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .material-filters select{width:100%!important}
+  .materials-grid,.assignment-summary-grid,.progress-stats,.progress-student-grid,.report-metrics-advanced,.notification-summary{grid-template-columns:1fr!important}
+  .material-card{min-height:auto}
+  .material-actions{display:grid;grid-template-columns:44px minmax(0,1fr) 44px}
+  .material-actions a,.material-actions button{min-height:42px}
+  .assignment-card-top,.assignment-card-actions{align-items:stretch;flex-direction:column}
+  .assignment-instructions,.assignment-card .submission-preview,.assignment-card .feedback-preview{margin-left:14px;margin-right:14px}
+  .assignment-card-actions{padding:14px}
+  .assignment-review-button,.assignment-delete-button{width:100%;min-height:42px}
+  .payment-card{grid-template-columns:1fr!important}
+  .payment-actions{align-items:stretch;flex-direction:column}
+  .payment-actions button{width:100%}
+  .progress-score{width:100%;height:auto;padding:15px}
+  .progress-stats article{min-height:82px}
+  .progress-student-heading{grid-template-columns:39px minmax(0,1fr);align-items:flex-start}
+  .progress-student-heading b{grid-column:1/-1}
+  .progress-student-meta{display:grid;gap:5px}
+  .reports-controls{gap:12px}
+  .report-tabs{display:grid;grid-template-columns:1fr}
+  .report-tabs button{width:100%;min-height:42px}
+  .report-presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .report-presets>span{grid-column:1/-1}
+  .report-filters{display:grid;grid-template-columns:1fr!important}
+  .report-filters button,.report-filters label{width:100%}
+  .report-header,.individual-report-header{align-items:flex-start;flex-direction:column;gap:14px}
+  .individual-report-header>strong{position:static;align-self:stretch;text-align:center}
+  .report-activity-row{grid-template-columns:1fr;gap:10px}
+  .report-mini-progress{min-width:0;width:100%}
+  .report-section-heading{align-items:flex-start;flex-direction:column}
+  .report-task-list>div{align-items:flex-start;flex-direction:column}
+  .report-kpi>div{width:78px;height:78px}
+  .evolution-chart{margin-left:-15px;margin-right:-15px;padding-left:15px;padding-right:15px;overflow-x:auto}
+  .modal-backdrop{align-items:end;padding:0}
+  .modal{width:100%;max-height:92dvh;border-radius:22px 22px 0 0;padding:18px 16px}
+  .modal-header{align-items:flex-start;gap:12px;margin-bottom:18px}
+  .form-grid{grid-template-columns:1fr!important;gap:13px}
+  .form-grid>*{grid-column:1!important}
+  .assignment-student-list>label{grid-template-columns:auto 36px minmax(0,1fr)}
+  .delete-warning{align-items:flex-start;flex-direction:column}
+  .admin-teachers-modal{width:100%;max-height:92dvh;border-radius:22px 22px 0 0}
+  .admin-teachers-content{padding:16px;max-height:calc(92dvh - 78px)}
+  .admin-teacher-row{grid-template-columns:41px minmax(0,1fr)!important}
+  .admin-access-badge,.admin-teacher-actions{grid-column:1/-1!important}
+  .admin-teacher-actions{display:grid;grid-template-columns:1fr;gap:8px}
+}
+
+@media(max-width:420px){
+  .app-shell main{padding-left:12px;padding-right:12px}
+  .topbar{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}
+  .topbar-actions{grid-template-columns:1fr}
+  .topbar-actions .notification-button{width:100%}
+  .week-grid,.month-calendar{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}
+  .material-actions{grid-template-columns:1fr}
+  .report-presets{grid-template-columns:1fr}
+  .student-row{grid-template-columns:38px minmax(0,1fr) 32px}
+  .next-class{grid-template-columns:1fr}
+  .next-class strong{text-align:left}
+}
