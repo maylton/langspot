@@ -849,8 +849,31 @@ function StudentEditModal({ student, onClose, onSave }: { student: Student; onCl
 }
 
 function TemporaryAccessModal({ access, onClose }: { access: { name: string; email: string; password: string }; onClose: () => void }) {
-  const copy = () => navigator.clipboard.writeText(`Acesso ao LangSpot\nE-mail: ${access.email}\nSenha temporária: ${access.password}`);
-  return <Modal title="Acesso do aluno criado" onClose={onClose}><div className="temporary-access"><p>Envie estes dados para <strong>{access.name}</strong>. A senha será solicitada apenas no primeiro acesso e não ficará disponível novamente.</p><div><span>E-mail</span><strong>{access.email}</strong></div><div><span>Senha temporária</span><strong>{access.password}</strong></div><button className="primary-button" onClick={copy}><Copy size={16} />Copiar dados de acesso</button></div><div className="form-actions"><button className="cancel-button" onClick={onClose}>Concluir</button></div></Modal>;
+  const accessUrl = window.location.origin;
+  const accessMessage = `Olá, ${access.name}! Tudo bem?
+
+Seu acesso ao LangSpot já foi criado. A plataforma será nosso espaço para acompanhar aulas, materiais, tarefas, metas, flashcards e seu progresso nos estudos.
+
+Acesse por aqui:
+${accessUrl}
+
+Dados de acesso:
+E-mail: ${access.email}
+Senha temporária: ${access.password}
+
+Como entrar pela primeira vez:
+1. Acesse o link acima.
+2. Clique em entrar.
+3. Use o e-mail e a senha temporária.
+4. No primeiro acesso, você poderá atualizar seus dados e trocar sua foto de perfil.
+5. Depois disso, use o menu do portal para acompanhar suas aulas, tarefas, materiais, metas e flashcards.
+
+Dica:
+Salve o link nos favoritos ou na tela inicial do celular para acessar mais rápido.
+
+Se tiver qualquer dificuldade para entrar, me avise que eu te ajudo.`;
+  const copy = () => navigator.clipboard.writeText(accessMessage);
+  return <Modal title="Acesso do aluno criado" onClose={onClose}><div className="temporary-access"><p>Envie este tutorial para <strong>{access.name}</strong>. A senha será solicitada apenas no primeiro acesso e não ficará disponível novamente.</p><div><span>E-mail</span><strong>{access.email}</strong></div><div><span>Senha temporária</span><strong>{access.password}</strong></div><div className="access-message-preview"><span>Mensagem que será copiada</span><pre>{accessMessage}</pre></div><button className="primary-button" onClick={copy}><Copy size={16} />Copiar tutorial de acesso</button></div><div className="form-actions"><button className="cancel-button" onClick={onClose}>Concluir</button></div></Modal>;
 }
 
 function LessonModal({ studentName, onClose, onSave }: { studentName: string; onClose: () => void; onSave: (lesson: Omit<Lesson, 'id'>) => void }) {
