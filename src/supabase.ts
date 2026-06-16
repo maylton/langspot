@@ -45,6 +45,8 @@ export type DbLesson = {
   online_url: string | null;
   status: string;
   notes: string;
+  strengths: string | null;
+  improvements: string | null;
   homework: string;
   attendance: string | null;
   skill_scores: Record<string, number> | null;

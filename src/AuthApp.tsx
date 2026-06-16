@@ -1,6 +1,6 @@
 import { FormEvent, type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Award, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
-import App, { Assignment, AssignmentInput, AttendanceStatus, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, Skill, Student, StudentCreateInput } from './App';
+import App, { Assignment, AssignmentInput, AttendanceStatus, LessonRecordInput, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, ScheduledLessonInput, Skill, Student, StudentCreateInput } from './App';
 import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
@@ -220,7 +220,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       const skillValues = normalizeSkills(row.skills);
       const studentLessons = lessonRows
         .filter((lesson) => lesson.student_id === row.student_id && (lesson.status === 'completed' || new Date(lesson.starts_at) < new Date()))
-        .map((lesson) => ({ id: lesson.id, date: lesson.starts_at.slice(0, 10), topic: lesson.topic, notes: lesson.notes, homework: lesson.homework, attendance: lesson.attendance ? ({ presente: 'Presente', ausente: 'Ausente', remarcada: 'Remarcada' } as Record<string, AttendanceStatus>)[lesson.attendance] : undefined, skillScores: lesson.skill_scores || undefined }));
+        .map((lesson) => { const scheduled = dbLessonToScheduled(lesson); return { id: scheduled.id, date: scheduled.date, startTime: scheduled.startTime, duration: scheduled.duration, topic: scheduled.topic, onlineUrl: scheduled.onlineUrl, notes: scheduled.notes, strengths: scheduled.strengths, improvements: scheduled.improvements, homework: scheduled.homework, attendance: scheduled.attendance, skillScores: scheduled.skillScores }; });
       const values = Object.values(skillValues);
       const streakDates = [
         ...(activityRows ?? []).filter((activity: any) => activity.student_id === row.student_id).map((activity: any) => activity.activity_date),
@@ -354,7 +354,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     return { temporaryPassword: String(data.temporaryPassword), studentId: String(data.studentId) };
   };
 
-  const createScheduledLesson = async (lesson: Omit<ScheduledLesson, 'id' | 'status' | 'notes' | 'homework'>) => {
+  const createScheduledLesson = async (lesson: ScheduledLessonInput) => {
     if (!supabase) throw new Error('Supabase não configurado.');
     const payload = scheduledToDb(profile.id, lesson);
     const { data, error } = await supabase.from('lessons').insert(payload).select('*').single();
@@ -362,7 +362,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     return dbLessonToScheduled(data as DbLesson);
   };
 
-  const updateScheduledLesson = async (id: string, lesson: Omit<ScheduledLesson, 'id' | 'status' | 'notes' | 'homework'>) => {
+  const updateScheduledLesson = async (id: string, lesson: ScheduledLessonInput) => {
     if (!supabase) throw new Error('Supabase não configurado.');
     const { data, error } = await supabase.from('lessons').update(scheduledToDb(profile.id, lesson)).eq('id', id).select('*').single();
     if (error) throw new Error(error.message);
@@ -382,14 +382,40 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     if (!data) throw new Error('A aula não foi encontrada ou você não tem permissão para alterá-la.');
   };
 
-  const completeScheduledLesson = async (id: string, notes: string, homework: string, attendance: AttendanceStatus, skillScores: Record<Skill, number>) => {
+  const completeScheduledLesson = async (id: string, record: LessonRecordInput) => {
     if (!supabase) throw new Error('Supabase não configurado.');
     const lesson = schedule.find((item) => item.id === id);
     if (!lesson) throw new Error('Aula não encontrada.');
-    const { error: lessonError } = await supabase.from('lessons').update({ status: 'completed', notes, homework, attendance: attendance.toLowerCase(), skill_scores: skillScores }).eq('id', id).eq('teacher_id', profile.id);
+    const { error: lessonError } = await supabase.from('lessons').update(lessonRecordToDb(record)).eq('id', id).eq('teacher_id', profile.id);
     if (lessonError) throw new Error(lessonError.message);
-    const { error: skillsError } = await supabase.from('student_records').update({ skills: skillScores }).eq('student_id', lesson.studentId).eq('teacher_id', profile.id);
+    const { error: skillsError } = await supabase.from('student_records').update({ skills: record.skillScores }).eq('student_id', lesson.studentId).eq('teacher_id', profile.id);
     if (skillsError) throw new Error(skillsError.message);
+  };
+
+  const updateLessonRecord = async (id: string, record: LessonRecordInput) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.from('lessons').update(lessonRecordToDb(record)).eq('id', id).eq('teacher_id', profile.id).select('*').single();
+    if (error) throw new Error(error.message);
+    const updated = dbLessonToScheduled(data as DbLesson);
+    const { error: skillsError } = await supabase.from('student_records').update({ skills: record.skillScores }).eq('student_id', updated.studentId).eq('teacher_id', profile.id);
+    if (skillsError) throw new Error(skillsError.message);
+    return updated;
+  };
+
+  const createLessonRecord = async (studentId: string, record: LessonRecordInput) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.from('lessons').insert({ teacher_id: profile.id, student_id: studentId, ...lessonRecordToDb(record) }).select('*').single();
+    if (error) throw new Error(error.message);
+    const created = dbLessonToScheduled(data as DbLesson);
+    const { error: skillsError } = await supabase.from('student_records').update({ skills: record.skillScores }).eq('student_id', studentId).eq('teacher_id', profile.id);
+    if (skillsError) throw new Error(skillsError.message);
+    return created;
+  };
+
+  const deleteLessonRecord = async (id: string) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { error } = await supabase.from('lessons').delete().eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
   };
 
   const createMaterial = async (material: MaterialInput) => {
@@ -546,6 +572,9 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       onUpdateScheduledLesson={updateScheduledLesson}
       onCancelScheduledLesson={cancelScheduledLesson}
       onCompleteScheduledLesson={completeScheduledLesson}
+      onCreateLessonRecord={createLessonRecord}
+      onUpdateLessonRecord={updateLessonRecord}
+      onDeleteLessonRecord={deleteLessonRecord}
       onUpdateStudentSkills={updateStudentSkills}
       onUpdateStudentProfile={updateStudentProfile}
       onDeleteStudent={deleteStudent}
@@ -604,13 +633,15 @@ function dbLessonToScheduled(lesson: DbLesson): ScheduledLesson {
     onlineUrl: lesson.online_url ?? '',
     status: statusMap[lesson.status] ?? 'Agendada',
     notes: lesson.notes ?? '',
+    strengths: lesson.strengths ?? '',
+    improvements: lesson.improvements ?? '',
     homework: lesson.homework ?? '',
     attendance: lesson.attendance ? ({ presente: 'Presente', ausente: 'Ausente', remarcada: 'Remarcada' } as Record<string, AttendanceStatus>)[lesson.attendance] : undefined,
     skillScores: lesson.skill_scores ?? undefined,
   };
 }
 
-function scheduledToDb(teacherId: string, lesson: Omit<ScheduledLesson, 'id' | 'status' | 'notes' | 'homework'>) {
+function scheduledToDb(teacherId: string, lesson: ScheduledLessonInput) {
   return {
     teacher_id: teacherId,
     student_id: lesson.studentId,
@@ -619,6 +650,22 @@ function scheduledToDb(teacherId: string, lesson: Omit<ScheduledLesson, 'id' | '
     topic: lesson.topic,
     online_url: lesson.onlineUrl || null,
     status: 'scheduled',
+  };
+}
+
+function lessonRecordToDb(record: LessonRecordInput) {
+  return {
+    starts_at: new Date(`${record.date}T${record.startTime}:00`).toISOString(),
+    duration_minutes: record.duration,
+    topic: record.topic,
+    online_url: record.onlineUrl || null,
+    status: 'completed',
+    notes: record.notes,
+    strengths: record.strengths,
+    improvements: record.improvements,
+    homework: record.homework,
+    attendance: record.attendance.toLowerCase(),
+    skill_scores: record.skillScores,
   };
 }
 
