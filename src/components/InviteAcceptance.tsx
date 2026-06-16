@@ -1,11 +1,27 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { ArrowRight, Check, LoaderCircle, X } from 'lucide-react';
+import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
+import { ArrowRight, Check, Eye, EyeOff, LoaderCircle, X } from 'lucide-react';
 
 interface InviteAcceptanceProps {
   token: string;
   email: string;
   onSuccess?: () => void;
   onError?: (error: string) => void;
+}
+
+function InvitePasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="invite-password-field">
+      <input {...props} type={visible ? 'text' : 'password'} />
+      <button
+        type="button"
+        aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+        onClick={() => setVisible((current) => !current)}
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -143,8 +159,7 @@ export function InviteAcceptance({
 
           <div className="form-section">
             <label>Senha *</label>
-            <input
-              type="password"
+            <InvitePasswordInput
               name="password"
               value={formData.password}
               onChange={handleChange}
@@ -157,8 +172,7 @@ export function InviteAcceptance({
 
           <div className="form-section">
             <label>Confirmar Senha *</label>
-            <input
-              type="password"
+            <InvitePasswordInput
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
@@ -262,6 +276,36 @@ export function InviteAcceptance({
           outline: none;
           border-color: #667eea;
           box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .invite-password-field {
+          position: relative;
+        }
+
+        .invite-password-field input {
+          width: 100%;
+          padding-right: 2.75rem;
+        }
+
+        .invite-password-field button {
+          position: absolute;
+          top: 50%;
+          right: 0.45rem;
+          transform: translateY(-50%);
+          width: 2rem;
+          height: 2rem;
+          border: none;
+          border-radius: 6px;
+          background: transparent;
+          color: #777;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+        }
+
+        .invite-password-field button:hover {
+          background: rgba(102, 126, 234, 0.1);
+          color: #667eea;
         }
 
         .input-disabled {
