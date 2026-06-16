@@ -1039,3 +1039,42 @@ button:disabled,button[aria-disabled="true"]{cursor:not-allowed}
   .next-class{grid-template-columns:1fr}
   .next-class strong{text-align:left}
 }
+
+/* 1.5.5 - mobile dark contrast and compact desktop navigation */
+@media(min-width:901px){
+  .compact-mode .app-shell{grid-template-columns:86px 1fr}
+  .compact-mode .sidebar{align-items:center;padding:22px 12px}
+  .compact-mode .brand{justify-content:center;padding:0 0 22px}
+  .compact-mode .brand>div:not(.brand-mark),.compact-mode .nav-item span,.compact-mode .profile-card>div,.compact-mode .profile-card>button{display:none}
+  .compact-mode .brand-mark{width:46px;height:46px}
+  .compact-mode .sidebar nav{width:100%;justify-items:center}
+  .compact-mode .nav-item{width:48px;height:48px;justify-content:center;padding:0;border-radius:15px}
+  .compact-mode .nav-item.active{box-shadow:inset 0 -3px #9275ff}
+  .compact-mode .sidebar-footer{width:100%;justify-items:center}
+  .compact-mode .profile-card{width:48px;height:48px;justify-content:center;padding:0;border-radius:15px}
+  .compact-mode .profile-card .teacher-avatar{width:34px;height:34px}
+}
+
+@media(max-width:900px){
+  .dark-theme{background:#0d1421;color:#edf1f8}
+  .dark-theme .app-shell main,.dark-theme .student-app,.dark-theme .student-main-content{background:#0d1421;color:#edf1f8}
+  .dark-theme .topbar,.dark-theme .student-topbar{background:rgba(13,20,33,.94);border-color:#29364b;box-shadow:0 10px 28px rgba(0,0,0,.18)}
+  .dark-theme .topbar-title h1,.dark-theme .student-topbar h1,.dark-theme .student-section-heading h2,.dark-theme .student-panel>h2{color:#f8fafc}
+  .dark-theme .topbar-title .eyebrow,.dark-theme .student-topbar .eyebrow,.dark-theme .eyebrow{color:#b7c3d7}
+  .dark-theme .topbar-actions .primary-button,.dark-theme .student-primary{color:#fff}
+  .dark-theme .topbar-actions .invite-button,.dark-theme .notification-button,.dark-theme .teacher-account-avatar,.dark-theme .student-avatar{background:#202b3e;border-color:#334157;color:#d7ccff}
+  .dark-theme .sidebar,.dark-theme .student-sidebar{background:rgba(10,15,25,.98);box-shadow:0 -16px 44px rgba(0,0,0,.42)}
+  .dark-theme .sidebar nav .nav-item,.dark-theme .student-sidebar nav button{color:#d2dae8}
+  .dark-theme .sidebar nav .nav-item.active,.dark-theme .student-sidebar nav button.active{background:#2a3550;color:#fff}
+  .dark-theme .student-panel,.dark-theme .student-summary-grid article,.dark-theme .stat-card,.dark-theme .panel,.dark-theme .student-assignment-list>article,.dark-theme .goal-inspired-decks>article,.dark-theme .achievement-collection article{background:#151e2d;border-color:#29364b;color:#edf1f8}
+  .dark-theme .student-panel p,.dark-theme .student-panel small,.dark-theme .student-panel span,.dark-theme .portal-lesson-list p,.dark-theme .portal-history p,.dark-theme .student-assignment-list p,.dark-theme .flashcard-deck-open>p,.dark-theme .achievement-collection article p{color:#b8c2d1}
+  .dark-theme .student-panel strong,.dark-theme .portal-lesson-list h3,.dark-theme .portal-history strong,.dark-theme .student-assignment-heading h3,.dark-theme .flashcard-deck-open h3,.dark-theme .achievement-collection article h3{color:#f3f6fb}
+  .dark-theme .student-account-popover{background:#151e2d;border-color:#334157}
+  .dark-theme .student-account-popover:before{border-color:#334157}
+  .dark-theme .student-account-popover button{color:#e5e9f2}
+  .dark-theme .student-account-popover>div{border-color:#29364b}
+  .dark-theme .student-data-warning{background:#332a14;border-color:#7a6125;color:#f6d98f}
+  .dark-theme input,.dark-theme select,.dark-theme textarea,.dark-theme .task-response-input,.dark-theme .task-response-box textarea{background:#101827!important;border-color:#3b4a62!important;color:#f1f5f9!important}
+  .dark-theme input::placeholder,.dark-theme textarea::placeholder{color:#8996aa}
+  .dark-theme .empty-state{color:#b8c2d1}
+}
