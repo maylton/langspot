@@ -131,6 +131,7 @@ export type LearningJournalEntry = {
   id: string;
   student_id: string;
   teacher_id: string;
+  lesson_id: string | null;
   title: string;
   content: string;
   mood: 'great' | 'good' | 'neutral' | 'hard';
