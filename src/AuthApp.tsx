@@ -1317,7 +1317,7 @@ function StudentAssignments({ assignments, materials, mode = 'tasks', onAssignme
         const interactiveContent = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
         const interactiveResult = assignment.interactive_result as InteractiveAssignmentResult | null | undefined;
         const questionCount = interactiveContent?.questions.length ?? 0;
-        const canRetryInteractive = assignment.assignment_type === 'interactive' && canAttemptInteractive(interactiveContent, interactiveResult);
+        const canRetryInteractive = assignment.assignment_type === 'interactive' && assignment.status === 'pending' && canAttemptInteractive(interactiveContent, interactiveResult);
         const attempts = interactiveAttempts(interactiveResult);
         const maxAttempts = interactiveMaxAttempts(interactiveContent);
         return <article key={assignment.id} className={`${overdue ? 'overdue' : ''} ${isOpen ? 'open' : ''}`}>

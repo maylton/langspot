@@ -25,6 +25,7 @@ import {
   GraduationCap,
   ImagePlus,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Menu,
   Plus,
@@ -1069,21 +1070,43 @@ function AssignmentModal({ students, materials, questionBank, mode, onClose, onS
   const [bankLevel, setBankLevel] = useState<QuestionBankLevel>('A1');
   const [autoQuestionCount, setAutoQuestionCount] = useState(5);
   const [selectedBankQuestions, setSelectedBankQuestions] = useState<QuestionBankItem[]>([]);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiQuestions, setAiQuestions] = useState<InteractiveQuestion[]>([]);
   const typeFor = (index: number) => questionTypes[index] ?? 'multiple_choice';
   const changeQuestionType = (index: number, type: InteractiveQuestionType) => setQuestionTypes((current) => ({ ...current, [index]: type }));
   const bankQuestions = questionBank.filter((question) => question.level === bankLevel && question.category === 'Grammar');
   const addBankQuestion = (question: QuestionBankItem) => setSelectedBankQuestions((current) => current.some((item) => item.id === question.id) ? current : [...current, question]);
   const removeBankQuestion = (id: Id) => setSelectedBankQuestions((current) => current.filter((item) => item.id !== id));
+  const removeAiQuestion = (id: Id) => setAiQuestions((current) => current.filter((item) => item.id !== id));
   const buildAutomaticQuiz = () => {
     if (!bankQuestions.length) { window.alert(`Nenhuma questão Grammar cadastrada para ${bankLevel}.`); return; }
     const count = Math.max(1, Math.min(autoQuestionCount, bankQuestions.length));
     const shuffled = [...bankQuestions].sort(() => Math.random() - 0.5);
     setSelectedBankQuestions(shuffled.slice(0, count));
   };
+  const generateAiQuestions = async () => {
+    if (!supabase) { window.alert('Configure o Supabase para usar a geração com IA.'); return; }
+    const topic = aiTopic.trim();
+    if (!topic) { window.alert('Informe um tema para a IA gerar as questões.'); return; }
+    setAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-quiz', { body: { topic, level: bankLevel, count: aiQuestionCount, category: 'Grammar' } });
+      if (error) throw new Error(await functionInvokeErrorMessage(error, data));
+      const questions = ((data as { questions?: InteractiveQuestion[] } | null)?.questions ?? []).map((question) => ({ ...question, id: question.id || crypto.randomUUID() }));
+      if (!questions.length) throw new Error('A IA não retornou questões válidas.');
+      setAiQuestions((current) => [...current, ...questions]);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível gerar questões com IA.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const interactiveContent = assignmentType === 'interactive' ? buildInteractiveContent(form, questionCount, selectedBankQuestions) : null;
+    const interactiveContent = assignmentType === 'interactive' ? buildInteractiveContent(form, questionCount, selectedBankQuestions, aiQuestions) : null;
     if (assignmentType === 'interactive' && !(interactiveContent?.questions.length)) { window.alert('Adicione pelo menos uma pergunta com enunciado e gabarito.'); return; }
     onSave({ studentId: String(form.get('studentId')), materialId: String(form.get('materialId') || '') || undefined, title: String(form.get('title')), instructions: String(form.get('instructions')), dueDate: String(form.get('dueDate')), assignmentType, interactiveContent });
   };
@@ -1094,7 +1117,8 @@ function AssignmentModal({ students, materials, questionBank, mode, onClose, onS
     <label className="full-field">Material vinculado <span>(opcional)</span><select name="materialId"><option value="">Nenhum</option>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label>
     <label className="full-field">Instruções<textarea name="instructions" rows={4} required placeholder={assignmentType === 'interactive' ? 'Ex.: Responda as questões abaixo.' : 'Explique o que o aluno deve fazer e como entregar.'} /></label>
     {assignmentType === 'interactive' && <div className="interactive-builder full-field"><div><strong>Configurações do quiz</strong><span>Defina tentativas e quando o aluno verá o gabarito.</span></div><div className="interactive-options-grid"><label>Tentativas permitidas<select name="interactiveMaxAttempts" defaultValue="1"><option value="1">1 tentativa</option><option value="2">2 tentativas</option><option value="3">3 tentativas</option><option value="0">Ilimitadas</option></select></label><label>Mostrar gabarito<select name="interactiveRevealAnswers" defaultValue="after_each"><option value="after_each">Depois de cada envio</option><option value="after_last">Apenas na última tentativa</option></select></label></div>
-      <section className="quiz-bank-picker"><div><strong>Banco de questões</strong><span>Use questões salvas por nível. Categoria disponível agora: Grammar.</span></div><div className="quiz-bank-toolbar"><label>Nível<select value={bankLevel} onChange={(event) => setBankLevel(event.target.value as QuestionBankLevel)}>{questionBankLevels.map((level) => <option key={level}>{level}</option>)}</select></label><label>Categoria<select value="Grammar" disabled><option>Grammar</option></select></label><span>{selectedBankQuestions.length} selecionada(s)</span></div><div className="quiz-auto-builder"><div><strong>Montagem automática</strong><small>Escolha a quantidade e deixe a plataforma sortear questões deste nível.</small></div><label>Quantidade<input type="number" min="1" max={Math.max(1, bankQuestions.length)} value={autoQuestionCount} onChange={(event) => setAutoQuestionCount(Number(event.target.value) || 1)} /></label><button type="button" className="primary-button" onClick={buildAutomaticQuiz}><Sparkles size={15} />Montar quiz</button></div>{bankQuestions.length ? <div className="quiz-bank-list">{bankQuestions.slice(0, 8).map((question) => { const selected = selectedBankQuestions.some((item) => item.id === question.id); return <article key={question.id}><div><small>{question.level} · {question.category} · {questionTypeLabel(question.type)}</small><strong>{question.prompt}</strong></div><button type="button" disabled={selected} onClick={() => addBankQuestion(question)}>{selected ? <Check size={14} /> : <Plus size={14} />}{selected ? 'Adicionada' : 'Adicionar'}</button></article>; })}</div> : <p className="quiz-bank-empty">Nenhuma questão Grammar cadastrada para {bankLevel} ainda.</p>}{selectedBankQuestions.length > 0 && <div className="quiz-bank-selected"><strong>Questões adicionadas ao quiz</strong>{selectedBankQuestions.map((question) => <span key={question.id}>{question.level} · {question.prompt}<button type="button" onClick={() => removeBankQuestion(question.id)}><X size={12} /></button></span>)}</div>}</section>
+      <section className="ai-quiz-generator"><div><strong>Gerar com IA</strong><span>Crie um rascunho de questões de Grammar por tema e nível. Revise antes de enviar ao aluno.</span></div><div className="ai-quiz-controls"><label>Tema<input value={aiTopic} onChange={(event) => setAiTopic(event.target.value)} placeholder="Ex.: Present perfect with travel experiences" /></label><label>Quantidade<input type="number" min="1" max="20" value={aiQuestionCount} onChange={(event) => setAiQuestionCount(Math.max(1, Math.min(20, Number(event.target.value) || 1)))} /></label><button type="button" className="primary-button" disabled={aiBusy} onClick={generateAiQuestions}>{aiBusy ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />}{aiBusy ? 'Gerando...' : 'Gerar questões'}</button></div>{aiQuestions.length > 0 && <div className="quiz-bank-selected ai-generated-list"><strong>Questões geradas com IA</strong>{aiQuestions.map((question) => <span key={question.id}>IA · {questionTypeLabel(question.type)} · {question.prompt}<button type="button" onClick={() => removeAiQuestion(question.id)}><X size={12} /></button></span>)}</div>}</section>
+      <section className="quiz-bank-picker"><div><strong>Banco de questões</strong><span>Use questões salvas por nível. Categoria disponível agora: Grammar.</span></div><div className="quiz-bank-toolbar"><label>Nível<select value={bankLevel} onChange={(event) => setBankLevel(event.target.value as QuestionBankLevel)}>{questionBankLevels.map((level) => <option key={level}>{level}</option>)}</select></label><label>Categoria<select value="Grammar" disabled><option>Grammar</option></select></label><span>{selectedBankQuestions.length} selecionada(s)</span></div><div className="quiz-auto-builder"><div><strong>Montagem automática</strong><small>Escolha a quantidade e deixe a plataforma sortear questões deste nível.</small></div><label>Quantidade<input type="number" min="1" value={autoQuestionCount} onChange={(event) => setAutoQuestionCount(Number(event.target.value) || 1)} /></label><button type="button" className="primary-button" onClick={buildAutomaticQuiz}><Sparkles size={15} />Montar quiz</button></div>{bankQuestions.length ? <div className="quiz-bank-list">{bankQuestions.slice(0, 8).map((question) => { const selected = selectedBankQuestions.some((item) => item.id === question.id); return <article key={question.id}><div><small>{question.level} · {question.category} · {questionTypeLabel(question.type)}</small><strong>{question.prompt}</strong></div><button type="button" disabled={selected} onClick={() => addBankQuestion(question)}>{selected ? <Check size={14} /> : <Plus size={14} />}{selected ? 'Adicionada' : 'Adicionar'}</button></article>; })}</div> : <p className="quiz-bank-empty">Nenhuma questão Grammar cadastrada para {bankLevel} ainda.</p>}{selectedBankQuestions.length > 0 && <div className="quiz-bank-selected"><strong>Questões adicionadas ao quiz</strong>{selectedBankQuestions.map((question) => <span key={question.id}>{question.level} · {question.prompt}<button type="button" onClick={() => removeBankQuestion(question.id)}><X size={12} /></button></span>)}</div>}</section>
       <section className="manual-questions-heading"><div><FileQuestion size={18} /><div><strong>Questões manuais</strong><span>Adicione perguntas específicas para este quiz ou combine com as questões do banco.</span></div></div><em>{questionCount} questão(ões)</em></section>{Array.from({ length: questionCount }).map((_, index) => {
       const currentType = typeFor(index);
       return <fieldset key={index}><legend>Questão {index + 1}</legend>
@@ -1130,11 +1154,33 @@ function displayQuestionAnswer(question: InteractiveQuestion | QuestionBankItem)
   return question.type === 'ordering' ? splitOrderingSource(question.answer).join(' ') : question.answer;
 }
 
+async function functionInvokeErrorMessage(error: unknown, fallbackData: unknown) {
+  const fallback = error instanceof Error ? error.message : 'Não foi possível executar a função.';
+  const fallbackBody = fallbackData as { error?: string; message?: string } | null;
+  if (fallbackBody?.error || fallbackBody?.message) return fallbackBody.error ?? fallbackBody.message ?? fallback;
+  const context = (error as { context?: { json?: () => Promise<unknown>; text?: () => Promise<string>; status?: number } } | null)?.context;
+  try {
+    if (context?.json) {
+      const body = await context.json() as { error?: string; message?: string; code?: string };
+      if (body.error || body.message) return body.error ?? body.message ?? fallback;
+      if (body.code) return body.code;
+    }
+  } catch {
+    try {
+      const text = await context?.text?.();
+      if (text) return text;
+    } catch {
+      // Keep the SDK fallback message.
+    }
+  }
+  return fallback;
+}
+
 function bankQuestionToInteractive(question: QuestionBankItem): InteractiveQuestion {
   return { id: crypto.randomUUID(), type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation };
 }
 
-function buildInteractiveContent(form: FormData, questionCount: number, bankQuestions: QuestionBankItem[] = []): InteractiveAssignmentContent {
+function buildInteractiveContent(form: FormData, questionCount: number, bankQuestions: QuestionBankItem[] = [], generatedQuestions: InteractiveQuestion[] = []): InteractiveAssignmentContent {
   const maxAttempts = Number(form.get('interactiveMaxAttempts') || '1');
   const revealAnswers = String(form.get('interactiveRevealAnswers') || 'after_each') === 'after_last' ? 'after_last' : 'after_each';
   const manualQuestions: InteractiveQuestion[] = Array.from({ length: questionCount }).flatMap<InteractiveQuestion>((_, index) => {
@@ -1157,7 +1203,7 @@ function buildInteractiveContent(form: FormData, questionCount: number, bankQues
     if (options.length < 2 || !options[answerIndex]) return [];
     return [{ id: crypto.randomUUID(), type, prompt, options, answer: options[answerIndex], explanation }];
   });
-  const questions = [...bankQuestions.map(bankQuestionToInteractive), ...manualQuestions];
+  const questions = [...bankQuestions.map(bankQuestionToInteractive), ...generatedQuestions, ...manualQuestions];
   return { questions, settings: { maxAttempts: Number.isFinite(maxAttempts) ? maxAttempts : 1, revealAnswers } };
 }
 
