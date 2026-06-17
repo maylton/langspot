@@ -33,6 +33,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Sun,
   Moon,
   Target,
@@ -63,8 +64,18 @@ export type MaterialType = 'PDF' | 'Vídeo' | 'Áudio' | 'Link' | 'Atividade';
 export type Material = { id: Id; title: string; type: MaterialType; level: string; skill: Skill; url: string; description: string; createdAt: string; assignedStudentIds?: Id[]; storagePath?: string; fileName?: string; fileSize?: number; source?: 'link' | 'upload' };
 export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'assignedStudentIds'> & { file?: File };
 export type AssignmentStatus = 'Pendente' | 'Entregue' | 'Corrigida';
-export type Assignment = { id: Id; teacherId?: Id; studentId: Id; materialId?: Id; title: string; instructions: string; dueDate: string; status: AssignmentStatus; submissionText?: string; submittedAt?: string; submissionFileName?: string; submissionFileUrl?: string; feedback?: string; grade?: number; createdAt: string };
-export type AssignmentInput = Pick<Assignment, 'studentId' | 'materialId' | 'title' | 'instructions' | 'dueDate'>;
+export type InteractiveQuestionType = 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
+export type InteractiveQuestion = { id: Id; type: InteractiveQuestionType; prompt: string; options: string[]; answer: string; explanation?: string };
+export type InteractiveAssignmentSettings = { maxAttempts: number; revealAnswers: 'after_each' | 'after_last' };
+export type InteractiveAssignmentContent = { questions: InteractiveQuestion[]; settings?: InteractiveAssignmentSettings };
+export type InteractiveAttempt = { answers: Record<Id, string>; score: number; total: number; percentage: number; submittedAt: string };
+export type InteractiveAssignmentResult = { answers: Record<Id, string>; score: number; total: number; percentage: number; attempts?: InteractiveAttempt[] };
+export type Assignment = { id: Id; teacherId?: Id; studentId: Id; materialId?: Id; title: string; instructions: string; dueDate: string; status: AssignmentStatus; submissionText?: string; submittedAt?: string; submissionFileName?: string; submissionFileUrl?: string; feedback?: string; grade?: number; createdAt: string; assignmentType?: 'regular' | 'interactive'; interactiveContent?: InteractiveAssignmentContent | null; interactiveResult?: InteractiveAssignmentResult | null };
+export type AssignmentInput = Pick<Assignment, 'studentId' | 'materialId' | 'title' | 'instructions' | 'dueDate' | 'assignmentType' | 'interactiveContent'>;
+export type QuestionBankLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type QuestionBankCategory = 'Grammar';
+export type QuestionBankItem = { id: Id; teacherId?: Id; level: QuestionBankLevel; category: QuestionBankCategory; type: InteractiveQuestionType; prompt: string; options: string[]; answer: string; explanation?: string; createdAt: string };
+export type QuestionBankInput = Omit<QuestionBankItem, 'id' | 'teacherId' | 'createdAt'>;
 export type PaymentStatus = 'Pendente' | 'Pago' | 'Atrasado';
 export type Payment = { id: Id; studentId: Id; description: string; amount: number; dueDate: string; status: PaymentStatus; paidAt?: string; createdAt: string };
 export type PaymentInput = Pick<Payment, 'studentId' | 'description' | 'amount' | 'dueDate'>;
@@ -92,10 +103,13 @@ type StudentAccountResult = { temporaryPassword: string; studentId?: Id };
 
 type NotificationKind = 'lesson' | 'assignment' | 'payment' | 'cancellation';
 export type AppNotification = { id: string; kind: NotificationKind; title: string; description: string; date: string; target: View; urgent?: boolean };
-type View = 'Visão geral' | 'Notificações' | 'Alunos' | 'Aulas' | 'Materiais' | 'Tarefas' | 'Financeiro' | 'Progresso' | 'Relatórios' | 'Configurações';
+type View = 'Visão geral' | 'Notificações' | 'Alunos' | 'Aulas' | 'Materiais' | 'Tarefas' | 'Quiz' | 'Financeiro' | 'Progresso' | 'Relatórios' | 'Configurações';
+type AssignmentFormMode = 'regular' | 'interactive';
 
 const skills: Skill[] = ['Speaking', 'Listening', 'Reading', 'Writing', 'Grammar', 'Vocabulary', 'Pronunciation'];
+const questionBankLevels: QuestionBankLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const defaultSkills = (): Record<Skill, number> => ({ Speaking: 50, Listening: 50, Reading: 50, Writing: 50, Grammar: 50, Vocabulary: 50, Pronunciation: 50 });
+const interactiveResultSummary = (result?: InteractiveAssignmentResult | null) => result ? `${result.score}/${result.total} acertos (${result.percentage}%)` : '';
 
 // Use mock settings if mock data is enabled, otherwise use empty defaults
 const defaultSettings: PlatformSettings = can.useMockData() ? mockSettings : { teacherName: '', email: '', schoolName: '', avatar: '', defaultDuration: 60, defaultOnlineUrl: '', compactMode: false, theme: 'light', confirmCancellations: true };
@@ -107,13 +121,14 @@ const navigation: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: 'Aulas', icon: CalendarDays },
   { label: 'Materiais', icon: BookOpen },
   { label: 'Tarefas', icon: ClipboardList },
+  { label: 'Quiz', icon: FileQuestion },
   { label: 'Financeiro', icon: WalletCards },
   { label: 'Progresso', icon: ChartNoAxesCombined },
   { label: 'Relatórios', icon: FileText },
   { label: 'Configurações', icon: Settings },
 ];
 
-function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onCreateStudentAccount, onOpenCancellationRequests, cancellationRequestCount = 0, initialSettings, onProfileSettingsChange, authenticatedMode = false, accountAccess, initialStudents, initialSchedule, initialMaterials, initialAssignments, initialPayments, onCreateScheduledLesson, onUpdateScheduledLesson, onCancelScheduledLesson, onCompleteScheduledLesson, onCreateLessonRecord, onUpdateLessonRecord, onDeleteLessonRecord, onUpdateStudentSkills, onUpdateStudentProfile, onDeleteStudent, onPreviewStudent, onCreateMaterial, onDeleteMaterial, onAssignMaterial, onCreateAssignment, onDeleteAssignment, onReviewAssignment, onCreatePayment, onUpdatePaymentStatus, onDeletePayment }: { onLogout?: () => void; onInviteStudent?: () => void; onInviteTeacher?: () => void; onManageTeachers?: () => void; onCreateStudentAccount?: (data: StudentCreateInput) => Promise<StudentAccountResult>; onOpenCancellationRequests?: () => void; cancellationRequestCount?: number; initialSettings?: Partial<PlatformSettings>; onProfileSettingsChange?: (settings: PlatformSettings) => void | Promise<void>; authenticatedMode?: boolean; accountAccess?: AccountAccessInfo; initialStudents?: Student[]; initialSchedule?: ScheduledLesson[]; onCreateScheduledLesson?: (lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onUpdateScheduledLesson?: (id: Id, lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onCancelScheduledLesson?: (id: Id) => Promise<void>; onCompleteScheduledLesson?: (id: Id, record: LessonRecordInput) => Promise<void>; onCreateLessonRecord?: (studentId: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onUpdateLessonRecord?: (id: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onDeleteLessonRecord?: (id: Id) => Promise<void>; onUpdateStudentSkills?: (studentId: Id, skills: Record<Skill, number>) => Promise<void>; onUpdateStudentProfile?: (student: Student) => Promise<void>; onDeleteStudent?: (studentId: Id) => Promise<void>; onPreviewStudent?: (student: Student) => void; initialMaterials?: Material[]; onCreateMaterial?: (material: MaterialInput) => Promise<Material>; onDeleteMaterial?: (id: Id) => Promise<void>; onAssignMaterial?: (materialId: Id, studentIds: Id[]) => Promise<void>; initialAssignments?: Assignment[]; onCreateAssignment?: (assignment: AssignmentInput) => Promise<Assignment>; onDeleteAssignment?: (id: Id) => Promise<void>; onReviewAssignment?: (id: Id, feedback: string, grade?: number) => Promise<void>; initialPayments?: Payment[]; onCreatePayment?: (payment: PaymentInput) => Promise<Payment>; onUpdatePaymentStatus?: (id: Id, status: PaymentStatus) => Promise<void>; onDeletePayment?: (id: Id) => Promise<void> }) {
+function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onCreateStudentAccount, onOpenCancellationRequests, cancellationRequestCount = 0, initialSettings, onProfileSettingsChange, authenticatedMode = false, accountAccess, initialStudents, initialSchedule, initialMaterials, initialAssignments, initialQuestionBank, initialPayments, onCreateScheduledLesson, onUpdateScheduledLesson, onCancelScheduledLesson, onCompleteScheduledLesson, onCreateLessonRecord, onUpdateLessonRecord, onDeleteLessonRecord, onUpdateStudentSkills, onUpdateStudentProfile, onDeleteStudent, onPreviewStudent, onCreateMaterial, onDeleteMaterial, onAssignMaterial, onCreateAssignment, onDeleteAssignment, onReviewAssignment, onCreateQuestionBankItem, onDeleteQuestionBankItem, onCreatePayment, onUpdatePaymentStatus, onDeletePayment }: { onLogout?: () => void; onInviteStudent?: () => void; onInviteTeacher?: () => void; onManageTeachers?: () => void; onCreateStudentAccount?: (data: StudentCreateInput) => Promise<StudentAccountResult>; onOpenCancellationRequests?: () => void; cancellationRequestCount?: number; initialSettings?: Partial<PlatformSettings>; onProfileSettingsChange?: (settings: PlatformSettings) => void | Promise<void>; authenticatedMode?: boolean; accountAccess?: AccountAccessInfo; initialStudents?: Student[]; initialSchedule?: ScheduledLesson[]; onCreateScheduledLesson?: (lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onUpdateScheduledLesson?: (id: Id, lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onCancelScheduledLesson?: (id: Id) => Promise<void>; onCompleteScheduledLesson?: (id: Id, record: LessonRecordInput) => Promise<void>; onCreateLessonRecord?: (studentId: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onUpdateLessonRecord?: (id: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onDeleteLessonRecord?: (id: Id) => Promise<void>; onUpdateStudentSkills?: (studentId: Id, skills: Record<Skill, number>) => Promise<void>; onUpdateStudentProfile?: (student: Student) => Promise<void>; onDeleteStudent?: (studentId: Id) => Promise<void>; onPreviewStudent?: (student: Student) => void; initialMaterials?: Material[]; onCreateMaterial?: (material: MaterialInput) => Promise<Material>; onDeleteMaterial?: (id: Id) => Promise<void>; onAssignMaterial?: (materialId: Id, studentIds: Id[]) => Promise<void>; initialAssignments?: Assignment[]; initialQuestionBank?: QuestionBankItem[]; onCreateAssignment?: (assignment: AssignmentInput) => Promise<Assignment>; onDeleteAssignment?: (id: Id) => Promise<void>; onReviewAssignment?: (id: Id, feedback: string, grade?: number) => Promise<void>; onCreateQuestionBankItem?: (question: QuestionBankInput) => Promise<QuestionBankItem>; onDeleteQuestionBankItem?: (id: Id) => Promise<void>; initialPayments?: Payment[]; onCreatePayment?: (payment: PaymentInput) => Promise<Payment>; onUpdatePaymentStatus?: (id: Id, status: PaymentStatus) => Promise<void>; onDeletePayment?: (id: Id) => Promise<void> }) {
   const [active, setActive] = useState<View>('Visão geral');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -148,6 +163,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
     return saved ? JSON.parse(saved) : (can.useMockData() ? mockMaterials : []);
   });
   const [assignments, setAssignments] = useState<Assignment[]>(() => authenticatedMode ? (initialAssignments ?? []) : []);
+  const [questionBank, setQuestionBank] = useState<QuestionBankItem[]>(() => authenticatedMode ? (initialQuestionBank ?? []) : []);
   const [payments, setPayments] = useState<Payment[]>(() => authenticatedMode ? (initialPayments ?? []) : []);
   const [settings, setSettings] = useState<PlatformSettings>(() => {
     const saved = localStorage.getItem('linguaboard.settings');
@@ -170,9 +186,10 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null);
   const [materialToAssign, setMaterialToAssign] = useState<Material | null>(null);
   const [temporaryAccess, setTemporaryAccess] = useState<{ name: string; email: string; password: string } | null>(null);
-  const [showAssignmentForm, setShowAssignmentForm] = useState(false);
+  const [assignmentFormMode, setAssignmentFormMode] = useState<AssignmentFormMode | null>(null);
   const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
   const [assignmentToReview, setAssignmentToReview] = useState<Assignment | null>(null);
+  const [showQuestionBank, setShowQuestionBank] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('langspot.readNotifications') ?? '[]'); }
@@ -186,6 +203,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   useEffect(() => { if (!authenticatedMode) localStorage.setItem('linguaboard.materials', JSON.stringify(materials)); }, [materials, authenticatedMode]);
   useEffect(() => { if (authenticatedMode && initialMaterials) setMaterials(initialMaterials); }, [authenticatedMode, initialMaterials]);
   useEffect(() => { if (authenticatedMode && initialAssignments) setAssignments(initialAssignments); }, [authenticatedMode, initialAssignments]);
+  useEffect(() => { if (authenticatedMode && initialQuestionBank) setQuestionBank(initialQuestionBank); }, [authenticatedMode, initialQuestionBank]);
   useEffect(() => { if (authenticatedMode && initialPayments) setPayments(initialPayments); }, [authenticatedMode, initialPayments]);
   useEffect(() => localStorage.setItem('langspot.readNotifications', JSON.stringify(readNotificationIds)), [readNotificationIds]);
   useEffect(() => localStorage.setItem('linguaboard.settings', JSON.stringify(settings)), [settings]);
@@ -222,10 +240,13 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
 
     assignments.forEach((assignment) => {
       const due = new Date(`${assignment.dueDate}T23:59:59`);
+      const assignmentTarget = assignment.assignmentType === 'interactive' ? 'Quiz' : 'Tarefas';
+      const reviewTitle = assignment.assignmentType === 'interactive' ? 'Quiz aguardando correção' : 'Tarefa aguardando correção';
+      const overdueTitle = assignment.assignmentType === 'interactive' ? 'Quiz atrasado' : 'Tarefa atrasada';
       if (assignment.status === 'Entregue') {
-        items.push({ id: `assignment-review-${assignment.id}`, kind: 'assignment', title: 'Tarefa aguardando correção', description: `${studentName(assignment.studentId)} entregou “${assignment.title}”.`, date: assignment.submittedAt ?? assignment.createdAt, target: 'Tarefas', urgent: true });
+        items.push({ id: `assignment-review-${assignment.id}`, kind: 'assignment', title: reviewTitle, description: `${studentName(assignment.studentId)} entregou “${assignment.title}”.`, date: assignment.submittedAt ?? assignment.createdAt, target: assignmentTarget, urgent: true });
       } else if (assignment.status === 'Pendente' && due < now) {
-        items.push({ id: `assignment-overdue-${assignment.id}`, kind: 'assignment', title: 'Tarefa atrasada', description: `${studentName(assignment.studentId)} ainda não entregou “${assignment.title}”.`, date: due.toISOString(), target: 'Tarefas', urgent: true });
+        items.push({ id: `assignment-overdue-${assignment.id}`, kind: 'assignment', title: overdueTitle, description: `${studentName(assignment.studentId)} ainda não entregou “${assignment.title}”.`, date: due.toISOString(), target: assignmentTarget, urgent: true });
       }
     });
 
@@ -401,11 +422,13 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   const addAssignment = async (input: AssignmentInput) => {
     try {
       const created = onCreateAssignment ? await onCreateAssignment(input) : { ...input, id: crypto.randomUUID(), status: 'Pendente' as AssignmentStatus, createdAt: new Date().toISOString() };
-      setAssignments((current) => [created, ...current]); setShowAssignmentForm(false);
+      setAssignments((current) => [created, ...current]); setAssignmentFormMode(null);
     } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível criar a tarefa.'); }
   };
   const deleteAssignment = async () => { if (!assignmentToDelete) return; try { await onDeleteAssignment?.(assignmentToDelete.id); setAssignments((current) => current.filter((item) => item.id !== assignmentToDelete.id)); setAssignmentToDelete(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a tarefa.'); } };
   const reviewAssignment = async (feedback: string, grade?: number) => { if (!assignmentToReview) return; try { await onReviewAssignment?.(assignmentToReview.id, feedback, grade); setAssignments((current) => current.map((item) => item.id === assignmentToReview.id ? { ...item, feedback, grade, status: 'Corrigida' } : item)); setAssignmentToReview(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar o feedback.'); } };
+  const addQuestionBankItem = async (input: QuestionBankInput) => { try { const created = onCreateQuestionBankItem ? await onCreateQuestionBankItem(input) : { ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() }; setQuestionBank((current) => [created, ...current]); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar a questão.'); } };
+  const deleteQuestionBankItem = async (id: Id) => { if (!window.confirm('Excluir esta questão do banco?')) return; try { await onDeleteQuestionBankItem?.(id); setQuestionBank((current) => current.filter((item) => item.id !== id)); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a questão.'); } };
 
   const createPayment = async (input: PaymentInput) => { try { const payment = onCreatePayment ? await onCreatePayment(input) : { ...input, id: crypto.randomUUID(), status: 'Pendente' as const, createdAt: new Date().toISOString() }; setPayments((current) => [payment, ...current]); setShowPaymentForm(false); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível criar a cobrança.'); } };
   const updatePaymentStatus = async (id: Id, status: PaymentStatus) => { try { await onUpdatePaymentStatus?.(id, status); setPayments((current) => current.map((item) => item.id === id ? { ...item, status, paidAt: status === 'Pago' ? new Date().toISOString() : undefined } : item)); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível atualizar o pagamento.'); } };
@@ -439,17 +462,13 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   const navigateTo = (label: View) => { setActive(label); setSelectedId(null); setMobileMenuOpen(false); setAccountMenuOpen(false); };
 
   const topbarPrimaryAction = !selected ? (
-    active === 'Visão geral' || active === 'Aulas'
+    active === 'Visão geral'
       ? { label: 'Nova aula', run: () => setLessonToEdit(newLessonDraft()) }
       : active === 'Alunos'
         ? { label: 'Novo aluno', run: () => setShowStudentForm(true) }
         : active === 'Materiais'
           ? { label: 'Novo material', run: () => setShowMaterialForm(true) }
-          : active === 'Tarefas'
-            ? { label: 'Nova tarefa', run: () => setShowAssignmentForm(true) }
-            : active === 'Financeiro'
-              ? { label: 'Nova cobrança', run: () => setShowPaymentForm(true) }
-              : null
+          : null
   ) : null;
 
   const pageTitle = selected ? selected.name : active;
@@ -473,7 +492,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
 
         {!isOnline && <div className="offline-banner" role="status"><WifiOff size={17} /><span>Você está offline. Alterações que dependem do Supabase podem não ser salvas até a conexão voltar.</span></div>}
 
-        {selected ? <StudentProfile student={selected} onNewLesson={() => setCreatingLessonRecord(true)} onSkillChange={updateSkill} onEdit={() => setStudentToEdit(selected)} onDelete={() => setStudentToDelete(selected)} onPreview={() => onPreviewStudent?.(selected)} onEditLesson={setLessonRecordToEdit} onDeleteLesson={setLessonRecordToDelete} /> : active === 'Visão geral' ? <Dashboard teacherName={settings.teacherName} students={students} schedule={schedule} averageProgress={averageProgress} authenticatedMode={authenticatedMode} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} onOpenSchedule={() => setActive('Aulas')} /> : active === 'Notificações' ? <NotificationsPage notifications={notifications} readIds={readNotificationIds} onOpen={openNotification} onMarkAll={markAllNotificationsRead} /> : active === 'Alunos' ? <StudentsPage students={filteredStudents} schedule={schedule} query={query} setQuery={setQuery} onOpen={setSelectedId} /> : active === 'Aulas' ? <LessonsPage students={students} lessons={schedule} onNew={(date) => setLessonToEdit({ ...newLessonDraft(), date: date ?? toDateInput(new Date()) })} onEdit={setLessonToEdit} onComplete={setLessonToComplete} onCancel={cancelScheduledLesson} /> : active === 'Materiais' ? <MaterialsPage materials={materials} onNew={() => setShowMaterialForm(true)} onDelete={setMaterialToDelete} onAssign={setMaterialToAssign} /> : active === 'Tarefas' ? <AssignmentsPage assignments={assignments} students={students} onNew={() => setShowAssignmentForm(true)} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Financeiro' ? <FinancePage payments={payments} students={students} onNew={() => setShowPaymentForm(true)} onStatus={updatePaymentStatus} onDelete={deletePayment} /> : active === 'Progresso' ? <ProgressPage students={students} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} /> : active === 'Relatórios' ? <ReportsPage students={students} schedule={schedule} assignments={assignments} /> : active === 'Configurações' ? <SettingsPage settings={settings} authenticatedMode={authenticatedMode} accountAccess={accountAccess} onSave={saveSettings} counts={{ students: students.length, lessons: schedule.length, materials: materials.length }} onExport={exportData} onReset={resetData} onInviteTeacher={onInviteTeacher} onManageTeachers={onManageTeachers} /> : <PlaceholderPage title={active} />}
+        {selected ? <StudentProfile student={selected} onNewLesson={() => setCreatingLessonRecord(true)} onSkillChange={updateSkill} onEdit={() => setStudentToEdit(selected)} onDelete={() => setStudentToDelete(selected)} onPreview={() => onPreviewStudent?.(selected)} onEditLesson={setLessonRecordToEdit} onDeleteLesson={setLessonRecordToDelete} /> : active === 'Visão geral' ? <Dashboard teacherName={settings.teacherName} students={students} schedule={schedule} averageProgress={averageProgress} authenticatedMode={authenticatedMode} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} onOpenSchedule={() => setActive('Aulas')} /> : active === 'Notificações' ? <NotificationsPage notifications={notifications} readIds={readNotificationIds} onOpen={openNotification} onMarkAll={markAllNotificationsRead} /> : active === 'Alunos' ? <StudentsPage students={filteredStudents} schedule={schedule} query={query} setQuery={setQuery} onOpen={setSelectedId} /> : active === 'Aulas' ? <LessonsPage students={students} lessons={schedule} onNew={(date) => setLessonToEdit({ ...newLessonDraft(), date: date ?? toDateInput(new Date()) })} onEdit={setLessonToEdit} onComplete={setLessonToComplete} onCancel={cancelScheduledLesson} /> : active === 'Materiais' ? <MaterialsPage materials={materials} onNew={() => setShowMaterialForm(true)} onDelete={setMaterialToDelete} onAssign={setMaterialToAssign} /> : active === 'Tarefas' ? <AssignmentsPage assignments={assignments.filter((assignment) => assignment.assignmentType !== 'interactive')} students={students} mode="tasks" onNew={() => setAssignmentFormMode('regular')} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Quiz' ? <AssignmentsPage assignments={assignments.filter((assignment) => assignment.assignmentType === 'interactive')} students={students} mode="quiz" onNew={() => setAssignmentFormMode('interactive')} onManageBank={() => setShowQuestionBank(true)} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Financeiro' ? <FinancePage payments={payments} students={students} onNew={() => setShowPaymentForm(true)} onStatus={updatePaymentStatus} onDelete={deletePayment} /> : active === 'Progresso' ? <ProgressPage students={students} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} /> : active === 'Relatórios' ? <ReportsPage students={students} schedule={schedule} assignments={assignments} /> : active === 'Configurações' ? <SettingsPage settings={settings} authenticatedMode={authenticatedMode} accountAccess={accountAccess} onSave={saveSettings} counts={{ students: students.length, lessons: schedule.length, materials: materials.length }} onExport={exportData} onReset={resetData} onInviteTeacher={onInviteTeacher} onManageTeachers={onManageTeachers} /> : <PlaceholderPage title={active} />}
       </main>
 
       {showStudentForm && <StudentModal onClose={() => setShowStudentForm(false)} onSave={addStudent} defaultDuration={settings.defaultDuration} defaultOnlineUrl={settings.defaultOnlineUrl} />}
@@ -489,7 +508,8 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
       {materialToDelete && <DeleteMaterialModal material={materialToDelete} onClose={() => setMaterialToDelete(null)} onConfirm={deleteMaterial} />}
       {materialToAssign && <AssignMaterialModal material={materialToAssign} students={students} onClose={() => setMaterialToAssign(null)} onSave={assignMaterial} />}
       {temporaryAccess && <TemporaryAccessModal access={temporaryAccess} onClose={() => setTemporaryAccess(null)} />}
-      {showAssignmentForm && <AssignmentModal students={students} materials={materials} onClose={() => setShowAssignmentForm(false)} onSave={addAssignment} />}
+      {assignmentFormMode && <AssignmentModal students={students} materials={materials} questionBank={questionBank} mode={assignmentFormMode} onClose={() => setAssignmentFormMode(null)} onSave={addAssignment} />}
+      {showQuestionBank && <QuestionBankModal questions={questionBank} onClose={() => setShowQuestionBank(false)} onCreate={addQuestionBankItem} onDelete={deleteQuestionBankItem} />}
       {assignmentToDelete && <ConfirmAssignmentDelete assignment={assignmentToDelete} onClose={() => setAssignmentToDelete(null)} onConfirm={deleteAssignment} />}
       {showPaymentForm && <PaymentModal students={students} onClose={() => setShowPaymentForm(false)} onSave={createPayment} />}{assignmentToReview && <ReviewAssignmentModal assignment={assignmentToReview} onClose={() => setAssignmentToReview(null)} onSave={reviewAssignment} />}
     </div>
@@ -1003,39 +1023,205 @@ function DeleteMaterialModal({ material, onClose, onConfirm }: { material: Mater
   return <Modal title="Excluir material" onClose={onClose}><div className="delete-warning"><div className="delete-warning-icon"><Trash2 size={22} /></div><div><strong>Excluir “{material.title}”?</strong><p>O material será removido da sua biblioteca. O conteúdo original no link externo não será alterado.</p></div></div><div className="form-actions"><button className="cancel-button" onClick={onClose}>Manter material</button><button className="danger-button" onClick={onConfirm}><Trash2 size={16} />Excluir material</button></div></Modal>;
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) { return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={(e) => e.stopPropagation()}><div className="modal-header"><h2>{title}</h2><button className="icon-button" onClick={onClose}><X size={18} /></button></div>{children}</section></div>; }
+function Modal({ title, onClose, children, className = '' }: { title: string; onClose: () => void; children: React.ReactNode; className?: string }) { return <div className="modal-backdrop" onMouseDown={onClose}><section className={`modal ${className}`.trim()} onMouseDown={(e) => e.stopPropagation()}><div className="modal-header"><h2>{title}</h2><button className="icon-button" onClick={onClose}><X size={18} /></button></div>{children}</section></div>; }
 function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) { return <label>{label}<input {...props} /></label>; }
 function SelectField({ name, label, options }: { name: string; label: string; options: string[] }) { return <label>{label}<select name={name}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>; }
 
-function AssignmentsPage({ assignments, students, onNew, onDelete, onReview }: { assignments: Assignment[]; students: Student[]; onNew: () => void; onDelete: (assignment: Assignment) => void; onReview: (assignment: Assignment) => void }) {
+function AssignmentsPage({ assignments, students, mode, onNew, onManageBank, onDelete, onReview }: { assignments: Assignment[]; students: Student[]; mode: 'tasks' | 'quiz'; onNew: () => void; onManageBank?: () => void; onDelete: (assignment: Assignment) => void; onReview: (assignment: Assignment) => void }) {
+  const [openAssignmentId, setOpenAssignmentId] = useState<Id | null>(null);
+  const [previewAssignment, setPreviewAssignment] = useState<Assignment | null>(null);
   const ordered = [...assignments].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const studentName = (id: Id) => students.find((student) => student.id === id)?.name ?? 'Aluno';
   const statusCount = (status: AssignmentStatus) => assignments.filter((assignment) => assignment.status === status).length;
+  const copy = mode === 'quiz'
+    ? { eyebrow: 'QUIZ', title: 'Quizzes interativos', description: 'Crie atividades objetivas, acompanhe tentativas e revise os resultados.', button: 'Novo quiz', open: 'Abrir quiz', emptyTitle: 'Nenhum quiz criado', emptyText: 'Crie quizzes interativos para os alunos responderem na plataforma.', emptyButton: 'Criar primeiro quiz', review: 'Corrigir quiz', icon: FileQuestion }
+    : { eyebrow: 'ATIVIDADES', title: 'Tarefas e entregas', description: 'Acompanhe prazos, respostas e correções dos alunos.', button: 'Nova tarefa', open: 'Abrir tarefa', emptyTitle: 'Nenhuma tarefa criada', emptyText: 'Crie atividades com prazo e acompanhe as entregas dos alunos.', emptyButton: 'Criar primeira tarefa', review: 'Corrigir tarefa', icon: ClipboardList };
+  const deliveredLabel = mode === 'quiz' ? 'Realizados' : 'Entregues';
+  const reviewedLabel = mode === 'quiz' ? 'Corrigidos' : 'Corrigidas';
+  const EmptyIcon = copy.icon;
   return <>
     <div className="assignment-summary-grid">
       <article><ClipboardList size={18} /><span>Pendentes</span><strong>{statusCount('Pendente')}</strong></article>
-      <article><Clock3 size={18} /><span>Entregues</span><strong>{statusCount('Entregue')}</strong></article>
-      <article><Check size={18} /><span>Corrigidas</span><strong>{statusCount('Corrigida')}</strong></article>
+      <article><Clock3 size={18} /><span>{deliveredLabel}</span><strong>{statusCount('Entregue')}</strong></article>
+      <article><Check size={18} /><span>{reviewedLabel}</span><strong>{statusCount('Corrigida')}</strong></article>
     </div>
     <section className="panel assignments-panel">
-      <div className="panel-heading assignments-heading"><div><p className="eyebrow">ATIVIDADES</p><h3>Tarefas e entregas</h3><p>Acompanhe prazos, respostas e correções dos alunos.</p></div><button className="secondary-button compact" onClick={onNew}><Plus size={16} />Nova tarefa</button></div>
-      {ordered.length ? <div className="assignment-board">{ordered.map((assignment) => <article className="assignment-card" key={assignment.id}>
+      <div className="panel-heading assignments-heading"><div><p className="eyebrow">{copy.eyebrow}</p><h3>{copy.title}</h3><p>{copy.description}</p></div><div className="assignment-heading-actions">{mode === 'quiz' && onManageBank && <button className="secondary-button compact" onClick={onManageBank}><FolderOpen size={16} />Banco de questões</button>}<button className="secondary-button compact" onClick={onNew}><Plus size={16} />{copy.button}</button></div></div>
+      {ordered.length ? <div className="assignment-board">{ordered.map((assignment) => { const isOpen = openAssignmentId === assignment.id; return <article className={`assignment-card ${isOpen ? 'open' : ''}`} key={assignment.id}>
         <div className="assignment-card-top">
-          <div className="assignment-card-title"><div className="assignment-status-line"><span className={`assignment-status ${assignment.status.toLowerCase()}`}>{assignment.status}</span><span className="assignment-student-name">{studentName(assignment.studentId)}</span></div><h3>{assignment.title}</h3></div>
-          <div className="assignment-due"><span>Prazo</span><strong>{new Date(`${assignment.dueDate}T12:00:00`).toLocaleDateString('pt-BR')}</strong></div>
+          <div className="assignment-card-title"><div className="assignment-status-line"><span className={`assignment-status ${assignment.status.toLowerCase()}`}>{assignment.status}</span><span className="assignment-student-name">{studentName(assignment.studentId)}</span>{assignment.assignmentType === 'interactive' && <span className="assignment-kind-badge"><FileQuestion size={12} />Interativa</span>}</div><h3>{assignment.title}</h3><p>{assignment.instructions}</p></div>
+          <div className="assignment-card-meta"><div className="assignment-due"><span>Prazo</span><strong>{new Date(`${assignment.dueDate}T12:00:00`).toLocaleDateString('pt-BR')}</strong></div><button type="button" onClick={() => setOpenAssignmentId(isOpen ? null : assignment.id)}>{isOpen ? 'Fechar' : copy.open}</button></div>
         </div>
-        <div className="assignment-instructions"><span>Instruções</span><p>{assignment.instructions}</p></div>
-        {(assignment.submissionText || assignment.submissionFileUrl) && <div className="submission-preview"><strong>Resposta do aluno</strong>{assignment.submissionText && <p>{assignment.submissionText}</p>}{assignment.submissionFileUrl && <a className="submission-file-link" href={assignment.submissionFileUrl} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submissionFileName || 'PDF anexado'}<ExternalLink size={13} /></a>}</div>}
-        {assignment.feedback && <div className="feedback-preview"><strong>Feedback</strong><p>{assignment.feedback}</p>{assignment.grade !== undefined && <span className="assignment-grade">Nota: {assignment.grade}</span>}</div>}
-        <div className="assignment-card-actions">{assignment.status === 'Entregue' && <button className="assignment-review-button" onClick={() => onReview(assignment)}><Check size={15} />Corrigir tarefa</button>}<button className="assignment-delete-button" onClick={() => onDelete(assignment)} aria-label={`Excluir ${assignment.title}`}><Trash2 size={15} />Excluir</button></div>
-      </article>)}</div> : <div className="empty-state"><ClipboardList size={38} /><h3>Nenhuma tarefa criada</h3><p>Crie atividades com prazo e acompanhe as entregas dos alunos.</p><button className="primary-button" onClick={onNew}><Plus size={16} />Criar primeira tarefa</button></div>}
+        {isOpen && <div className="assignment-card-details"><div className="assignment-instructions"><span>Instruções</span><p>{assignment.instructions}</p></div>
+        {(assignment.submissionText || assignment.submissionFileUrl || assignment.interactiveResult) && <div className="submission-preview"><strong>Resposta do aluno</strong>{assignment.interactiveResult && <p>Resultado do quiz: {interactiveResultSummary(assignment.interactiveResult)}</p>}{assignment.submissionText && <p>{assignment.submissionText}</p>}{assignment.submissionFileUrl && <a className="submission-file-link" href={assignment.submissionFileUrl} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submissionFileName || 'PDF anexado'}<ExternalLink size={13} /></a>}</div>}
+        {assignment.feedback && <div className="feedback-preview"><strong>Feedback</strong><p>{assignment.feedback}</p>{assignment.grade !== undefined && <span className="assignment-grade">Nota: {assignment.grade}</span>}</div>}</div>}
+        <div className="assignment-card-actions">{mode === 'quiz' && assignment.assignmentType === 'interactive' && <button className="assignment-preview-button" onClick={() => setPreviewAssignment(assignment)}><Eye size={15} />Pré-visualizar</button>}{assignment.status === 'Entregue' && <button className="assignment-review-button" onClick={() => onReview(assignment)}><Check size={15} />{copy.review}</button>}<button className="assignment-delete-button" onClick={() => onDelete(assignment)} aria-label={`Excluir ${assignment.title}`}><Trash2 size={15} />Excluir</button></div>
+      </article>; })}</div> : <div className="empty-state"><EmptyIcon size={38} /><h3>{copy.emptyTitle}</h3><p>{copy.emptyText}</p><button className="primary-button" onClick={onNew}><Plus size={16} />{copy.emptyButton}</button></div>}
     </section>
+    {previewAssignment && <QuizPreviewModal assignment={previewAssignment} onClose={() => setPreviewAssignment(null)} />}
   </>;
 }
 
-function AssignmentModal({ students, materials, onClose, onSave }: { students: Student[]; materials: Material[]; onClose: () => void; onSave: (input: AssignmentInput) => void }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); onSave({ studentId: String(form.get('studentId')), materialId: String(form.get('materialId') || '') || undefined, title: String(form.get('title')), instructions: String(form.get('instructions')), dueDate: String(form.get('dueDate')) }); };
-  return <Modal title="Nova tarefa" onClose={onClose}><form className="form-grid" onSubmit={submit}><label>Aluno<select name="studentId" required defaultValue=""><option value="" disabled>Selecione</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label><label>Prazo<input name="dueDate" type="date" required min={toDateInput(new Date())} /></label><label className="full-field">Título<input name="title" required placeholder="Ex.: Reading comprehension — Unit 3" /></label><label className="full-field">Material vinculado <span>(opcional)</span><select name="materialId"><option value="">Nenhum</option>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label><label className="full-field">Instruções<textarea name="instructions" rows={5} required placeholder="Explique o que o aluno deve fazer e como entregar." /></label><div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Cancelar</button><button className="primary-button"><ClipboardList size={16} />Criar tarefa</button></div></form></Modal>;
+function AssignmentModal({ students, materials, questionBank, mode, onClose, onSave }: { students: Student[]; materials: Material[]; questionBank: QuestionBankItem[]; mode: AssignmentFormMode; onClose: () => void; onSave: (input: AssignmentInput) => void }) {
+  const [assignmentType] = useState<'regular' | 'interactive'>(mode === 'interactive' ? 'interactive' : 'regular');
+  const [questionCount, setQuestionCount] = useState(1);
+  const [questionTypes, setQuestionTypes] = useState<Record<number, InteractiveQuestionType>>({});
+  const [bankLevel, setBankLevel] = useState<QuestionBankLevel>('A1');
+  const [autoQuestionCount, setAutoQuestionCount] = useState(5);
+  const [selectedBankQuestions, setSelectedBankQuestions] = useState<QuestionBankItem[]>([]);
+  const typeFor = (index: number) => questionTypes[index] ?? 'multiple_choice';
+  const changeQuestionType = (index: number, type: InteractiveQuestionType) => setQuestionTypes((current) => ({ ...current, [index]: type }));
+  const bankQuestions = questionBank.filter((question) => question.level === bankLevel && question.category === 'Grammar');
+  const addBankQuestion = (question: QuestionBankItem) => setSelectedBankQuestions((current) => current.some((item) => item.id === question.id) ? current : [...current, question]);
+  const removeBankQuestion = (id: Id) => setSelectedBankQuestions((current) => current.filter((item) => item.id !== id));
+  const buildAutomaticQuiz = () => {
+    if (!bankQuestions.length) { window.alert(`Nenhuma questão Grammar cadastrada para ${bankLevel}.`); return; }
+    const count = Math.max(1, Math.min(autoQuestionCount, bankQuestions.length));
+    const shuffled = [...bankQuestions].sort(() => Math.random() - 0.5);
+    setSelectedBankQuestions(shuffled.slice(0, count));
+  };
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const interactiveContent = assignmentType === 'interactive' ? buildInteractiveContent(form, questionCount, selectedBankQuestions) : null;
+    if (assignmentType === 'interactive' && !(interactiveContent?.questions.length)) { window.alert('Adicione pelo menos uma pergunta com enunciado e gabarito.'); return; }
+    onSave({ studentId: String(form.get('studentId')), materialId: String(form.get('materialId') || '') || undefined, title: String(form.get('title')), instructions: String(form.get('instructions')), dueDate: String(form.get('dueDate')), assignmentType, interactiveContent });
+  };
+  return <Modal title={mode === 'interactive' ? 'Novo quiz' : 'Nova tarefa'} onClose={onClose}><form className="form-grid" onSubmit={submit}>
+    <label>Aluno<select name="studentId" required defaultValue=""><option value="" disabled>Selecione</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+    <label>Prazo<input name="dueDate" type="date" required min={toDateInput(new Date())} /></label>
+    <label className="full-field">Título<input name="title" required placeholder={mode === 'interactive' ? 'Ex.: Present Perfect Quiz' : 'Ex.: Writing Practice'} /></label>
+    <label className="full-field">Material vinculado <span>(opcional)</span><select name="materialId"><option value="">Nenhum</option>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label>
+    <label className="full-field">Instruções<textarea name="instructions" rows={4} required placeholder={assignmentType === 'interactive' ? 'Ex.: Responda as questões abaixo.' : 'Explique o que o aluno deve fazer e como entregar.'} /></label>
+    {assignmentType === 'interactive' && <div className="interactive-builder full-field"><div><strong>Configurações do quiz</strong><span>Defina tentativas e quando o aluno verá o gabarito.</span></div><div className="interactive-options-grid"><label>Tentativas permitidas<select name="interactiveMaxAttempts" defaultValue="1"><option value="1">1 tentativa</option><option value="2">2 tentativas</option><option value="3">3 tentativas</option><option value="0">Ilimitadas</option></select></label><label>Mostrar gabarito<select name="interactiveRevealAnswers" defaultValue="after_each"><option value="after_each">Depois de cada envio</option><option value="after_last">Apenas na última tentativa</option></select></label></div>
+      <section className="quiz-bank-picker"><div><strong>Banco de questões</strong><span>Use questões salvas por nível. Categoria disponível agora: Grammar.</span></div><div className="quiz-bank-toolbar"><label>Nível<select value={bankLevel} onChange={(event) => setBankLevel(event.target.value as QuestionBankLevel)}>{questionBankLevels.map((level) => <option key={level}>{level}</option>)}</select></label><label>Categoria<select value="Grammar" disabled><option>Grammar</option></select></label><span>{selectedBankQuestions.length} selecionada(s)</span></div><div className="quiz-auto-builder"><div><strong>Montagem automática</strong><small>Escolha a quantidade e deixe a plataforma sortear questões deste nível.</small></div><label>Quantidade<input type="number" min="1" max={Math.max(1, bankQuestions.length)} value={autoQuestionCount} onChange={(event) => setAutoQuestionCount(Number(event.target.value) || 1)} /></label><button type="button" className="primary-button" onClick={buildAutomaticQuiz}><Sparkles size={15} />Montar quiz</button></div>{bankQuestions.length ? <div className="quiz-bank-list">{bankQuestions.slice(0, 8).map((question) => { const selected = selectedBankQuestions.some((item) => item.id === question.id); return <article key={question.id}><div><small>{question.level} · {question.category} · {questionTypeLabel(question.type)}</small><strong>{question.prompt}</strong></div><button type="button" disabled={selected} onClick={() => addBankQuestion(question)}>{selected ? <Check size={14} /> : <Plus size={14} />}{selected ? 'Adicionada' : 'Adicionar'}</button></article>; })}</div> : <p className="quiz-bank-empty">Nenhuma questão Grammar cadastrada para {bankLevel} ainda.</p>}{selectedBankQuestions.length > 0 && <div className="quiz-bank-selected"><strong>Questões adicionadas ao quiz</strong>{selectedBankQuestions.map((question) => <span key={question.id}>{question.level} · {question.prompt}<button type="button" onClick={() => removeBankQuestion(question.id)}><X size={12} /></button></span>)}</div>}</section>
+      <section className="manual-questions-heading"><div><FileQuestion size={18} /><div><strong>Questões manuais</strong><span>Adicione perguntas específicas para este quiz ou combine com as questões do banco.</span></div></div><em>{questionCount} questão(ões)</em></section>{Array.from({ length: questionCount }).map((_, index) => {
+      const currentType = typeFor(index);
+      return <fieldset key={index}><legend>Questão {index + 1}</legend>
+        <label>Tipo da pergunta<select name={`question-${index}-type`} value={currentType} onChange={(event) => changeQuestionType(index, event.target.value as InteractiveQuestionType)}><option value="multiple_choice">Múltipla escolha</option><option value="fill_blank">Complete a frase</option><option value="true_false">Verdadeiro ou falso</option><option value="ordering">Ordenar palavras/frases</option></select></label>
+        <label>Enunciado<input name={`question-${index}`} placeholder={currentType === 'ordering' ? 'Ex.: Ordene as palavras para formar uma frase.' : 'Ex.: I ___ never been to Canada.'} /></label>
+        {currentType === 'multiple_choice' && <><div className="interactive-options-grid">{['A', 'B', 'C', 'D'].map((option) => <label key={option}>Alternativa {option}<input name={`question-${index}-option-${option}`} placeholder={option === 'A' ? 'have' : option === 'B' ? 'did' : ''} /></label>)}</div><label>Gabarito<select name={`question-${index}-answer`} defaultValue="A"><option>A</option><option>B</option><option>C</option><option>D</option></select></label></>}
+        {currentType === 'true_false' && <label>Gabarito<select name={`question-${index}-answer`} defaultValue="Verdadeiro"><option>Verdadeiro</option><option>Falso</option></select></label>}
+        {currentType === 'fill_blank' && <label className="full-field">Resposta correta <span>Digite a palavra ou expressão esperada.</span><input name={`question-${index}-text-answer`} placeholder="Ex.: have" /></label>}
+        {currentType === 'ordering' && <label className="full-field">Ordem correta <span>Separe palavras, trechos ou pontuações por /.</span><input name={`question-${index}-text-answer`} placeholder="Ex.: If / I / study, / I / will / pass" /></label>}
+        <label>Explicação <span>(opcional)</span><input name={`question-${index}-explanation`} placeholder="Ex.: Usamos present perfect para experiências de vida." /></label>
+      </fieldset>;
+    })}<button type="button" className="secondary-button compact" onClick={() => setQuestionCount((count) => Math.min(8, count + 1))}><Plus size={15} />Adicionar questão manual</button></div>}
+    <div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Cancelar</button><button className="primary-button">{mode === 'interactive' ? <FileQuestion size={16} /> : <ClipboardList size={16} />}{mode === 'interactive' ? 'Criar quiz' : 'Criar tarefa'}</button></div>
+  </form></Modal>;
+}
+
+function questionTypeLabel(type: InteractiveQuestionType) {
+  return type === 'multiple_choice' ? 'Múltipla escolha' : type === 'fill_blank' ? 'Complete a frase' : type === 'true_false' ? 'Verdadeiro ou falso' : 'Ordenação';
+}
+
+function splitOrderingSource(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  const parts = trimmed.includes('/') ? trimmed.split('/') : trimmed.split(',');
+  return parts.map((item) => item.trim()).filter(Boolean);
+}
+
+function formatOrderingAnswer(items: string[]) {
+  return items.join(' / ');
+}
+
+function displayQuestionAnswer(question: InteractiveQuestion | QuestionBankItem) {
+  return question.type === 'ordering' ? splitOrderingSource(question.answer).join(' ') : question.answer;
+}
+
+function bankQuestionToInteractive(question: QuestionBankItem): InteractiveQuestion {
+  return { id: crypto.randomUUID(), type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation };
+}
+
+function buildInteractiveContent(form: FormData, questionCount: number, bankQuestions: QuestionBankItem[] = []): InteractiveAssignmentContent {
+  const maxAttempts = Number(form.get('interactiveMaxAttempts') || '1');
+  const revealAnswers = String(form.get('interactiveRevealAnswers') || 'after_each') === 'after_last' ? 'after_last' : 'after_each';
+  const manualQuestions: InteractiveQuestion[] = Array.from({ length: questionCount }).flatMap<InteractiveQuestion>((_, index) => {
+    const prompt = String(form.get(`question-${index}`) || '').trim();
+    const type = String(form.get(`question-${index}-type`) || 'multiple_choice') as InteractiveQuestionType;
+    const labels = ['A', 'B', 'C', 'D'];
+    const options = labels.map((label) => String(form.get(`question-${index}-option-${label}`) || '').trim()).filter(Boolean);
+    const answerIndex = labels.indexOf(String(form.get(`question-${index}-answer`) || 'A'));
+    const textAnswer = String(form.get(`question-${index}-text-answer`) || '').trim();
+    const selectedAnswer = String(form.get(`question-${index}-answer`) || 'A');
+    const explanation = String(form.get(`question-${index}-explanation`) || '').trim() || undefined;
+    if (!prompt) return [];
+    if (type === 'true_false') return [{ id: crypto.randomUUID(), type, prompt, options: ['Verdadeiro', 'Falso'], answer: selectedAnswer === 'Falso' ? 'Falso' : 'Verdadeiro', explanation }];
+    if (type === 'fill_blank') return textAnswer ? [{ id: crypto.randomUUID(), type, prompt, options: [], answer: textAnswer, explanation }] : [];
+    if (type === 'ordering') {
+      const ordered = splitOrderingSource(textAnswer);
+      const shuffled = [...ordered].sort(() => Math.random() - 0.5);
+      return ordered.length > 1 ? [{ id: crypto.randomUUID(), type, prompt, options: shuffled, answer: formatOrderingAnswer(ordered), explanation }] : [];
+    }
+    if (options.length < 2 || !options[answerIndex]) return [];
+    return [{ id: crypto.randomUUID(), type, prompt, options, answer: options[answerIndex], explanation }];
+  });
+  const questions = [...bankQuestions.map(bankQuestionToInteractive), ...manualQuestions];
+  return { questions, settings: { maxAttempts: Number.isFinite(maxAttempts) ? maxAttempts : 1, revealAnswers } };
+}
+
+function QuizPreviewModal({ assignment, onClose }: { assignment: Assignment; onClose: () => void }) {
+  const content = assignment.interactiveContent;
+  const questions = content?.questions ?? [];
+  const maxAttempts = content?.settings?.maxAttempts ?? 1;
+  const reveal = content?.settings?.revealAnswers === 'after_last' ? 'Apenas na última tentativa' : 'Depois de cada envio';
+  return <Modal title="Pré-visualizar quiz" onClose={onClose} className="quiz-preview-modal"><div className="quiz-preview">
+    <section className="quiz-preview-hero"><div><p className="eyebrow">VISÃO DO ALUNO</p><h3>{assignment.title}</h3><p>{assignment.instructions || 'Sem instruções adicionais.'}</p></div><div><span>{questions.length}</span><small>questão(ões)</small></div></section>
+    <div className="quiz-preview-settings"><span>Tentativas: <b>{maxAttempts ? maxAttempts : 'Ilimitadas'}</b></span><span>Gabarito: <b>{reveal}</b></span></div>
+    {questions.length ? <div className="quiz-preview-question-list">{questions.map((question, index) => <article key={question.id}><div><span>Questão {index + 1}</span><strong>{question.prompt}</strong><small>{questionTypeLabel(question.type)}</small></div>{question.type === 'fill_blank' ? <div className="quiz-preview-answer-line">Campo de resposta curta</div> : question.type === 'ordering' ? <div className="ordering-drag-list preview">{question.options.map((option, optionIndex) => <button type="button" key={`${option}-${optionIndex}`}>{option}</button>)}</div> : <div className="quiz-preview-options">{question.options.map((option) => <label key={option}><input type="radio" disabled />{option}</label>)}</div>}<footer><span>Gabarito: <b>{displayQuestionAnswer(question)}</b></span>{question.explanation && <p>{question.explanation}</p>}</footer></article>)}</div> : <div className="empty-state small"><FileQuestion size={30} /><h3>Quiz sem questões</h3><p>Adicione questões antes de enviar para o aluno.</p></div>}
+    <div className="form-actions"><button className="primary-button" onClick={onClose}><Check size={16} />Concluir prévia</button></div>
+  </div></Modal>;
+}
+
+function QuestionBankModal({ questions, onClose, onCreate, onDelete }: { questions: QuestionBankItem[]; onClose: () => void; onCreate: (input: QuestionBankInput) => Promise<void> | void; onDelete: (id: Id) => Promise<void> | void }) {
+  const [level, setLevel] = useState<QuestionBankLevel>('A1');
+  const [type, setType] = useState<InteractiveQuestionType>('multiple_choice');
+  const [saving, setSaving] = useState(false);
+  const visible = questions.filter((question) => question.level === level && question.category === 'Grammar');
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const prompt = String(form.get('prompt') || '').trim();
+    const explanation = String(form.get('explanation') || '').trim() || undefined;
+    const optionLabels = ['A', 'B', 'C', 'D'];
+    const options = type === 'multiple_choice'
+      ? optionLabels.map((label) => String(form.get(`option-${label}`) || '').trim()).filter(Boolean)
+      : type === 'true_false'
+        ? ['Verdadeiro', 'Falso']
+        : type === 'ordering'
+          ? splitOrderingSource(String(form.get('textAnswer') || ''))
+          : [];
+    const answer = type === 'multiple_choice'
+      ? options[optionLabels.indexOf(String(form.get('answer') || 'A'))] ?? ''
+      : type === 'true_false'
+        ? String(form.get('answer') || 'Verdadeiro')
+        : type === 'ordering'
+          ? formatOrderingAnswer(options)
+          : String(form.get('textAnswer') || '').trim();
+    if (!prompt || !answer || (type === 'multiple_choice' && options.length < 2) || (type === 'ordering' && options.length < 2)) {
+      window.alert('Preencha o enunciado, o gabarito e as alternativas necessárias.');
+      return;
+    }
+    setSaving(true);
+    await onCreate({ level, category: 'Grammar', type, prompt, options, answer, explanation });
+    formElement.reset();
+    setSaving(false);
+  };
+  return <Modal title="Banco de questões" onClose={onClose} className="question-bank-shell"><div className="question-bank-modal">
+    <section className="question-bank-create"><div><p className="eyebrow">GRAMMAR</p><h3>Nova questão</h3><p>Cadastre questões reutilizáveis por nível para montar quizzes mais rápido.</p></div><form className="form-grid" onSubmit={submit}>
+      <label>Nível<select value={level} onChange={(event) => setLevel(event.target.value as QuestionBankLevel)}>{questionBankLevels.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <label>Tipo<select value={type} onChange={(event) => setType(event.target.value as InteractiveQuestionType)}><option value="multiple_choice">Múltipla escolha</option><option value="fill_blank">Complete a frase</option><option value="true_false">Verdadeiro ou falso</option><option value="ordering">Ordenar palavras/frases</option></select></label>
+      <label className="full-field">Enunciado<input name="prompt" required placeholder={type === 'ordering' ? 'Ex.: Ordene as palavras para formar uma frase.' : 'Ex.: I ____ to Canada.'} /></label>
+      {type === 'multiple_choice' && <><div className="interactive-options-grid full-field">{['A', 'B', 'C', 'D'].map((option) => <label key={option}>Alternativa {option}<input name={`option-${option}`} placeholder={option === 'A' ? 'have been' : option === 'B' ? 'has been' : ''} /></label>)}</div><label>Gabarito<select name="answer" defaultValue="A"><option>A</option><option>B</option><option>C</option><option>D</option></select></label></>}
+      {type === 'true_false' && <label>Gabarito<select name="answer" defaultValue="Verdadeiro"><option>Verdadeiro</option><option>Falso</option></select></label>}
+      {(type === 'fill_blank' || type === 'ordering') && <label className="full-field">{type === 'ordering' ? 'Ordem correta' : 'Resposta correta'}<span>{type === 'ordering' ? 'Separe palavras, trechos ou pontuações por /.' : 'Digite a palavra ou expressão esperada.'}</span><input name="textAnswer" required placeholder={type === 'ordering' ? 'Ex.: If / I / study, / I / will / pass' : 'Ex.: have been'} /></label>}
+      <label className="full-field">Explicação <span>(opcional)</span><input name="explanation" placeholder="Ex.: Usamos present perfect para experiências de vida." /></label>
+      <div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Fechar</button><button className="primary-button" disabled={saving}>{saving ? <Clock3 size={16} /> : <Plus size={16} />}{saving ? 'Salvando...' : 'Salvar questão'}</button></div>
+    </form></section>
+    <section className="question-bank-library"><div className="question-bank-library-heading"><div><p className="eyebrow">{level} · GRAMMAR</p><h3>Questões cadastradas</h3></div><span>{visible.length}</span></div>{visible.length ? <div className="question-bank-items">{visible.map((question) => <article key={question.id}><div><small>{questionTypeLabel(question.type)}</small><strong>{question.prompt}</strong><p>Gabarito: {displayQuestionAnswer(question)}</p></div><button type="button" className="icon-button danger" onClick={() => onDelete(question.id)}><Trash2 size={15} /></button></article>)}</div> : <div className="empty-state small"><FileQuestion size={30} /><h3>Nenhuma questão em {level}</h3><p>Crie a primeira questão Grammar para este nível.</p></div>}</section>
+  </div></Modal>;
 }
 
 function ReviewAssignmentModal({ assignment, onClose, onSave }: { assignment: Assignment; onClose: () => void; onSave: (feedback: string, grade?: number) => void }) {

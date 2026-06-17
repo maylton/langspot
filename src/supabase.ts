@@ -76,6 +76,9 @@ export type DbAssignment = {
   instructions: string;
   due_date: string;
   status: 'pending' | 'submitted' | 'reviewed';
+  assignment_type?: 'regular' | 'interactive';
+  interactive_content?: unknown;
+  interactive_result?: unknown;
   submission_text: string;
   submitted_at: string | null;
   submission_file_path?: string | null;
@@ -85,6 +88,19 @@ export type DbAssignment = {
   submission_file_url?: string | null;
   feedback: string;
   grade: number | null;
+  created_at: string;
+};
+
+export type DbQuestionBankItem = {
+  id: string;
+  teacher_id: string;
+  level: string;
+  category: string;
+  question_type: 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
+  prompt: string;
+  options: string[];
+  answer: string;
+  explanation: string | null;
   created_at: string;
 };
 

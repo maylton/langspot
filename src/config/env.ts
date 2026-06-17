@@ -13,7 +13,7 @@ export type AppMode = 'development' | 'beta' | 'production';
  */
 
 /** Human-readable application version shown in the interface. */
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.5.5';
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.6.0';
 
 export const APP_MODE: AppMode = (
   import.meta.env.VITE_APP_MODE as AppMode

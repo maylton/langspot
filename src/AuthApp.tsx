@@ -1,7 +1,7 @@
 import { FormEvent, type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Award, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus } from 'lucide-react';
-import App, { Assignment, AssignmentInput, AttendanceStatus, LessonRecordInput, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, ScheduledLesson, ScheduledLessonInput, Skill, Student, StudentCreateInput } from './App';
-import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
+import { ArrowLeft, ArrowRight, Award, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileQuestion, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import App, { Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, Student, StudentCreateInput } from './App';
+import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
@@ -24,6 +24,43 @@ type AchievementDefinition = {
   target: number;
   current: number;
   icon: typeof Award;
+};
+
+const ORDERING_RESPONSE_SEPARATOR = '\u001f';
+const normalizeInteractiveAnswer = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+const splitOrderingAnswer = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  const parts = trimmed.includes(ORDERING_RESPONSE_SEPARATOR)
+    ? trimmed.split(ORDERING_RESPONSE_SEPARATOR)
+    : trimmed.includes('/')
+      ? trimmed.split('/')
+      : trimmed.split(',');
+  return parts.map((item) => item.trim()).filter(Boolean);
+};
+const joinOrderingAnswer = (items: string[]) => items.join(ORDERING_RESPONSE_SEPARATOR);
+const normalizeQuestionAnswer = (question: InteractiveAssignmentContent['questions'][number], value: string) => {
+  if (question.type !== 'ordering') return normalizeInteractiveAnswer(value);
+  return splitOrderingAnswer(value).map(normalizeInteractiveAnswer).join(' ');
+};
+const scoreInteractiveAssignment = (content: InteractiveAssignmentContent | null | undefined, answers: Record<string, string>): InteractiveAssignmentResult => {
+  const questions = content?.questions ?? [];
+  const score = questions.reduce((sum, question) => sum + (normalizeQuestionAnswer(question, answers[question.id] ?? '') === normalizeQuestionAnswer(question, question.answer) ? 1 : 0), 0);
+  return { answers, score, total: questions.length, percentage: questions.length ? Math.round((score / questions.length) * 100) : 0 };
+};
+const interactiveAttempts = (result: InteractiveAssignmentResult | null | undefined) => result?.attempts?.length ? result.attempts : result ? [{ answers: result.answers, score: result.score, total: result.total, percentage: result.percentage, submittedAt: new Date().toISOString() }] : [];
+const interactiveMaxAttempts = (content: InteractiveAssignmentContent | null | undefined) => content?.settings?.maxAttempts ?? 1;
+const canAttemptInteractive = (content: InteractiveAssignmentContent | null | undefined, result: InteractiveAssignmentResult | null | undefined) => {
+  const maxAttempts = interactiveMaxAttempts(content);
+  return maxAttempts === 0 || interactiveAttempts(result).length < maxAttempts;
+};
+const shouldRevealInteractiveAnswers = (content: InteractiveAssignmentContent | null | undefined, result: InteractiveAssignmentResult | null | undefined) => {
+  if (content?.settings?.revealAnswers !== 'after_last') return true;
+  return !canAttemptInteractive(content, result);
+};
+const displayInteractiveAnswer = (question: InteractiveAssignmentContent['questions'][number], value: string) => {
+  if (question.type !== 'ordering') return value;
+  return splitOrderingAnswer(value).join(' ');
 };
 
 function isSchemaCacheMiss(error: { code?: string; message?: string } | null) {
@@ -170,6 +207,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const [schedule, setSchedule] = useState<ScheduledLesson[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [questionBank, setQuestionBank] = useState<QuestionBankItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -279,6 +317,11 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       }));
       setAssignments(signedTasks.map(dbAssignmentToAssignment));
     }
+    const { data: questionRows, error: questionError } = await supabase.from('question_bank').select('*').order('created_at', { ascending: false });
+    if (questionError && !isSchemaCacheMiss(questionError)) {
+      setQuestionBank([]);
+      setMessage(`Dados principais carregados, mas houve um problema no banco de questões: ${questionError.message}`);
+    } else setQuestionBank(((questionRows ?? []) as DbQuestionBankItem[]).map(dbQuestionBankToQuestion));
     const { data: paymentRows, error: paymentError } = await supabase.from('payments').select('*').order('due_date', { ascending: true });
     if (paymentError) { setPayments([]); setMessage(`Dados principais carregados, mas houve um problema no financeiro: ${paymentError.message}`); }
     else setPayments((paymentRows ?? []).map((row: any): Payment => ({ id: row.id, studentId: row.student_id, description: row.description, amount: Number(row.amount), dueDate: row.due_date, status: row.status === 'paid' ? 'Pago' : row.status === 'overdue' ? 'Atrasado' : 'Pendente', paidAt: row.paid_at ?? undefined, createdAt: row.created_at })));
@@ -455,7 +498,8 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
 
   const createAssignment = async (assignment: AssignmentInput) => {
     if (!supabase) throw new Error('Supabase não configurado.');
-    const { data, error } = await supabase.from('assignments').insert({ teacher_id: profile.id, student_id: assignment.studentId, material_id: assignment.materialId || null, title: assignment.title, instructions: assignment.instructions, due_date: assignment.dueDate, status: 'pending' }).select('*').single();
+    const assignmentRow = { teacher_id: profile.id, student_id: assignment.studentId, material_id: assignment.materialId || null, title: assignment.title, instructions: assignment.instructions, due_date: assignment.dueDate, status: 'pending', ...(assignment.assignmentType === 'interactive' ? { assignment_type: 'interactive', interactive_content: assignment.interactiveContent ?? null } : {}) };
+    const { data, error } = await supabase.from('assignments').insert(assignmentRow).select('*').single();
     if (error) throw new Error(error.message);
     if (assignment.materialId) {
       const { error: shareError } = await supabase.from('material_assignments').upsert({ material_id: assignment.materialId, student_id: assignment.studentId }, { onConflict: 'material_id,student_id' });
@@ -476,6 +520,26 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const reviewAssignment = async (id: string, feedback: string, grade?: number) => {
     if (!supabase) throw new Error('Supabase não configurado.');
     const { error } = await supabase.from('assignments').update({ feedback, grade: grade ?? null, status: 'reviewed' }).eq('id', id).eq('teacher_id', profile.id);
+    if (error) throw new Error(error.message);
+  };
+  const createQuestionBankItem = async (question: QuestionBankInput) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { data, error } = await supabase.from('question_bank').insert({
+      teacher_id: profile.id,
+      level: question.level,
+      category: question.category,
+      question_type: question.type,
+      prompt: question.prompt,
+      options: question.options,
+      answer: question.answer,
+      explanation: question.explanation ?? null,
+    }).select('*').single();
+    if (error) throw new Error(error.message);
+    return dbQuestionBankToQuestion(data as DbQuestionBankItem);
+  };
+  const deleteQuestionBankItem = async (id: string) => {
+    if (!supabase) throw new Error('Supabase não configurado.');
+    const { error } = await supabase.from('question_bank').delete().eq('id', id).eq('teacher_id', profile.id);
     if (error) throw new Error(error.message);
   };
 
@@ -562,6 +626,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       initialSchedule={schedule}
       initialMaterials={materials}
       initialAssignments={assignments}
+      initialQuestionBank={questionBank}
       initialPayments={payments}
       onLogout={onLogout}
       onInviteStudent={subscriptionActive ? openStudentInvite : undefined}
@@ -585,6 +650,8 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       onCreateAssignment={createAssignment}
       onDeleteAssignment={deleteAssignment}
       onReviewAssignment={reviewAssignment}
+      onCreateQuestionBankItem={createQuestionBankItem}
+      onDeleteQuestionBankItem={deleteQuestionBankItem}
       onCreatePayment={createPayment}
       onUpdatePaymentStatus={updatePaymentStatus}
       onDeletePayment={deletePayment}
@@ -607,7 +674,11 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
 
 function dbAssignmentToAssignment(row: DbAssignment): Assignment {
   const statusMap = { pending: 'Pendente', submitted: 'Entregue', reviewed: 'Corrigida' } as const;
-  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, submissionFileName: row.submission_file_name ?? undefined, submissionFileUrl: row.submission_file_url ?? undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, createdAt: row.created_at };
+  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, submissionFileName: row.submission_file_name ?? undefined, submissionFileUrl: row.submission_file_url ?? undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, createdAt: row.created_at, assignmentType: row.assignment_type ?? 'regular', interactiveContent: row.interactive_content as InteractiveAssignmentContent | null | undefined, interactiveResult: row.interactive_result as InteractiveAssignmentResult | null | undefined };
+}
+
+function dbQuestionBankToQuestion(row: DbQuestionBankItem): QuestionBankItem {
+  return { id: row.id, teacherId: row.teacher_id, level: row.level as QuestionBankItem['level'], category: row.category as QuestionBankItem['category'], type: row.question_type, prompt: row.prompt, options: row.options ?? [], answer: row.answer, explanation: row.explanation ?? undefined, createdAt: row.created_at };
 }
 
 function normalizeSkills(value: unknown): Record<Skill, number> {
@@ -798,7 +869,7 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
   return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" autoComplete="email" required autoFocus /></label>{mode !== 'forgot' && <PasswordField label="Senha" name="password" minLength={6} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required />}{mode === 'login' && <button type="button" className="forgot-password-link" onClick={() => changeMode('forgot')}>Esqueci minha senha</button>}{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : mode === 'register' ? <UserPlus size={17} /> : <ArrowRight size={17} />}{busy ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : 'Enviar link'}{!busy && mode !== 'forgot' && <ArrowRight size={16} />}</button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}{mode === 'forgot' ? <button className="auth-switch" onClick={() => changeMode('login')}>Voltar para o login</button> : <button className="auth-switch" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>}{can.useDemoMode() && mode !== 'forgot' && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
 }
 
-type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Flashcards' | 'Metas' | 'Conquistas' | 'Diário' | 'Perfil';
+type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Quiz' | 'Flashcards' | 'Metas' | 'Conquistas' | 'Diário' | 'Perfil';
 
 function localDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -941,6 +1012,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     { label: 'Visão geral', icon: LayoutDashboard },
     { label: 'Aulas', icon: CalendarDays },
     { label: 'Tarefas', icon: ClipboardList },
+    { label: 'Quiz', icon: FileQuestion },
     { label: 'Materiais', icon: BookOpen },
     { label: 'Flashcards', icon: Brain },
     { label: 'Metas', icon: Flag },
@@ -951,7 +1023,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   ];
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => navigateStudent(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-account-menu"><button type="button" className="student-avatar student-avatar-button" aria-label="Abrir menu do perfil" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</button>{accountMenuOpen && <div className="student-account-popover"><div><strong>{portalProfile.full_name}</strong><span>{email || portalProfile.email || 'Aluno'}</span></div><button type="button" onClick={() => navigateStudent('Perfil')}><UserRound size={16} />Meu perfil</button><button type="button" className="student-account-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></div>}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={navigateStudent} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments} materials={materials} onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onGoalsChange={setGoals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} lessons={lessons} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} theme={theme} onThemeChange={setTheme} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => navigateStudent(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-account-menu"><button type="button" className="student-avatar student-avatar-button" aria-label="Abrir menu do perfil" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</button>{accountMenuOpen && <div className="student-account-popover"><div><strong>{portalProfile.full_name}</strong><span>{email || portalProfile.email || 'Aluno'}</span></div><button type="button" onClick={() => navigateStudent('Perfil')}><UserRound size={16} />Meu perfil</button><button type="button" className="student-account-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></div>}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={navigateStudent} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments.filter((assignment) => assignment.assignment_type !== 'interactive')} materials={materials} mode="tasks" onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Quiz' ? <StudentAssignments assignments={assignments.filter((assignment) => assignment.assignment_type === 'interactive')} materials={materials} mode="quiz" onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onGoalsChange={setGoals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} lessons={lessons} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} theme={theme} onThemeChange={setTheme} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
@@ -962,8 +1034,12 @@ function CancellationRequestsModal({ requests, onClose, onResolve }: { requests:
 function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, studyActivities, streakFreezes, onChanged, onNavigate, readOnly = false }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; studyActivities: StudyActivity[]; streakFreezes: StreakFreeze[]; onChanged: () => Promise<void>; onNavigate: (tab: StudentTab) => void; readOnly?: boolean }) {
   const [streakMessage, setStreakMessage] = useState('');
   const [protecting, setProtecting] = useState(false);
-  const pending = assignments.filter((item) => item.status === 'pending');
+  const regularAssignments = assignments.filter((item) => item.assignment_type !== 'interactive');
+  const quizAssignments = assignments.filter((item) => item.assignment_type === 'interactive');
+  const pending = regularAssignments.filter((item) => item.status === 'pending');
+  const pendingQuizzes = quizAssignments.filter((item) => item.status === 'pending');
   const urgent = [...pending].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+  const urgentQuiz = [...pendingQuizzes].sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
   const activeGoals = goals.filter((goal) => goal.status === 'active');
   const average = record ? Object.values(record.skills ?? {}).reduce((sum, value) => sum + value, 0) / Math.max(Object.values(record.skills ?? {}).length, 1) : 0;
   const activityDates = studyActivities.map((activity) => activity.activity_date);
@@ -982,6 +1058,7 @@ function StudentOverview({ profile, record, nextLesson, materialCount, assignmen
   const dailyMissionOptions: DailyMission[] = [];
   if (nextLesson && isToday(nextLesson.starts_at)) dailyMissionOptions.push({ type: 'lesson', title: 'Participar da aula', text: nextLesson.topic || 'Entre no encontro agendado de hoje.', action: 'Aulas', icon: CalendarDays, completed: todayActivityTypes.has('lesson') });
   if (pending.length) dailyMissionOptions.push({ type: 'assignment', title: 'Enviar uma tarefa', text: urgent ? `Prioridade: ${urgent.title}` : 'Escolha uma atividade pendente.', action: 'Tarefas', icon: ClipboardList, completed: todayActivityTypes.has('assignment') });
+  if (!pending.length && pendingQuizzes.length) dailyMissionOptions.push({ type: 'assignment', title: 'Responder um quiz', text: urgentQuiz ? `Prioridade: ${urgentQuiz.title}` : 'Escolha um quiz pendente.', action: 'Quiz', icon: FileQuestion, completed: todayActivityTypes.has('assignment') });
   dailyMissionOptions.push(
     { type: 'journal', title: 'Registrar o estudo', text: 'Anote o que aprendeu ou uma dúvida para a próxima aula.', action: 'Diário', icon: NotebookPen, completed: todayActivityTypes.has('journal') },
     { type: 'flashcard', title: 'Revisar flashcards', text: 'Faça uma sessão rápida de revisão espaçada.', action: 'Flashcards', icon: Brain, completed: todayActivityTypes.has('flashcard') },
@@ -1001,7 +1078,7 @@ function StudentOverview({ profile, record, nextLesson, materialCount, assignmen
   };
   const timeline = [
     ...history.slice(0, 4).map((lesson) => ({ date: lesson.starts_at, icon: 'lesson', title: `Aula: ${lesson.topic}`, text: lesson.notes || 'Aula registrada no seu histórico.' })),
-    ...assignments.filter((item) => item.status !== 'pending').slice(0, 4).map((item) => ({ date: item.submitted_at ?? item.created_at, icon: 'task', title: item.status === 'reviewed' ? `Tarefa corrigida: ${item.title}` : `Tarefa enviada: ${item.title}`, text: item.feedback || (item.status === 'reviewed' ? 'Confira o feedback do professor.' : 'Aguardando correção.') })),
+    ...assignments.filter((item) => item.status !== 'pending').slice(0, 4).map((item) => ({ date: item.submitted_at ?? item.created_at, icon: 'task', title: item.assignment_type === 'interactive' ? `Quiz enviado: ${item.title}` : item.status === 'reviewed' ? `Tarefa corrigida: ${item.title}` : `Tarefa enviada: ${item.title}`, text: item.feedback || (item.status === 'reviewed' ? 'Confira o feedback do professor.' : 'Aguardando correção.') })),
     ...journal.slice(0, 3).map((entry) => ({ date: entry.created_at, icon: 'journal', title: entry.title, text: `${entry.study_minutes} min de estudo${entry.new_words.length ? ` · ${entry.new_words.length} nova(s) palavra(s)` : ''}` })),
     ...goals.filter((goal) => goal.status === 'completed').slice(0, 3).map((goal) => ({ date: goal.updated_at, icon: 'goal', title: `Meta concluída: ${goal.title}`, text: goal.description || 'Mais uma conquista no seu aprendizado.' })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
@@ -1011,12 +1088,12 @@ function StudentOverview({ profile, record, nextLesson, materialCount, assignmen
     <section className="stats-grid student-dashboard-stats">
       <button className="stat-card next-lesson-stat" onClick={() => onNavigate('Aulas')}><i className="student-stat-icon"><CalendarDays size={20} /></i><span>Próxima aula</span><strong>{nextLesson ? shortPortalDate(nextLesson.starts_at) : '—'}</strong><small>{nextLesson?.topic || 'Nenhuma aula agendada'}</small></button>
       <button className="stat-card" onClick={() => onNavigate('Tarefas')}><i className="student-stat-icon"><ClipboardList size={20} /></i><span>Tarefas pendentes</span><strong>{pending.length}</strong><small>{urgent ? `Próximo prazo: ${new Date(`${urgent.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'Tudo em dia'}</small></button>
-      <button className="stat-card" onClick={() => onNavigate('Metas')}><i className="student-stat-icon"><Flag size={20} /></i><span>Metas ativas</span><strong>{activeGoals.length}</strong><small>{activeGoals.length ? `${Math.round(activeGoals.reduce((sum, goal) => sum + goal.progress, 0) / activeGoals.length)}% de progresso médio` : 'Nenhuma meta em andamento'}</small></button>
+      <button className="stat-card" onClick={() => onNavigate('Quiz')}><i className="student-stat-icon"><FileQuestion size={20} /></i><span>Quizzes pendentes</span><strong>{pendingQuizzes.length}</strong><small>{urgentQuiz ? `Próximo prazo: ${new Date(`${urgentQuiz.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'Tudo em dia'}</small></button>
       <button className="stat-card" onClick={() => onNavigate('Materiais')}><i className="student-stat-icon"><BookOpen size={20} /></i><span>Materiais disponíveis</span><strong>{materialCount}</strong><small>{materialCount === 1 ? '1 recurso compartilhado' : `${materialCount} recursos compartilhados`}</small></button>
     </section>
     <section className="student-dashboard-columns"><div className="student-dashboard-main">{nextLesson && <section className="student-panel next-lesson-panel"><div><p className="eyebrow">PRÓXIMO ENCONTRO</p><h2>{nextLesson.topic}</h2><p><Clock3 size={15} />{formatPortalDate(nextLesson.starts_at)} · {nextLesson.duration_minutes} minutos</p></div>{nextLesson.online_url && <a className="student-primary" href={nextLesson.online_url} target="_blank" rel="noreferrer">Entrar na aula <ExternalLink size={15} /></a>}</section>}
       <section className="student-panel student-timeline-panel"><div className="student-section-heading"><div><p className="eyebrow">SUA JORNADA</p><h2>Linha do tempo</h2></div></div>{timeline.length ? <div className="student-learning-timeline">{timeline.map((item, index) => <article key={`${item.date}-${index}`}><span className={`timeline-icon ${item.icon}`}>{item.icon === 'lesson' ? <CalendarDays size={15} /> : item.icon === 'task' ? <Check size={15} /> : item.icon === 'goal' ? <Flag size={15} /> : <NotebookPen size={15} />}</span><div><time>{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</time><strong>{item.title}</strong><p>{item.text}</p></div></article>)}</div> : <EmptyPortal icon={Sparkles} title="Sua jornada está começando" text="Aulas, tarefas, metas e registros de estudo aparecerão aqui." />}</section></div>
-      <aside className="student-dashboard-side"><section className="student-panel student-streak-card"><div className="streak-heading"><span><Flame size={24} /></span><div><p className="eyebrow">SEQUÊNCIA DE ESTUDOS</p><h2>{streak.current} dia(s)</h2></div></div><p>{streakActivatedToday ? 'Missão cumprida hoje. Sua sequência está ativa!' : 'Complete uma missão de hoje para acender sua sequência.'}</p><div className="streak-week">{streakWeek.map((day) => <div className={activeDates.has(day.date) ? 'active' : freezeDates.has(day.date) ? 'protected' : ''} key={day.date}><span>{day.label}</span><i>{freezeDates.has(day.date) ? <Snowflake size={13} /> : <Flame size={13} />}</i></div>)}</div>{canProtectYesterday && <button className="streak-freeze-button" disabled={protecting} onClick={useFreeze}><Snowflake size={14} />{protecting ? 'Protegendo...' : 'Proteger sequência de ontem'}</button>}{streakMessage && <small className="streak-message">{streakMessage}</small>}<footer><span>Recorde pessoal</span><strong>{streak.best} dia(s)</strong></footer></section><section className={`student-panel daily-missions-card ${streakActivatedToday ? 'completed' : ''}`}><div className="student-section-heading"><div><p className="eyebrow">MISSÕES DE HOJE</p><h2>{streakActivatedToday ? 'Streak ativado' : 'Escolha uma missão'}</h2></div><span>{completedMissions}/{dailyMissions.length}</span></div><p>{streakActivatedToday ? 'Boa. O dia já conta para sua sequência.' : 'Conclua pelo menos uma ação real de estudo para ativar o dia.'}</p><div className="daily-mission-progress"><b style={{ width: `${dailyMissions.length ? Math.round((completedMissions / dailyMissions.length) * 100) : 0}%` }} /></div><div className="daily-mission-list">{dailyMissions.map((mission) => { const Icon = mission.icon; return <button key={mission.type} className={mission.completed ? 'done' : ''} onClick={() => onNavigate(mission.action)}><span><Icon size={16} /></span><div><strong>{mission.title}</strong><small>{mission.text}</small></div>{mission.completed ? <Check size={16} /> : <ArrowRight size={15} />}</button>; })}</div></section><section className="student-panel quick-actions"><h2>{readOnly ? 'Explorar portal' : 'Ações rápidas'}</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button><button onClick={() => onNavigate('Conquistas')}><Award size={17} /><span><strong>Ver conquistas</strong><small>Acompanhe os marcos desbloqueados</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
+      <aside className="student-dashboard-side"><section className="student-panel student-streak-card"><div className="streak-heading"><span><Flame size={24} /></span><div><p className="eyebrow">SEQUÊNCIA DE ESTUDOS</p><h2>{streak.current} dia(s)</h2></div></div><p>{streakActivatedToday ? 'Missão cumprida hoje. Sua sequência está ativa!' : 'Complete uma missão de hoje para acender sua sequência.'}</p><div className="streak-week">{streakWeek.map((day) => <div className={activeDates.has(day.date) ? 'active' : freezeDates.has(day.date) ? 'protected' : ''} key={day.date}><span>{day.label}</span><i>{freezeDates.has(day.date) ? <Snowflake size={13} /> : <Flame size={13} />}</i></div>)}</div>{canProtectYesterday && <button className="streak-freeze-button" disabled={protecting} onClick={useFreeze}><Snowflake size={14} />{protecting ? 'Protegendo...' : 'Proteger sequência de ontem'}</button>}{streakMessage && <small className="streak-message">{streakMessage}</small>}<footer><span>Recorde pessoal</span><strong>{streak.best} dia(s)</strong></footer></section><section className={`student-panel daily-missions-card ${streakActivatedToday ? 'completed' : ''}`}><div className="student-section-heading"><div><p className="eyebrow">MISSÕES DE HOJE</p><h2>{streakActivatedToday ? 'Streak ativado' : 'Escolha uma missão'}</h2></div><span>{completedMissions}/{dailyMissions.length}</span></div><p>{streakActivatedToday ? 'Boa. O dia já conta para sua sequência.' : 'Conclua pelo menos uma ação real de estudo para ativar o dia.'}</p><div className="daily-mission-progress"><b style={{ width: `${dailyMissions.length ? Math.round((completedMissions / dailyMissions.length) * 100) : 0}%` }} /></div><div className="daily-mission-list">{dailyMissions.map((mission) => { const Icon = mission.icon; return <button key={mission.type} className={mission.completed ? 'done' : ''} onClick={() => onNavigate(mission.action)}><span><Icon size={16} /></span><div><strong>{mission.title}</strong><small>{mission.text}</small></div>{mission.completed ? <Check size={16} /> : <ArrowRight size={15} />}</button>; })}</div></section><section className="student-panel quick-actions"><h2>{readOnly ? 'Explorar portal' : 'Ações rápidas'}</h2><button onClick={() => onNavigate('Diário')}><NotebookPen size={17} /><span><strong>Registrar estudo</strong><small>Anote o que aprendeu hoje</small></span></button><button onClick={() => onNavigate('Quiz')}><FileQuestion size={17} /><span><strong>Responder quizzes</strong><small>Pratique com atividades interativas</small></span></button><button onClick={() => onNavigate('Flashcards')}><Brain size={17} /><span><strong>Revisar flashcards</strong><small>Pratique com repetição espaçada</small></span></button><button onClick={() => onNavigate('Metas')}><Target size={17} /><span><strong>Atualizar metas</strong><small>Acompanhe seu progresso</small></span></button><button onClick={() => onNavigate('Conquistas')}><Award size={17} /><span><strong>Ver conquistas</strong><small>Acompanhe os marcos desbloqueados</small></span></button></section>{activeGoals.length > 0 && <section className="student-panel dashboard-goals-preview"><div className="student-section-heading"><div><p className="eyebrow">EM ANDAMENTO</p><h2>Metas</h2></div><button onClick={() => onNavigate('Metas')}>Ver todas</button></div>{activeGoals.slice(0, 3).map((goal) => <article key={goal.id}><div><strong>{goal.title}</strong><span>{goal.progress}%</span></div><i><b style={{ width: `${goal.progress}%` }} /></i></article>)}</section>}</aside></section>
   </div>;
 }
 
@@ -1073,14 +1150,63 @@ function StudentMaterials({ materials }: { materials: DbMaterial[] }) {
   return <div className="student-page"><section className="student-panel"><div className="student-section-heading"><div><p className="eyebrow">BIBLIOTECA</p><h2>Materiais compartilhados</h2></div><span>{materials.length} item(ns)</span></div>{materials.length ? <div className="portal-material-grid">{materials.map((material) => <article key={material.id}><FileText size={22} /><span>{material.type} · {material.level}</span><h3>{material.title}</h3><p>{material.description || `${material.skill} para seus estudos.`}</p><a href={material.url} target="_blank" rel="noreferrer">Abrir material <ExternalLink size={14} /></a></article>)}</div> : <EmptyPortal icon={BookOpen} title="Nenhum material compartilhado" text="Quando o professor enviar um recurso, ele aparecerá aqui." />}</section></div>;
 }
 
+function OrderingAnswer({ question, value, onChange }: { question: InteractiveAssignmentContent['questions'][number]; value: string; onChange: (value: string) => void }) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const items = value ? splitOrderingAnswer(value) : question.options.map((item) => item.trim()).filter(Boolean);
+  const moveItem = (targetIndex: number) => {
+    if (dragIndex === null || dragIndex === targetIndex) return;
+    const next = [...items];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    onChange(joinOrderingAnswer(next));
+    setDragIndex(null);
+  };
+  useEffect(() => { if (!value && question.options.length) onChange(joinOrderingAnswer(question.options)); }, [question.id]);
+  return <div className="ordering-drag-list">{items.map((item, index) => <button type="button" draggable key={`${item}-${index}`} onDragStart={() => setDragIndex(index)} onDragOver={(event) => event.preventDefault()} onDrop={() => moveItem(index)} onDragEnd={() => setDragIndex(null)} className={dragIndex === index ? 'dragging' : ''}>{item}</button>)}</div>;
+}
 
-function StudentAssignments({ assignments, materials, onAssignmentsChange, readOnly = false }: { assignments: DbAssignment[]; materials: DbMaterial[]; onAssignmentsChange: React.Dispatch<React.SetStateAction<DbAssignment[]>>; readOnly?: boolean }) {
+function InteractiveAssignmentForm({ assignment, answers, onAnswer, onSubmit, busy }: { assignment: DbAssignment; answers: Record<string, string>; onAnswer: (questionId: string, answer: string) => void; onSubmit: () => void; busy: boolean }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const content = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
+  const questions = content?.questions ?? [];
+  const currentQuestion = questions[currentIndex];
+  const answeredCount = questions.filter((question) => Boolean(answers[question.id])).length;
+  const allAnswered = questions.length > 0 && answeredCount === questions.length;
+  const progress = questions.length ? Math.round((answeredCount / questions.length) * 100) : 0;
+  useEffect(() => { if (currentIndex >= questions.length) setCurrentIndex(Math.max(0, questions.length - 1)); }, [currentIndex, questions.length]);
+  const typeHint = (type: string) => type === 'fill_blank' ? 'Digite a palavra ou expressão que completa a frase.' : type === 'ordering' ? 'Arraste os itens para montar a ordem correta.' : 'Escolha uma alternativa.';
+  return <div className="task-response-box interactive-task-box"><div className="task-response-header"><div><label>Atividade interativa</label><span>Responda no seu ritmo. Você pode voltar para revisar antes de enviar.</span></div><span className="task-response-count">{answeredCount}/{questions.length}</span></div>{questions.length ? <><div className="interactive-progress"><div><span>Progresso do quiz</span><strong>{progress}%</strong></div><i><b style={{ width: `${progress}%` }} /></i></div><div className="interactive-step-dots">{questions.map((question, index) => <button type="button" key={question.id} className={`${index === currentIndex ? 'active' : ''} ${answers[question.id] ? 'answered' : ''}`} onClick={() => setCurrentIndex(index)} aria-label={`Ir para questão ${index + 1}`}>{index + 1}</button>)}</div>{currentQuestion && <div className="interactive-question-list interactive-question-single"><fieldset key={currentQuestion.id}><span className="interactive-question-position">Questão {currentIndex + 1} de {questions.length}</span><legend>{currentQuestion.prompt}</legend><small className="interactive-question-hint">{typeHint(currentQuestion.type)}</small>{currentQuestion.type === 'ordering' ? <OrderingAnswer question={currentQuestion} value={answers[currentQuestion.id] ?? ''} onChange={(value) => onAnswer(currentQuestion.id, value)} /> : currentQuestion.type === 'fill_blank' ? <input className="interactive-text-answer" value={answers[currentQuestion.id] ?? ''} onChange={(event) => onAnswer(currentQuestion.id, event.target.value)} placeholder="Digite sua resposta" /> : currentQuestion.options.map((option) => <label key={option} className={answers[currentQuestion.id] === option ? 'selected' : ''}><input type="radio" name={`${assignment.id}-${currentQuestion.id}`} checked={answers[currentQuestion.id] === option} onChange={() => onAnswer(currentQuestion.id, option)} />{option}</label>)}</fieldset></div>}</> : <p>Esta atividade ainda não possui questões.</p>}<div className="interactive-navigation"><button type="button" className="cancel-button" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}>Anterior</button>{currentIndex < questions.length - 1 ? <button type="button" className="student-primary" onClick={() => setCurrentIndex((index) => Math.min(questions.length - 1, index + 1))}>Próxima <ArrowRight size={15} /></button> : <button className="student-primary" disabled={busy || !allAnswered} onClick={onSubmit}>{busy ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{busy ? 'Enviando...' : allAnswered ? 'Enviar quiz' : 'Responda tudo'}</button>}</div><div className="task-submit-row interactive-submit-note"><small>{allAnswered ? 'Tudo respondido. Pode enviar quando quiser.' : `Faltam ${Math.max(0, questions.length - answeredCount)} questão(ões) para liberar o envio.`}</small></div></div>;
+}
+
+function InteractiveDetailedFeedback({ assignment, result, revealAnswers }: { assignment: DbAssignment; result: InteractiveAssignmentResult; revealAnswers: boolean }) {
+  const content = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
+  if (!content?.questions.length) return null;
+  return <div className="interactive-feedback-list"><strong>Correção detalhada</strong>{content.questions.map((question, index) => {
+    const userAnswer = result.answers[question.id] ?? '';
+    const correct = normalizeQuestionAnswer(question, userAnswer) === normalizeQuestionAnswer(question, question.answer);
+    return <article key={question.id} className={correct ? 'correct' : 'incorrect'}><div><span>{correct ? <Check size={14} /> : <X size={14} />}{correct ? 'Correta' : 'Revisar'}</span><h4>{index + 1}. {question.prompt}</h4></div><p><b>Sua resposta:</b> {userAnswer ? displayInteractiveAnswer(question, userAnswer) : 'Sem resposta'}</p>{revealAnswers && !correct && <p><b>Resposta correta:</b> {displayInteractiveAnswer(question, question.answer)}</p>}{revealAnswers && question.explanation && <small>{question.explanation}</small>}{!revealAnswers && !correct && <small>O gabarito será liberado após a última tentativa.</small>}</article>;
+  })}</div>;
+}
+
+function InteractiveSubmissionReview({ assignment }: { assignment: DbAssignment }) {
+  const result = assignment.interactive_result as InteractiveAssignmentResult | null | undefined;
+  const content = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
+  const attempts = interactiveAttempts(result);
+  const maxAttempts = interactiveMaxAttempts(content);
+  const revealAnswers = shouldRevealInteractiveAnswers(content, result);
+  return <div className="submission-preview student-submission-review"><div><strong>{assignment.assignment_type === 'interactive' ? 'Resultado da atividade' : 'Sua resposta'}</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div>{result && <><div className="interactive-result-card"><strong>{result.percentage}%</strong><span>{result.score}/{result.total} acertos</span><small>Tentativa {attempts.length}{maxAttempts ? ` de ${maxAttempts}` : ' · ilimitadas'}</small></div>{attempts.length > 1 && <div className="interactive-attempt-list">{attempts.map((attempt, index) => <span key={`${attempt.submittedAt}-${index}`}>Tentativa {index + 1}: <b>{attempt.percentage}%</b></span>)}</div>}<InteractiveDetailedFeedback assignment={assignment} result={result} revealAnswers={revealAnswers} /></>}<p>{assignment.submission_text || 'Nenhuma resposta em texto.'}</p>{assignment.submission_file_url && <a className="submission-file-link" href={assignment.submission_file_url} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submission_file_name || 'PDF anexado'}<ExternalLink size={13} /></a>}{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>;
+}
+
+
+function StudentAssignments({ assignments, materials, mode = 'tasks', onAssignmentsChange, readOnly = false }: { assignments: DbAssignment[]; materials: DbMaterial[]; mode?: 'tasks' | 'quiz'; onAssignmentsChange: React.Dispatch<React.SetStateAction<DbAssignment[]>>; readOnly?: boolean }) {
   type TaskFilter = 'all' | 'pending' | 'submitted' | 'reviewed';
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [interactiveAnswers, setInteractiveAnswers] = useState<Record<string, Record<string, string>>>({});
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [openAssignmentId, setOpenAssignmentId] = useState<string | null>(null);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const isOverdue = (assignment: DbAssignment) => assignment.status === 'pending' && new Date(`${assignment.due_date}T12:00:00`) < today;
   const ordered = [...assignments].sort((a, b) => {
@@ -1093,6 +1219,12 @@ function StudentAssignments({ assignments, materials, onAssignmentsChange, readO
     submitted: assignments.filter((assignment) => assignment.status === 'submitted').length,
     reviewed: assignments.filter((assignment) => assignment.status === 'reviewed').length,
   };
+  const copy = mode === 'quiz'
+    ? { eyebrow: 'QUIZ', title: 'Meus quizzes', description: 'Responda atividades interativas, acompanhe suas tentativas e revise a correção.', listTitle: 'Lista de quizzes', open: 'Abrir quiz', empty: 'Nenhum quiz por enquanto', emptyFiltered: 'Nenhum quiz neste filtro', emptyText: 'Os quizzes enviados pelo professor aparecerão aqui.', icon: FileQuestion }
+    : { eyebrow: 'ATIVIDADES', title: 'Minhas tarefas', description: 'Organize suas entregas, acesse os materiais e acompanhe o feedback do professor.', listTitle: 'Lista de tarefas', open: 'Abrir tarefa', empty: 'Nenhuma tarefa por enquanto', emptyFiltered: 'Nenhuma tarefa neste filtro', emptyText: 'As atividades enviadas pelo professor aparecerão aqui.', icon: ClipboardList };
+  const submittedLabel = mode === 'quiz' ? 'Realizados' : 'Enviadas';
+  const reviewedLabel = mode === 'quiz' ? 'Corrigidos' : 'Corrigidas';
+  const EmptyIcon = copy.icon;
   const submit = async (assignment: DbAssignment) => {
     const text = (drafts[assignment.id] ?? '').trim();
     const file = files[assignment.id] ?? null;
@@ -1134,6 +1266,33 @@ function StudentAssignments({ assignments, materials, onAssignmentsChange, readO
     }
     setSendingId(null);
   };
+  const submitInteractive = async (assignment: DbAssignment) => {
+    if (readOnly) { setMessage('Modo de visualização: o envio de quizzes está desativado.'); return; }
+    const content = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
+    const previousResult = assignment.interactive_result as InteractiveAssignmentResult | null | undefined;
+    if (!canAttemptInteractive(content, previousResult)) { setMessage('Você já usou todas as tentativas deste quiz.'); return; }
+    const answers = interactiveAnswers[assignment.id] ?? {};
+    const questions = content?.questions ?? [];
+    if (!questions.length) { setMessage('Esta atividade interativa ainda não possui questões.'); return; }
+    if (questions.some((question) => !answers[question.id])) { setMessage('Responda todas as questões antes de enviar.'); return; }
+    const result = scoreInteractiveAssignment(content, answers);
+    setSendingId(assignment.id); setMessage('');
+    try {
+      const submittedAt = new Date().toISOString();
+      const attempt = { ...result, submittedAt };
+      const attempts = [...interactiveAttempts(previousResult), attempt];
+      const interactiveResult = { ...result, attempts };
+      const payload = { submission_text: `Quiz interativo: ${result.score}/${result.total} acertos (${result.percentage}%). Tentativa ${attempts.length}.`, submitted_at: submittedAt, status: 'submitted', interactive_result: interactiveResult };
+      const { data, error } = await supabase!.from('assignments').update(payload).eq('id', assignment.id).eq('student_id', assignment.student_id).select('*').single();
+      if (error) throw new Error(error.message);
+      onAssignmentsChange((current) => current.map((item) => item.id === assignment.id ? data as DbAssignment : item));
+      setInteractiveAnswers((current) => ({ ...current, [assignment.id]: {} }));
+      setMessage(`Atividade enviada. Resultado: ${result.score}/${result.total} (${result.percentage}%).`);
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+    setSendingId(null);
+  };
   const materialFor = (id: string | null) => materials.find((material) => material.id === id);
   const dueLabel = (assignment: DbAssignment) => {
     const date = new Date(`${assignment.due_date}T12:00:00`);
@@ -1145,22 +1304,31 @@ function StudentAssignments({ assignments, materials, onAssignmentsChange, readO
   };
   return <div className="student-page student-tasks-page">
     <section className="student-task-summary">
-      <div><p className="eyebrow">ATIVIDADES</p><h2>Minhas tarefas</h2><p>Organize suas entregas, acesse os materiais e acompanhe o feedback do professor.</p></div>
-      <div className="student-task-metrics"><article><Clock3 size={19} /><span>Pendentes</span><strong>{counts.pending}</strong></article><article><ClipboardList size={19} /><span>Enviadas</span><strong>{counts.submitted}</strong></article><article><Check size={19} /><span>Corrigidas</span><strong>{counts.reviewed}</strong></article></div>
+      <div><p className="eyebrow">{copy.eyebrow}</p><h2>{copy.title}</h2><p>{copy.description}</p></div>
+      <div className="student-task-metrics"><article><Clock3 size={19} /><span>Pendentes</span><strong>{counts.pending}</strong></article><article><ClipboardList size={19} /><span>{submittedLabel}</span><strong>{counts.submitted}</strong></article><article><Check size={19} /><span>{reviewedLabel}</span><strong>{counts.reviewed}</strong></article></div>
     </section>
     <section className="student-panel">
-      <div className="student-section-heading task-heading"><div><h2>Lista de tarefas</h2><span>{visible.length} de {assignments.length}</span></div><div className="student-task-filters"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Todas</button><button className={filter === 'pending' ? 'active' : ''} onClick={() => setFilter('pending')}>Pendentes</button><button className={filter === 'submitted' ? 'active' : ''} onClick={() => setFilter('submitted')}>Enviadas</button><button className={filter === 'reviewed' ? 'active' : ''} onClick={() => setFilter('reviewed')}>Corrigidas</button></div></div>
+      <div className="student-section-heading task-heading"><div><h2>{copy.listTitle}</h2><span>{visible.length} de {assignments.length}</span></div><div className="student-task-filters"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>Todas</button><button className={filter === 'pending' ? 'active' : ''} onClick={() => setFilter('pending')}>Pendentes</button><button className={filter === 'submitted' ? 'active' : ''} onClick={() => setFilter('submitted')}>{submittedLabel}</button><button className={filter === 'reviewed' ? 'active' : ''} onClick={() => setFilter('reviewed')}>{reviewedLabel}</button></div></div>
       {message && <div className="auth-message">{message}</div>}
       <div className="student-assignment-list">{visible.length ? visible.map((assignment) => {
         const material = materialFor(assignment.material_id);
         const overdue = isOverdue(assignment);
-        return <article key={assignment.id} className={overdue ? 'overdue' : ''}>
-          <div className="student-assignment-heading"><div><div className="task-status-row"><span className={`assignment-status ${assignment.status}`}>{assignment.status === 'pending' ? 'Pendente' : assignment.status === 'submitted' ? 'Entregue' : 'Corrigida'}</span>{overdue && <span className="task-overdue-badge">Atrasada</span>}</div><h3>{assignment.title}</h3></div><strong className={overdue ? 'overdue-text' : ''}>{dueLabel(assignment)}</strong></div>
-          <div className="task-instructions"><strong>Instruções</strong><p>{assignment.instructions}</p></div>
+        const isOpen = openAssignmentId === assignment.id;
+        const interactiveContent = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
+        const interactiveResult = assignment.interactive_result as InteractiveAssignmentResult | null | undefined;
+        const questionCount = interactiveContent?.questions.length ?? 0;
+        const canRetryInteractive = assignment.assignment_type === 'interactive' && canAttemptInteractive(interactiveContent, interactiveResult);
+        const attempts = interactiveAttempts(interactiveResult);
+        const maxAttempts = interactiveMaxAttempts(interactiveContent);
+        return <article key={assignment.id} className={`${overdue ? 'overdue' : ''} ${isOpen ? 'open' : ''}`}>
+          <div className="student-assignment-heading"><div><div className="task-status-row"><span className={`assignment-status ${assignment.status}`}>{assignment.status === 'pending' ? 'Pendente' : assignment.status === 'submitted' ? 'Entregue' : 'Corrigida'}</span>{assignment.assignment_type === 'interactive' && <span className="task-kind-badge">Quiz{questionCount ? ` · ${questionCount} questão(ões)` : ''}{attempts.length ? ` · ${attempts.length}/${maxAttempts || '∞'} tentativa(s)` : ''}</span>}{overdue && <span className="task-overdue-badge">Atrasada</span>}</div><h3>{assignment.title}</h3><p>{assignment.instructions}</p></div><div className="student-assignment-meta"><strong className={overdue ? 'overdue-text' : ''}>{dueLabel(assignment)}</strong><button type="button" onClick={() => setOpenAssignmentId(isOpen ? null : assignment.id)}>{isOpen ? 'Fechar' : copy.open}</button></div></div>
+          {isOpen && <div className="student-assignment-details"><div className="task-instructions"><strong>Instruções</strong><p>{assignment.instructions}</p></div>
           {material && <a className="task-material-link" href={material.url} target="_blank" rel="noreferrer"><FileText size={16} /><span><strong>{material.title}</strong><small>Abrir material de apoio</small></span><ExternalLink size={14} /></a>}
-          {assignment.status === 'pending' ? <div className="task-response-box"><div className="task-response-header"><div><label htmlFor={`assignment-${assignment.id}`}>Sua resposta</label></div><span className="task-response-count">{(drafts[assignment.id] ?? '').length} caracteres</span></div><textarea className="task-response-input" id={`assignment-${assignment.id}`} rows={6} value={drafts[assignment.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [assignment.id]: event.target.value }))} placeholder="Digite sua resposta ou descreva o que realizou." /><label className="task-pdf-upload"><span>Anexo em PDF <small>(opcional)</small></span><input type="file" accept="application/pdf,.pdf" onChange={(event) => setFiles((current) => ({ ...current, [assignment.id]: event.target.files?.[0] ?? null }))} />{files[assignment.id] && <em>{files[assignment.id]?.name} · {(((files[assignment.id]?.size ?? 0) / 1024 / 1024).toFixed(1))} MB</em>}</label><div className="task-submit-row"><small>Você pode enviar texto, PDF ou os dois.</small><button className="student-primary" disabled={sendingId === assignment.id} onClick={() => submit(assignment)}>{sendingId === assignment.id ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{sendingId === assignment.id ? 'Enviando...' : 'Enviar tarefa'}</button></div></div> : <div className="submission-preview student-submission-review"><div><strong>Sua resposta</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div><p>{assignment.submission_text || 'Nenhuma resposta em texto.'}</p>{assignment.submission_file_url && <a className="submission-file-link" href={assignment.submission_file_url} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submission_file_name || 'PDF anexado'}<ExternalLink size={13} /></a>}{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>}
+          {assignment.assignment_type === 'interactive' && interactiveResult && <InteractiveSubmissionReview assignment={assignment} />}
+          {assignment.assignment_type === 'interactive' && canRetryInteractive && <InteractiveAssignmentForm assignment={assignment} answers={interactiveAnswers[assignment.id] ?? {}} onAnswer={(questionId, answer) => setInteractiveAnswers((current) => ({ ...current, [assignment.id]: { ...(current[assignment.id] ?? {}), [questionId]: answer } }))} onSubmit={() => submitInteractive(assignment)} busy={sendingId === assignment.id} />}
+          {assignment.assignment_type !== 'interactive' && (assignment.status === 'pending' ? <div className="task-response-box"><div className="task-response-header"><div><label htmlFor={`assignment-${assignment.id}`}>Sua resposta</label></div><span className="task-response-count">{(drafts[assignment.id] ?? '').length} caracteres</span></div><textarea className="task-response-input" id={`assignment-${assignment.id}`} rows={6} value={drafts[assignment.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [assignment.id]: event.target.value }))} placeholder="Digite sua resposta ou descreva o que realizou." /><label className="task-pdf-upload"><span>Anexo em PDF <small>(opcional)</small></span><input type="file" accept="application/pdf,.pdf" onChange={(event) => setFiles((current) => ({ ...current, [assignment.id]: event.target.files?.[0] ?? null }))} />{files[assignment.id] && <em>{files[assignment.id]?.name} · {(((files[assignment.id]?.size ?? 0) / 1024 / 1024).toFixed(1))} MB</em>}</label><div className="task-submit-row"><small>Você pode enviar texto, PDF ou os dois.</small><button className="student-primary" disabled={sendingId === assignment.id} onClick={() => submit(assignment)}>{sendingId === assignment.id ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{sendingId === assignment.id ? 'Enviando...' : 'Enviar tarefa'}</button></div></div> : <InteractiveSubmissionReview assignment={assignment} />)}</div>}
         </article>;
-      }) : <EmptyPortal icon={ClipboardList} title={assignments.length ? 'Nenhuma tarefa neste filtro' : 'Nenhuma tarefa por enquanto'} text={assignments.length ? 'Escolha outro filtro para visualizar suas atividades.' : 'As atividades enviadas pelo professor aparecerão aqui.'} />}</div>
+      }) : <EmptyPortal icon={EmptyIcon} title={assignments.length ? copy.emptyFiltered : copy.empty} text={assignments.length ? 'Escolha outro filtro para visualizar suas atividades.' : copy.emptyText} />}</div>
     </section>
   </div>;
 }
