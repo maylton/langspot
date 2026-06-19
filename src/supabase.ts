@@ -197,6 +197,25 @@ export type CancellationRequest = {
   student?: { full_name: string };
 };
 
+export type DbNotification = {
+  id: string;
+  user_id: string;
+  teacher_id: string | null;
+  student_id: string | null;
+  kind: 'lesson' | 'assignment' | 'quiz' | 'payment' | 'cancellation' | 'mission' | 'system';
+  title: string;
+  description: string;
+  target: string;
+  target_id: string | null;
+  urgent: boolean;
+  scheduled_for: string;
+  read_at: string | null;
+  delivery_channels: string[];
+  email_status: 'pending' | 'sent' | 'failed' | 'skipped';
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 const supabaseUrl = SUPABASE.url;
 const supabaseAnonKey = SUPABASE.anonKey;
 

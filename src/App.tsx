@@ -28,6 +28,7 @@ import {
   LoaderCircle,
   LogOut,
   Menu,
+  MoreHorizontal,
   Plus,
   Printer,
   Save,
@@ -102,8 +103,8 @@ export type Student = {
 export type StudentCreateInput = { name: string; email: string; age?: string; level: string; goal: string; notes: string; status: 'Ativo' | 'Pausado'; firstLessonDate?: string; firstLessonTime?: string; firstLessonDuration?: number; firstLessonTopic?: string; firstLessonOnlineUrl?: string };
 type StudentAccountResult = { temporaryPassword: string; studentId?: Id };
 
-type NotificationKind = 'lesson' | 'assignment' | 'payment' | 'cancellation';
-export type AppNotification = { id: string; kind: NotificationKind; title: string; description: string; date: string; target: View; urgent?: boolean };
+type NotificationKind = 'lesson' | 'assignment' | 'quiz' | 'payment' | 'cancellation' | 'mission' | 'system';
+export type AppNotification = { id: string; kind: NotificationKind; title: string; description: string; date: string; target: View; urgent?: boolean; readAt?: string | null };
 type View = 'Visão geral' | 'Notificações' | 'Alunos' | 'Aulas' | 'Materiais' | 'Tarefas' | 'Quiz' | 'Financeiro' | 'Progresso' | 'Relatórios' | 'Configurações';
 type AssignmentFormMode = 'regular' | 'interactive';
 
@@ -129,9 +130,10 @@ const navigation: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: 'Configurações', icon: Settings },
 ];
 
-function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onCreateStudentAccount, onOpenCancellationRequests, cancellationRequestCount = 0, initialSettings, onProfileSettingsChange, authenticatedMode = false, accountAccess, initialStudents, initialSchedule, initialMaterials, initialAssignments, initialQuestionBank, initialPayments, onCreateScheduledLesson, onUpdateScheduledLesson, onCancelScheduledLesson, onCompleteScheduledLesson, onCreateLessonRecord, onUpdateLessonRecord, onDeleteLessonRecord, onUpdateStudentSkills, onUpdateStudentProfile, onDeleteStudent, onPreviewStudent, onCreateMaterial, onDeleteMaterial, onAssignMaterial, onCreateAssignment, onDeleteAssignment, onReviewAssignment, onCreateQuestionBankItem, onDeleteQuestionBankItem, onCreatePayment, onUpdatePaymentStatus, onDeletePayment }: { onLogout?: () => void; onInviteStudent?: () => void; onInviteTeacher?: () => void; onManageTeachers?: () => void; onCreateStudentAccount?: (data: StudentCreateInput) => Promise<StudentAccountResult>; onOpenCancellationRequests?: () => void; cancellationRequestCount?: number; initialSettings?: Partial<PlatformSettings>; onProfileSettingsChange?: (settings: PlatformSettings) => void | Promise<void>; authenticatedMode?: boolean; accountAccess?: AccountAccessInfo; initialStudents?: Student[]; initialSchedule?: ScheduledLesson[]; onCreateScheduledLesson?: (lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onUpdateScheduledLesson?: (id: Id, lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onCancelScheduledLesson?: (id: Id) => Promise<void>; onCompleteScheduledLesson?: (id: Id, record: LessonRecordInput) => Promise<void>; onCreateLessonRecord?: (studentId: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onUpdateLessonRecord?: (id: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onDeleteLessonRecord?: (id: Id) => Promise<void>; onUpdateStudentSkills?: (studentId: Id, skills: Record<Skill, number>) => Promise<void>; onUpdateStudentProfile?: (student: Student) => Promise<void>; onDeleteStudent?: (studentId: Id) => Promise<void>; onPreviewStudent?: (student: Student) => void; initialMaterials?: Material[]; onCreateMaterial?: (material: MaterialInput) => Promise<Material>; onDeleteMaterial?: (id: Id) => Promise<void>; onAssignMaterial?: (materialId: Id, studentIds: Id[]) => Promise<void>; initialAssignments?: Assignment[]; initialQuestionBank?: QuestionBankItem[]; onCreateAssignment?: (assignment: AssignmentInput) => Promise<Assignment>; onDeleteAssignment?: (id: Id) => Promise<void>; onReviewAssignment?: (id: Id, feedback: string, grade?: number) => Promise<void>; onCreateQuestionBankItem?: (question: QuestionBankInput) => Promise<QuestionBankItem>; onDeleteQuestionBankItem?: (id: Id) => Promise<void>; initialPayments?: Payment[]; onCreatePayment?: (payment: PaymentInput) => Promise<Payment>; onUpdatePaymentStatus?: (id: Id, status: PaymentStatus) => Promise<void>; onDeletePayment?: (id: Id) => Promise<void> }) {
+function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onCreateStudentAccount, onOpenCancellationRequests, cancellationRequestCount = 0, initialSettings, onProfileSettingsChange, authenticatedMode = false, accountAccess, initialStudents, initialSchedule, initialMaterials, initialAssignments, initialQuestionBank, initialPayments, initialNotifications, onMarkNotificationRead, onMarkAllNotificationsRead, onCreateScheduledLesson, onUpdateScheduledLesson, onCancelScheduledLesson, onCompleteScheduledLesson, onCreateLessonRecord, onUpdateLessonRecord, onDeleteLessonRecord, onUpdateStudentSkills, onUpdateStudentProfile, onDeleteStudent, onPreviewStudent, onCreateMaterial, onDeleteMaterial, onAssignMaterial, onCreateAssignment, onDeleteAssignment, onReviewAssignment, onCreateQuestionBankItem, onDeleteQuestionBankItem, onCreatePayment, onUpdatePaymentStatus, onDeletePayment }: { onLogout?: () => void; onInviteStudent?: () => void; onInviteTeacher?: () => void; onManageTeachers?: () => void; onCreateStudentAccount?: (data: StudentCreateInput) => Promise<StudentAccountResult>; onOpenCancellationRequests?: () => void; cancellationRequestCount?: number; initialSettings?: Partial<PlatformSettings>; onProfileSettingsChange?: (settings: PlatformSettings) => void | Promise<void>; authenticatedMode?: boolean; accountAccess?: AccountAccessInfo; initialStudents?: Student[]; initialSchedule?: ScheduledLesson[]; onCreateScheduledLesson?: (lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onUpdateScheduledLesson?: (id: Id, lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onCancelScheduledLesson?: (id: Id) => Promise<void>; onCompleteScheduledLesson?: (id: Id, record: LessonRecordInput) => Promise<void>; onCreateLessonRecord?: (studentId: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onUpdateLessonRecord?: (id: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onDeleteLessonRecord?: (id: Id) => Promise<void>; onUpdateStudentSkills?: (studentId: Id, skills: Record<Skill, number>) => Promise<void>; onUpdateStudentProfile?: (student: Student) => Promise<void>; onDeleteStudent?: (studentId: Id) => Promise<void>; onPreviewStudent?: (student: Student) => void; initialMaterials?: Material[]; onCreateMaterial?: (material: MaterialInput) => Promise<Material>; onDeleteMaterial?: (id: Id) => Promise<void>; onAssignMaterial?: (materialId: Id, studentIds: Id[]) => Promise<void>; initialAssignments?: Assignment[]; initialQuestionBank?: QuestionBankItem[]; onCreateAssignment?: (assignment: AssignmentInput) => Promise<Assignment>; onDeleteAssignment?: (id: Id) => Promise<void>; onReviewAssignment?: (id: Id, feedback: string, grade?: number) => Promise<void>; onCreateQuestionBankItem?: (question: QuestionBankInput) => Promise<QuestionBankItem>; onDeleteQuestionBankItem?: (id: Id) => Promise<void>; initialPayments?: Payment[]; initialNotifications?: AppNotification[]; onMarkNotificationRead?: (id: Id) => Promise<void>; onMarkAllNotificationsRead?: (ids: Id[]) => Promise<void>; onCreatePayment?: (payment: PaymentInput) => Promise<Payment>; onUpdatePaymentStatus?: (id: Id, status: PaymentStatus) => Promise<void>; onDeletePayment?: (id: Id) => Promise<void> }) {
   const [active, setActive] = useState<View>('Visão geral');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [students, setStudents] = useState<Student[]>(() => {
@@ -215,7 +217,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   const selected = students.find((student) => student.id === selectedId) ?? null;
   const filteredStudents = useMemo(() => students.filter((student) => `${student.name} ${student.level} ${student.goal}`.toLowerCase().includes(query.toLowerCase())), [students, query]);
   const averageProgress = students.length ? Math.round(students.reduce((sum, student) => sum + student.progress, 0) / students.length) : 0;
-  const notifications = useMemo<AppNotification[]>(() => {
+  const automaticNotifications = useMemo<AppNotification[]>(() => {
     const now = new Date();
     const endOfTomorrow = new Date(now);
     endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
@@ -244,10 +246,11 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
       const assignmentTarget = assignment.assignmentType === 'interactive' ? 'Quiz' : 'Tarefas';
       const reviewTitle = assignment.assignmentType === 'interactive' ? 'Quiz aguardando correção' : 'Tarefa aguardando correção';
       const overdueTitle = assignment.assignmentType === 'interactive' ? 'Quiz atrasado' : 'Tarefa atrasada';
+      const kind = assignment.assignmentType === 'interactive' ? 'quiz' : 'assignment';
       if (assignment.status === 'Entregue') {
-        items.push({ id: `assignment-review-${assignment.id}`, kind: 'assignment', title: reviewTitle, description: `${studentName(assignment.studentId)} entregou “${assignment.title}”.`, date: assignment.submittedAt ?? assignment.createdAt, target: assignmentTarget, urgent: true });
+        items.push({ id: `assignment-review-${assignment.id}`, kind, title: reviewTitle, description: `${studentName(assignment.studentId)} entregou “${assignment.title}”.`, date: assignment.submittedAt ?? assignment.createdAt, target: assignmentTarget, urgent: true });
       } else if (assignment.status === 'Pendente' && due < now) {
-        items.push({ id: `assignment-overdue-${assignment.id}`, kind: 'assignment', title: overdueTitle, description: `${studentName(assignment.studentId)} ainda não entregou “${assignment.title}”.`, date: due.toISOString(), target: assignmentTarget, urgent: true });
+        items.push({ id: `assignment-overdue-${assignment.id}`, kind, title: overdueTitle, description: `${studentName(assignment.studentId)} ainda não entregou “${assignment.title}”.`, date: due.toISOString(), target: assignmentTarget, urgent: true });
       }
     });
 
@@ -261,7 +264,12 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
     if (cancellationRequestCount > 0) items.push({ id: `cancellations-${cancellationRequestCount}`, kind: 'cancellation', title: 'Solicitações de cancelamento', description: `${cancellationRequestCount} solicitação(ões) aguardando sua análise.`, date: now.toISOString(), target: 'Aulas', urgent: true });
     return items.sort((a, b) => Number(Boolean(b.urgent)) - Number(Boolean(a.urgent)) || new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [students, schedule, assignments, payments, cancellationRequestCount]);
-  const unreadNotificationCount = notifications.filter((item) => !readNotificationIds.includes(item.id)).length;
+  const notifications = useMemo(() => initialNotifications ?? automaticNotifications, [initialNotifications, automaticNotifications]);
+  const notificationReadIds = useMemo(() => {
+    if (initialNotifications) return initialNotifications.filter((item) => item.readAt).map((item) => item.id);
+    return readNotificationIds;
+  }, [initialNotifications, readNotificationIds]);
+  const unreadNotificationCount = notifications.filter((item) => !notificationReadIds.includes(item.id)).length;
 
   const addStudent = async (data: StudentCreateInput) => {
     const account = onCreateStudentAccount ? await onCreateStudentAccount(data) : null;
@@ -457,10 +465,17 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
     return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', closeOnEscape); };
   }, [mobileMenuOpen]);
 
-  const markNotificationRead = (id: string) => setReadNotificationIds((current) => current.includes(id) ? current : [...current, id]);
-  const markAllNotificationsRead = () => setReadNotificationIds((current) => Array.from(new Set([...current, ...notifications.map((item) => item.id)])));
-  const openNotification = (notification: AppNotification) => { markNotificationRead(notification.id); setActive(notification.target); setSelectedId(null); setMobileMenuOpen(false); setAccountMenuOpen(false); };
-  const navigateTo = (label: View) => { setActive(label); setSelectedId(null); setMobileMenuOpen(false); setAccountMenuOpen(false); };
+  const markNotificationRead = (id: string) => {
+    setReadNotificationIds((current) => current.includes(id) ? current : [...current, id]);
+    void onMarkNotificationRead?.(id);
+  };
+  const markAllNotificationsRead = () => {
+    const ids = notifications.map((item) => item.id);
+    setReadNotificationIds((current) => Array.from(new Set([...current, ...ids])));
+    void onMarkAllNotificationsRead?.(ids);
+  };
+  const openNotification = (notification: AppNotification) => { markNotificationRead(notification.id); setActive(notification.target); setSelectedId(null); setMobileMenuOpen(false); setMobileMoreOpen(false); setAccountMenuOpen(false); };
+  const navigateTo = (label: View) => { setActive(label); setSelectedId(null); setMobileMenuOpen(false); setMobileMoreOpen(false); setAccountMenuOpen(false); };
 
   const topbarPrimaryAction = !selected ? (
     active === 'Visão geral'
@@ -473,13 +488,17 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   ) : null;
 
   const pageTitle = selected ? selected.name : active;
+  const teacherPrimaryNavigation = navigation.filter((item) => ['Visão geral', 'Alunos', 'Aulas', 'Quiz'].includes(item.label));
+  const teacherMoreNavigation = navigation.filter((item) => !teacherPrimaryNavigation.some((primary) => primary.label === item.label));
+  const teacherMoreActive = !selected && teacherMoreNavigation.some((item) => item.label === active);
 
   return (
     <div className="app-shell">
       {mobileMenuOpen && <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)} />}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="brand"><div className="brand-mark"><GraduationCap size={24} /></div><div><strong>LangSpot</strong><span>Teacher Workspace</span></div><button className="mobile-menu-close" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)}><X size={20} /></button></div>
-        <nav>{navigation.map(({ label, icon: Icon }) => <button key={label} className={active === label && !selected ? 'nav-item active' : 'nav-item'} onClick={() => navigateTo(label)}><Icon size={19} /><span>{label}</span>{label === 'Notificações' && unreadNotificationCount > 0 && <b className="nav-badge">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</b>}</button>)}</nav>
+        <nav className="desktop-nav">{navigation.map(({ label, icon: Icon }) => <button key={label} className={active === label && !selected ? 'nav-item active' : 'nav-item'} onClick={() => navigateTo(label)}><Icon size={19} /><span>{label}</span>{label === 'Notificações' && unreadNotificationCount > 0 && <b className="nav-badge">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</b>}</button>)}</nav>
+        <nav className="mobile-bottom-nav">{teacherPrimaryNavigation.map(({ label, icon: Icon }) => <button key={label} className={active === label && !selected ? 'nav-item active' : 'nav-item'} onClick={() => navigateTo(label)}><Icon size={19} /><span>{label}</span></button>)}<button type="button" className={teacherMoreActive || mobileMoreOpen ? 'nav-item active mobile-more-button' : 'nav-item mobile-more-button'} onClick={() => setMobileMoreOpen((open) => !open)}><MoreHorizontal size={19} /><span>Mais</span>{teacherMoreNavigation.some((item) => item.label === 'Notificações') && unreadNotificationCount > 0 && <b className="nav-badge">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</b>}</button>{mobileMoreOpen && <div className="mobile-more-menu">{teacherMoreNavigation.map(({ label, icon: Icon }) => <button key={label} type="button" className={active === label && !selected ? 'active' : ''} onClick={() => navigateTo(label)}><Icon size={17} /><span>{label}</span>{label === 'Notificações' && unreadNotificationCount > 0 && <b className="nav-badge">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</b>}</button>)}</div>}</nav>
         <div className="sidebar-footer"><button className={active === 'Configurações' ? 'nav-item active' : 'nav-item'} onClick={() => navigateTo('Configurações')}><Settings size={19} /><span>Configurações</span></button>{onLogout && <button className="compact-logout-button" onClick={onLogout} title="Sair da conta" aria-label="Sair da conta"><LogOut size={19} /><span>Sair</span></button>}<div className="profile-card">{settings.avatar ? <img className="teacher-avatar" src={settings.avatar} alt={`Avatar de ${settings.teacherName}`} /> : <CircleUserRound size={34} />}<div><strong>{settings.teacherName}</strong><span>Professor</span></div>{onLogout && <button onClick={onLogout} title="Sair da conta" aria-label="Sair da conta"><LogOut size={16} /></button>}</div></div>
       </aside>
 
@@ -493,7 +512,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
 
         {!isOnline && <div className="offline-banner" role="status"><WifiOff size={17} /><span>Você está offline. Alterações que dependem do Supabase podem não ser salvas até a conexão voltar.</span></div>}
 
-        {selected ? <StudentProfile student={selected} onNewLesson={() => setCreatingLessonRecord(true)} onSkillChange={updateSkill} onEdit={() => setStudentToEdit(selected)} onDelete={() => setStudentToDelete(selected)} onPreview={() => onPreviewStudent?.(selected)} onEditLesson={setLessonRecordToEdit} onDeleteLesson={setLessonRecordToDelete} /> : active === 'Visão geral' ? <Dashboard teacherName={settings.teacherName} students={students} schedule={schedule} averageProgress={averageProgress} authenticatedMode={authenticatedMode} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} onOpenSchedule={() => setActive('Aulas')} /> : active === 'Notificações' ? <NotificationsPage notifications={notifications} readIds={readNotificationIds} onOpen={openNotification} onMarkAll={markAllNotificationsRead} /> : active === 'Alunos' ? <StudentsPage students={filteredStudents} schedule={schedule} query={query} setQuery={setQuery} onOpen={setSelectedId} /> : active === 'Aulas' ? <LessonsPage students={students} lessons={schedule} onNew={(date) => setLessonToEdit({ ...newLessonDraft(), date: date ?? toDateInput(new Date()) })} onEdit={setLessonToEdit} onComplete={setLessonToComplete} onCancel={cancelScheduledLesson} /> : active === 'Materiais' ? <MaterialsPage materials={materials} onNew={() => setShowMaterialForm(true)} onDelete={setMaterialToDelete} onAssign={setMaterialToAssign} /> : active === 'Tarefas' ? <AssignmentsPage assignments={assignments.filter((assignment) => assignment.assignmentType !== 'interactive')} students={students} mode="tasks" onNew={() => setAssignmentFormMode('regular')} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Quiz' ? <AssignmentsPage assignments={assignments.filter((assignment) => assignment.assignmentType === 'interactive')} students={students} mode="quiz" onNew={() => setAssignmentFormMode('interactive')} onManageBank={() => setShowQuestionBank(true)} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Financeiro' ? <FinancePage payments={payments} students={students} onNew={() => setShowPaymentForm(true)} onStatus={updatePaymentStatus} onDelete={deletePayment} /> : active === 'Progresso' ? <ProgressPage students={students} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} /> : active === 'Relatórios' ? <ReportsPage students={students} schedule={schedule} assignments={assignments} /> : active === 'Configurações' ? <SettingsPage settings={settings} authenticatedMode={authenticatedMode} accountAccess={accountAccess} onSave={saveSettings} counts={{ students: students.length, lessons: schedule.length, materials: materials.length }} onExport={exportData} onReset={resetData} onInviteTeacher={onInviteTeacher} onManageTeachers={onManageTeachers} /> : <PlaceholderPage title={active} />}
+        {selected ? <StudentProfile student={selected} onNewLesson={() => setCreatingLessonRecord(true)} onSkillChange={updateSkill} onEdit={() => setStudentToEdit(selected)} onDelete={() => setStudentToDelete(selected)} onPreview={() => onPreviewStudent?.(selected)} onEditLesson={setLessonRecordToEdit} onDeleteLesson={setLessonRecordToDelete} /> : active === 'Visão geral' ? <Dashboard teacherName={settings.teacherName} students={students} schedule={schedule} averageProgress={averageProgress} authenticatedMode={authenticatedMode} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} onOpenSchedule={() => setActive('Aulas')} /> : active === 'Notificações' ? <NotificationsPage notifications={notifications} readIds={notificationReadIds} onOpen={openNotification} onMarkAll={markAllNotificationsRead} /> : active === 'Alunos' ? <StudentsPage students={filteredStudents} schedule={schedule} query={query} setQuery={setQuery} onOpen={setSelectedId} /> : active === 'Aulas' ? <LessonsPage students={students} lessons={schedule} onNew={(date) => setLessonToEdit({ ...newLessonDraft(), date: date ?? toDateInput(new Date()) })} onEdit={setLessonToEdit} onComplete={setLessonToComplete} onCancel={cancelScheduledLesson} /> : active === 'Materiais' ? <MaterialsPage materials={materials} onNew={() => setShowMaterialForm(true)} onDelete={setMaterialToDelete} onAssign={setMaterialToAssign} /> : active === 'Tarefas' ? <AssignmentsPage assignments={assignments.filter((assignment) => assignment.assignmentType !== 'interactive')} students={students} mode="tasks" onNew={() => setAssignmentFormMode('regular')} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Quiz' ? <AssignmentsPage assignments={assignments.filter((assignment) => assignment.assignmentType === 'interactive')} students={students} mode="quiz" onNew={() => setAssignmentFormMode('interactive')} onManageBank={() => setShowQuestionBank(true)} onDelete={setAssignmentToDelete} onReview={setAssignmentToReview} /> : active === 'Financeiro' ? <FinancePage payments={payments} students={students} onNew={() => setShowPaymentForm(true)} onStatus={updatePaymentStatus} onDelete={deletePayment} /> : active === 'Progresso' ? <ProgressPage students={students} onOpenStudent={(id) => { setSelectedId(id); setActive('Alunos'); }} /> : active === 'Relatórios' ? <ReportsPage students={students} schedule={schedule} assignments={assignments} /> : active === 'Configurações' ? <SettingsPage settings={settings} authenticatedMode={authenticatedMode} accountAccess={accountAccess} onSave={saveSettings} counts={{ students: students.length, lessons: schedule.length, materials: materials.length }} onExport={exportData} onReset={resetData} onInviteTeacher={onInviteTeacher} onManageTeachers={onManageTeachers} /> : <PlaceholderPage title={active} />}
       </main>
 
       {showStudentForm && <StudentModal onClose={() => setShowStudentForm(false)} onSave={addStudent} defaultDuration={settings.defaultDuration} defaultOnlineUrl={settings.defaultOnlineUrl} />}
@@ -519,7 +538,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
 
 function NotificationsPage({ notifications, readIds, onOpen, onMarkAll }: { notifications: AppNotification[]; readIds: string[]; onOpen: (notification: AppNotification) => void; onMarkAll: () => void }) {
   const unread = notifications.filter((item) => !readIds.includes(item.id)).length;
-  const iconFor = (kind: NotificationKind) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'payment' ? CircleDollarSign : Ban;
+  const iconFor = (kind: NotificationKind) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'quiz' ? FileQuestion : kind === 'payment' ? CircleDollarSign : kind === 'mission' ? Target : kind === 'system' ? Bell : Ban;
   return <section className="notifications-page">
     <div className="panel notifications-panel">
       <div className="panel-heading notifications-heading"><div><p className="eyebrow">CENTRAL</p><h3>Notificações</h3><p>Acompanhe o que precisa da sua atenção agora.</p></div>{unread > 0 && <button className="secondary-button compact" onClick={onMarkAll}><Check size={16} />Marcar todas como lidas</button>}</div>

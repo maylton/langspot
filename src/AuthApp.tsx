@@ -1,7 +1,7 @@
 import { FormEvent, type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Award, Ban, BookOpen, Brain, CalendarDays, Check, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileQuestion, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus, X } from 'lucide-react';
-import App, { Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, Student, StudentCreateInput } from './App';
-import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
+import { ArrowLeft, ArrowRight, Award, Ban, Bell, BookOpen, Brain, CalendarDays, Check, ChevronRight, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileQuestion, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, MoreHorizontal, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import App, { AppNotification, Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, Student, StudentCreateInput } from './App';
+import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbNotification, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
@@ -65,6 +65,21 @@ const displayInteractiveAnswer = (question: InteractiveAssignmentContent['questi
 
 function isSchemaCacheMiss(error: { code?: string; message?: string } | null) {
   return error?.code === 'PGRST205' || Boolean(error?.message?.includes('schema cache'));
+}
+
+const teacherNotificationTargets = ['Visão geral', 'Notificações', 'Alunos', 'Aulas', 'Materiais', 'Tarefas', 'Quiz', 'Financeiro', 'Progresso', 'Relatórios', 'Configurações'] as const;
+const studentNotificationTargets = ['Visão geral', 'Aulas', 'Progresso', 'Materiais', 'Tarefas', 'Quiz', 'Flashcards', 'Metas', 'Conquistas', 'Diário', 'Perfil', 'Notificações'] as const;
+
+function mapDbNotificationToTeacher(row: DbNotification): AppNotification {
+  const target = teacherNotificationTargets.includes(row.target as typeof teacherNotificationTargets[number]) ? row.target : 'Visão geral';
+  return { id: row.id, kind: row.kind, title: row.title, description: row.description, date: row.scheduled_for ?? row.created_at, target: target as AppNotification['target'], urgent: row.urgent, readAt: row.read_at };
+}
+
+type StudentNotification = Omit<AppNotification, 'target'> & { target: StudentTab };
+
+function mapDbNotificationToStudent(row: DbNotification): StudentNotification {
+  const target = studentNotificationTargets.includes(row.target as typeof studentNotificationTargets[number]) ? row.target : 'Visão geral';
+  return { id: row.id, kind: row.kind, title: row.title, description: row.description, date: row.scheduled_for ?? row.created_at, target: target as StudentTab, urgent: row.urgent, readAt: row.read_at };
 }
 
 export default function AuthApp() {
@@ -209,6 +224,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [questionBank, setQuestionBank] = useState<QuestionBankItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
@@ -232,6 +248,22 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     if (!supabase) return;
     const { data } = await supabase.from('cancellation_requests').select('*, lessons(*), student:profiles!cancellation_requests_student_id_fkey(full_name)').order('created_at', { ascending: false });
     setRequests((data ?? []) as unknown as CancellationRequest[]);
+  };
+
+  const loadNotifications = async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .lte('scheduled_for', new Date().toISOString())
+      .order('scheduled_for', { ascending: false })
+      .limit(50);
+    if (error) {
+      if (!isSchemaCacheMiss(error)) console.warn('Notifications loading failed:', error);
+      setNotifications([]);
+      return;
+    }
+    setNotifications(((data ?? []) as DbNotification[]).map(mapDbNotificationToTeacher));
   };
 
   const loadTeacherData = async () => {
@@ -346,6 +378,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     void loadSubscription();
     void loadRequests();
     void loadTeacherData();
+    void loadNotifications();
   }, []);
 
   useEffect(() => {
@@ -584,7 +617,23 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     if (!supabase) return;
     const { error } = await supabase.from('cancellation_requests').update({ status, teacher_response: response, resolved_at: new Date().toISOString() }).eq('id', request.id);
     if (!error && status === 'approved') await supabase.from('lessons').update({ status: 'cancelled' }).eq('id', request.lesson_id);
-    await Promise.all([loadRequests(), loadTeacherData()]);
+    await Promise.all([loadRequests(), loadTeacherData(), loadNotifications()]);
+  };
+
+  const markNotificationRead = async (id: string) => {
+    if (!supabase) return;
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((item) => item.id === id ? { ...item, readAt } : item));
+    const { error } = await supabase.from('notifications').update({ read_at: readAt }).eq('id', id);
+    if (error) await loadNotifications();
+  };
+
+  const markAllNotificationsRead = async (ids: string[]) => {
+    if (!supabase || !ids.length) return;
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((item) => ids.includes(item.id) ? { ...item, readAt } : item));
+    const { error } = await supabase.from('notifications').update({ read_at: readAt }).in('id', ids);
+    if (error) await loadNotifications();
   };
 
   const pending = requests.filter((request) => request.status === 'pending').length;
@@ -628,6 +677,9 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       initialAssignments={assignments}
       initialQuestionBank={questionBank}
       initialPayments={payments}
+      initialNotifications={notifications}
+      onMarkNotificationRead={markNotificationRead}
+      onMarkAllNotificationsRead={markAllNotificationsRead}
       onLogout={onLogout}
       onInviteStudent={subscriptionActive ? openStudentInvite : undefined}
       onInviteTeacher={subscriptionActive && subscription?.plan === 'owner' ? () => setInviteTeacherOpen(true) : undefined}
@@ -869,7 +921,7 @@ function AuthPage({ onDemo }: { onDemo: () => void }) {
   return <main className="auth-page"><section className="auth-intro"><div className="auth-brand"><GraduationCap size={28} /><strong>LangSpot</strong></div><div><span>TEACHER WORKSPACE</span><h1>Ensine melhor.<br />Acompanhe de perto.</h1><p>Alunos, aulas, materiais e progresso organizados em um único espaço.</p></div><ul><li><CalendarDays size={18} />Agenda e aulas online</li><li><BookOpen size={18} />Biblioteca de materiais</li><li><GraduationCap size={18} />Portal individual do aluno</li></ul></section><section className="auth-form-wrap"><div className="auth-form-card"><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p>{isSupabaseConfigured ? <form onSubmit={submit}>{mode === 'register' && <label>Nome completo<input name="name" required /></label>}<label>E-mail<input name="email" type="email" autoComplete="email" required autoFocus /></label>{mode !== 'forgot' && <PasswordField label="Senha" name="password" minLength={6} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required />}{mode === 'login' && <button type="button" className="forgot-password-link" onClick={() => changeMode('forgot')}>Esqueci minha senha</button>}{message && <div className="auth-message">{message}</div>}<button disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : mode === 'login' ? <LockKeyhole size={17} /> : mode === 'register' ? <UserPlus size={17} /> : <ArrowRight size={17} />}{busy ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : 'Enviar link'}{!busy && mode !== 'forgot' && <ArrowRight size={16} />}</button></form> : <div className="auth-message">Configure as variáveis do Supabase para habilitar login e cadastro.</div>}{mode === 'forgot' ? <button className="auth-switch" onClick={() => changeMode('login')}>Voltar para o login</button> : <button className="auth-switch" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}</button>}{can.useDemoMode() && mode !== 'forgot' && <button className="demo-button" onClick={onDemo}>Continuar no modo demonstração</button>}</div></section></main>;
 }
 
-type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Quiz' | 'Flashcards' | 'Metas' | 'Conquistas' | 'Diário' | 'Perfil';
+type StudentTab = 'Visão geral' | 'Aulas' | 'Progresso' | 'Materiais' | 'Tarefas' | 'Quiz' | 'Flashcards' | 'Metas' | 'Conquistas' | 'Diário' | 'Perfil' | 'Notificações';
 
 function localDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -925,18 +977,20 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   const [studyActivities, setStudyActivities] = useState<StudyActivity[]>([]);
   const [streakFreezes, setStreakFreezes] = useState<StreakFreeze[]>([]);
   const [requests, setRequests] = useState<CancellationRequest[]>([]);
+  const [notifications, setNotifications] = useState<StudentNotification[]>([]);
   const [lessonToCancel, setLessonToCancel] = useState<DbLesson | null>(null);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem(`langspot.studentTheme.${profile.id}`) === 'dark' ? 'dark' : 'light');
 
   const loadPortal = async () => {
     if (!supabase) return;
     setLoading(true);
     setLoadError('');
-    const [profileResult, recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, activityResult, freezeResult, requestResult, userResult] = await Promise.all([
+    const [profileResult, recordResult, lessonResult, assignmentResult, taskResult, goalResult, journalResult, activityResult, freezeResult, requestResult, notificationResult, userResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', profile.id).maybeSingle(),
       supabase.from('student_records').select('*').eq('student_id', profile.id).maybeSingle(),
       supabase.from('lessons').select('*').eq('student_id', profile.id).order('starts_at'),
@@ -947,9 +1001,10 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
       supabase.from('study_activities').select('*').eq('student_id', profile.id).order('activity_date', { ascending: false }),
       supabase.from('streak_freezes').select('*').eq('student_id', profile.id).order('protected_date', { ascending: false }),
       supabase.from('cancellation_requests').select('*').eq('student_id', profile.id).order('created_at', { ascending: false }),
+      supabase.from('notifications').select('*').lte('scheduled_for', new Date().toISOString()).order('scheduled_for', { ascending: false }).limit(50),
       previewMode ? Promise.resolve({ data: { user: null }, error: null }) : supabase.auth.getUser(),
     ]);
-    const errors = [profileResult.error, recordResult.error, lessonResult.error, assignmentResult.error, taskResult.error, goalResult.error, journalResult.error, activityResult.error, requestResult.error, freezeResult.error && !isSchemaCacheMiss(freezeResult.error) ? freezeResult.error : null].filter(Boolean);
+    const errors = [profileResult.error, recordResult.error, lessonResult.error, assignmentResult.error, taskResult.error, goalResult.error, journalResult.error, activityResult.error, requestResult.error, freezeResult.error && !isSchemaCacheMiss(freezeResult.error) ? freezeResult.error : null, notificationResult.error && !isSchemaCacheMiss(notificationResult.error) ? notificationResult.error : null].filter(Boolean);
     const warnings = errors.map((error) => error?.message).filter(Boolean) as string[];
     if (previewMode && !profileResult.data && !profileResult.error) {
       warnings.unshift('O perfil real do aluno não está acessível para o professor. Aplique a migração de permissões da visualização do aluno no Supabase.');
@@ -989,6 +1044,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     setStudyActivities((activityResult.data ?? []) as StudyActivity[]);
     setStreakFreezes((freezeResult.data ?? []) as StreakFreeze[]);
     setRequests((requestResult.data ?? []) as CancellationRequest[]);
+    setNotifications(((notificationResult.data ?? []) as DbNotification[]).map(mapDbNotificationToStudent));
     setEmail(userResult.data.user?.email ?? (profileResult.data as Profile | null)?.email ?? profile.email ?? '');
     setLoading(false);
   };
@@ -1003,13 +1059,48 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
   const upcoming = useMemo(() => lessons.filter((lesson) => lesson.status === 'scheduled' && new Date(lesson.starts_at) > new Date()), [lessons]);
   const history = useMemo(() => lessons.filter((lesson) => lesson.status !== 'scheduled' || new Date(lesson.starts_at) <= new Date()).reverse(), [lessons]);
   const nextLesson = upcoming[0];
+  const todayKey = localDateKey(new Date());
+  const hasStudyToday = studyActivities.some((activity) => activity.activity_date === todayKey) || streakFreezes.some((freeze) => freeze.protected_date === todayKey);
+  const missionNotification = !hasStudyToday ? [{
+    id: `mission-${profile.id}-${todayKey}`,
+    kind: 'mission' as const,
+    title: 'Missão diária disponível',
+    description: 'Complete uma ação de estudo hoje para ativar seu streak.',
+    date: new Date().toISOString(),
+    target: 'Visão geral' as StudentTab,
+    urgent: true,
+    readAt: null,
+  }] : [];
+  const studentNotifications = useMemo(() => [...missionNotification, ...notifications].sort((a, b) => Number(Boolean(b.urgent)) - Number(Boolean(a.urgent)) || new Date(b.date).getTime() - new Date(a.date).getTime()), [missionNotification, notifications]);
+  const unreadStudentNotifications = studentNotifications.filter((item) => !item.readAt).length;
   const requestByLesson = (lessonId: string) => requests.find((request) => request.lesson_id === lessonId);
   const navigateStudent = (nextTab: StudentTab) => {
     setTab(nextTab);
     setAccountMenuOpen(false);
+    setMobileMoreOpen(false);
+  };
+  const markStudentNotificationRead = async (id: string) => {
+    if (id.startsWith('mission-')) return;
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((item) => item.id === id ? { ...item, readAt } : item));
+    const { error } = await supabase!.from('notifications').update({ read_at: readAt }).eq('id', id);
+    if (error) await loadPortal();
+  };
+  const markAllStudentNotificationsRead = async () => {
+    const ids = studentNotifications.filter((item) => !item.id.startsWith('mission-')).map((item) => item.id);
+    if (!ids.length) return;
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((item) => ids.includes(item.id) ? { ...item, readAt } : item));
+    const { error } = await supabase!.from('notifications').update({ read_at: readAt }).in('id', ids);
+    if (error) await loadPortal();
+  };
+  const openStudentNotification = (notification: StudentNotification) => {
+    void markStudentNotificationRead(notification.id);
+    navigateStudent(notification.target);
   };
   const nav: { label: StudentTab; icon: typeof LayoutDashboard }[] = [
     { label: 'Visão geral', icon: LayoutDashboard },
+    { label: 'Notificações', icon: Bell },
     { label: 'Aulas', icon: CalendarDays },
     { label: 'Tarefas', icon: ClipboardList },
     { label: 'Quiz', icon: FileQuestion },
@@ -1021,14 +1112,39 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     { label: 'Progresso', icon: GraduationCap },
     { label: 'Perfil', icon: UserRound },
   ];
+  const primaryNav = nav.filter((item) => ['Visão geral', 'Aulas', 'Quiz', 'Flashcards'].includes(item.label));
+  const moreNav = nav.filter((item) => !primaryNav.some((primary) => primary.label === item.label));
+  const moreActive = moreNav.some((item) => item.label === tab);
 
   if (loading) return <div className="auth-loading"><LoaderCircle className="spin" size={30} />Carregando seu portal...</div>;
-  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => navigateStudent(label)}><Icon size={18} />{label}</button>)}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-account-menu"><button type="button" className="student-avatar student-avatar-button" aria-label="Abrir menu do perfil" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</button>{accountMenuOpen && <div className="student-account-popover"><div><strong>{portalProfile.full_name}</strong><span>{email || portalProfile.email || 'Aluno'}</span></div><button type="button" onClick={() => navigateStudent('Perfil')}><UserRound size={16} />Meu perfil</button><button type="button" className="student-account-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></div>}</div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={navigateStudent} readOnly={previewMode} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments.filter((assignment) => assignment.assignment_type !== 'interactive')} materials={materials} mode="tasks" onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Quiz' ? <StudentAssignments assignments={assignments.filter((assignment) => assignment.assignment_type === 'interactive')} materials={materials} mode="quiz" onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onGoalsChange={setGoals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} lessons={lessons} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} theme={theme} onThemeChange={setTheme} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
+  return <div className={`student-app ${previewMode ? 'student-preview-mode' : ''}`}>{previewMode && <div className="student-preview-banner"><Eye size={18} /><div><strong>Visualização do aluno: {portalProfile.full_name}</strong><span>Você está vendo o portal em modo somente leitura{previewTeacherName ? ` como ${previewTeacherName}` : ''}.</span></div><button type="button" onClick={onLogout}><ArrowLeft size={16} />Sair da visualização</button></div>}<aside className="student-sidebar"><div className="auth-brand"><GraduationCap size={25} /><strong>LangSpot</strong></div><nav className="desktop-nav">{nav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => navigateStudent(label)}><Icon size={18} />{label}{label === 'Notificações' && unreadStudentNotifications > 0 && <b className="nav-badge">{unreadStudentNotifications > 9 ? '9+' : unreadStudentNotifications}</b>}</button>)}</nav><nav className="mobile-bottom-nav">{primaryNav.map(({ label, icon: Icon }) => <button key={label} className={tab === label ? 'active' : ''} onClick={() => navigateStudent(label)}><Icon size={18} />{label}</button>)}<button type="button" className={moreActive || mobileMoreOpen ? 'active mobile-more-button' : 'mobile-more-button'} onClick={() => setMobileMoreOpen((open) => !open)}><MoreHorizontal size={18} />Mais{unreadStudentNotifications > 0 && <b className="nav-badge">{unreadStudentNotifications > 9 ? '9+' : unreadStudentNotifications}</b>}</button>{mobileMoreOpen && <div className="mobile-more-menu">{moreNav.map(({ label, icon: Icon }) => <button key={label} type="button" className={tab === label ? 'active' : ''} onClick={() => navigateStudent(label)}><Icon size={17} /><span>{label}</span>{label === 'Notificações' && unreadStudentNotifications > 0 && <b className="nav-badge">{unreadStudentNotifications > 9 ? '9+' : unreadStudentNotifications}</b>}</button>)}</div>}</nav><button className="student-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></aside><main className="student-main-content"><header className="student-topbar"><div><p className="eyebrow">PORTAL DO ALUNO</p><h1>{tab}</h1></div><div className="student-topbar-actions"><button type="button" className="notification-button student-notification-button" aria-label="Abrir notificações" title="Notificações" onClick={() => navigateStudent('Notificações')}><Bell size={18} />{unreadStudentNotifications > 0 && <span>{unreadStudentNotifications > 9 ? '9+' : unreadStudentNotifications}</span>}</button><div className="student-account-menu"><button type="button" className="student-avatar student-avatar-button" aria-label="Abrir menu do perfil" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}>{portalProfile.avatar_url ? <img src={portalProfile.avatar_url} alt={`Avatar de ${portalProfile.full_name}`} /> : initials(portalProfile.full_name)}</button>{accountMenuOpen && <div className="student-account-popover"><div><strong>{portalProfile.full_name}</strong><span>{email || portalProfile.email || 'Aluno'}</span></div><button type="button" onClick={() => navigateStudent('Perfil')}><UserRound size={16} />Meu perfil</button><button type="button" className="student-account-logout" onClick={onLogout}>{previewMode ? <ArrowLeft size={16} /> : <LogOut size={16} />}{previewMode ? 'Voltar ao painel' : 'Sair'}</button></div>}</div></div></header>{loadError && <div className="student-data-warning"><strong>Algumas informações não puderam ser carregadas.</strong><span>{loadError}</span></div>}{tab === 'Visão geral' ? <StudentOverview profile={portalProfile} record={record} nextLesson={nextLesson} materialCount={materials.length} assignments={assignments} history={history} goals={goals} journal={journal} studyActivities={studyActivities} streakFreezes={streakFreezes} onChanged={loadPortal} onNavigate={navigateStudent} readOnly={previewMode} /> : tab === 'Notificações' ? <StudentNotificationsPage notifications={studentNotifications} onOpen={openStudentNotification} onMarkAll={markAllStudentNotificationsRead} /> : tab === 'Aulas' ? <StudentLessons upcoming={upcoming} history={history} requestByLesson={requestByLesson} onCancel={previewMode ? () => undefined : setLessonToCancel} /> : tab === 'Progresso' ? <StudentProgress record={record} /> : tab === 'Materiais' ? <StudentMaterials materials={materials} /> : tab === 'Tarefas' ? <StudentAssignments assignments={assignments.filter((assignment) => assignment.assignment_type !== 'interactive')} materials={materials} mode="tasks" onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Quiz' ? <StudentAssignments assignments={assignments.filter((assignment) => assignment.assignment_type === 'interactive')} materials={materials} mode="quiz" onAssignmentsChange={setAssignments} readOnly={previewMode} /> : tab === 'Flashcards' ? <StudentFlashcards profile={portalProfile} onActivity={loadPortal} readOnly={previewMode} /> : tab === 'Metas' ? <StudentGoals profile={portalProfile} goals={goals} onGoalsChange={setGoals} onChanged={loadPortal} readOnly={previewMode} /> : tab === 'Conquistas' ? <StudentAchievements studyActivities={studyActivities} streakFreezes={streakFreezes} /> : tab === 'Diário' ? <StudentJournal profile={portalProfile} entries={journal} lessons={lessons} onEntriesChange={setJournal} onChanged={loadPortal} readOnly={previewMode} /> : <StudentProfilePage profile={portalProfile} record={record} email={email} theme={theme} onThemeChange={setTheme} onProfileChange={setPortalProfile} readOnly={previewMode} />}</main>{!previewMode && lessonToCancel && <CancellationModal lesson={lessonToCancel} profile={portalProfile} onClose={() => setLessonToCancel(null)} onSent={async () => { setLessonToCancel(null); await loadPortal(); }} />}</div>;
 }
 
 function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
   const [responses, setResponses] = useState<Record<string, string>>({});
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">AGENDA</p><h2>Solicitações de cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><div className="request-list">{requests.length ? requests.map((request) => <article className="request-card" key={request.id}><div className="request-heading"><div><strong>{request.student?.full_name ?? 'Aluno'}</strong><span>{request.lessons ? `${formatPortalDate(request.lessons.starts_at)} · ${request.lessons.topic}` : 'Aula'}</span></div><StatusBadge status={request.status} /></div><p>{request.reason}</p>{request.status === 'pending' ? <><textarea value={responses[request.id] ?? ''} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Resposta opcional para o aluno" /><div className="request-actions"><button className="reject-button" onClick={() => onResolve(request, 'rejected', responses[request.id] ?? '')}><Ban size={15} />Recusar</button><button className="approve-button" onClick={() => onResolve(request, 'approved', responses[request.id] ?? '')}><Check size={15} />Aprovar</button></div></> : request.teacher_response && <small>Resposta: {request.teacher_response}</small>}</article>) : <div className="empty-state small"><Check size={30} /><h3>Nenhuma solicitação</h3><p>Os pedidos dos alunos aparecerão aqui.</p></div>}</div></section></div>;
+}
+
+function StudentNotificationsPage({ notifications, onOpen, onMarkAll }: { notifications: StudentNotification[]; onOpen: (notification: StudentNotification) => void; onMarkAll: () => void }) {
+  const unread = notifications.filter((item) => !item.readAt).length;
+  const iconFor = (kind: StudentNotification['kind']) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'quiz' ? FileQuestion : kind === 'mission' ? Target : kind === 'cancellation' ? Ban : Bell;
+  return <section className="student-page student-notifications-page">
+    <div className="student-panel notifications-panel">
+      <div className="panel-heading notifications-heading"><div><p className="eyebrow">CENTRAL</p><h3>Notificações</h3><p>Lembretes de aula, missões diárias, tarefas e feedbacks aparecem aqui.</p></div>{unread > 0 && <button className="secondary-button compact" onClick={onMarkAll}><Check size={16} />Marcar todas como lidas</button>}</div>
+      <div className="notification-summary"><div><Bell size={22} /><span><strong>{unread}</strong><small>não lida(s)</small></span></div><div><CalendarDays size={22} /><span><strong>{notifications.filter((item) => item.kind === 'lesson').length}</strong><small>aulas e lembretes</small></span></div><div><Target size={22} /><span><strong>{notifications.filter((item) => item.urgent).length}</strong><small>prioritárias</small></span></div></div>
+      {notifications.length ? <div className="notification-list">{notifications.map((notification) => { const Icon = iconFor(notification.kind); const isRead = Boolean(notification.readAt); return <button key={notification.id} className={`notification-card ${isRead ? 'read' : 'unread'} ${notification.urgent ? 'urgent' : ''}`} onClick={() => onOpen(notification)}><span className={`notification-icon ${notification.kind}`}><Icon size={20} /></span><span className="notification-copy"><span><strong>{notification.title}</strong>{!isRead && <i>Novo</i>}</span><p>{notification.description}</p><small>{formatStudentNotificationDate(notification.date)}</small></span><ChevronRight size={18} /></button>; })}</div> : <div className="empty-state"><Check size={38} /><h3>Tudo em dia!</h3><p>Quando houver lembretes ou feedbacks, eles aparecerão aqui.</p></div>}
+    </div>
+  </section>;
+}
+
+function formatStudentNotificationDate(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return `Hoje, ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (date.toDateString() === tomorrow.toDateString()) return `Amanhã, ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function StudentOverview({ profile, record, nextLesson, materialCount, assignments, history, goals, journal, studyActivities, streakFreezes, onChanged, onNavigate, readOnly = false }: { profile: Profile; record: StudentRecord | null; nextLesson?: DbLesson; materialCount: number; assignments: DbAssignment[]; history: DbLesson[]; goals: LearningGoal[]; journal: LearningJournalEntry[]; studyActivities: StudyActivity[]; streakFreezes: StreakFreeze[]; onChanged: () => Promise<void>; onNavigate: (tab: StudentTab) => void; readOnly?: boolean }) {

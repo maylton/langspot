@@ -12,9 +12,15 @@
     "check": "npm run typecheck && vite build",
     "desktop": "tauri dev",
     "desktop:build": "tauri build --bundles appimage",
-    "desktop:build:all": "tauri build"
+    "desktop:build:all": "tauri build",
+    "android:add": "cap add android",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "CAPACITOR_ANDROID_STUDIO_PATH=/usr/bin/android-studio cap open android",
+    "android:build": "npm run build && cap sync android && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@supabase/supabase-js": "^2.108.1",
     "@tauri-apps/api": "^2.5.0",
     "lucide-react": "^0.468.0",
@@ -22,6 +28,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@tauri-apps/cli": "^2.5.0",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

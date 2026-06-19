@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LangSpot</string>
+    <string name="title_activity_main">LangSpot</string>
+    <string name="package_name">com.langspot.app</string>
+    <string name="custom_url_scheme">com.langspot.app</string>
+</resources>
