@@ -49,7 +49,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react';
-import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, type ReactNode, type SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import { APP_VERSION, can } from './config/env';
 import { supabase } from './supabase';
 import { mockStudents, mockSchedule, mockMaterials, mockSettings, resetToMockData, toDateInput, addDays, startOfWeek } from './config/mockData';
@@ -86,7 +86,8 @@ export type InteractiveAssignmentSettings = { maxAttempts: number; revealAnswers
 export type InteractiveAssignmentContent = { questions: InteractiveQuestion[]; settings?: InteractiveAssignmentSettings };
 export type InteractiveAttempt = { answers: Record<Id, string>; score: number; total: number; percentage: number; submittedAt: string };
 export type InteractiveAssignmentResult = { answers: Record<Id, string>; score: number; total: number; percentage: number; attempts?: InteractiveAttempt[] };
-export type Assignment = { id: Id; teacherId?: Id; studentId: Id; materialId?: Id; title: string; instructions: string; dueDate: string; status: AssignmentStatus; submissionText?: string; submittedAt?: string; submissionFileName?: string; submissionFileUrl?: string; feedback?: string; grade?: number; createdAt: string; assignmentType?: 'regular' | 'interactive'; interactiveContent?: InteractiveAssignmentContent | null; interactiveResult?: InteractiveAssignmentResult | null };
+export type TextComment = { id: Id; start: number; end: number; text: string; comment: string; createdAt: string };
+export type Assignment = { id: Id; teacherId?: Id; studentId: Id; materialId?: Id; title: string; instructions: string; dueDate: string; status: AssignmentStatus; submissionText?: string; submittedAt?: string; submissionFileName?: string; submissionFileUrl?: string; feedback?: string; grade?: number; textComments?: TextComment[]; createdAt: string; assignmentType?: 'regular' | 'interactive'; interactiveContent?: InteractiveAssignmentContent | null; interactiveResult?: InteractiveAssignmentResult | null };
 export type AssignmentInput = Pick<Assignment, 'studentId' | 'materialId' | 'title' | 'instructions' | 'dueDate' | 'assignmentType' | 'interactiveContent'>;
 export type QuestionBankLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type QuestionBankCategory = 'Grammar';
@@ -144,7 +145,7 @@ const navigation: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: 'Configurações', icon: Settings },
 ];
 
-function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onCreateStudentAccount, onOpenCancellationRequests, cancellationRequestCount = 0, initialSettings, onProfileSettingsChange, authenticatedMode = false, accountAccess, initialStudents, initialSchedule, initialMaterials, initialAssignments, initialQuestionBank, initialPayments, initialNotifications, onMarkNotificationRead, onMarkAllNotificationsRead, onCreateScheduledLesson, onUpdateScheduledLesson, onCancelScheduledLesson, onCompleteScheduledLesson, onCreateLessonRecord, onUpdateLessonRecord, onDeleteLessonRecord, onUpdateStudentSkills, onUpdateStudentProfile, onDeleteStudent, onPreviewStudent, onCreateMaterial, onDeleteMaterial, onAssignMaterial, onCreateAssignment, onDeleteAssignment, onReviewAssignment, onCreateQuestionBankItem, onDeleteQuestionBankItem, onCreatePayment, onUpdatePaymentStatus, onDeletePayment }: { onLogout?: () => void; onInviteStudent?: () => void; onInviteTeacher?: () => void; onManageTeachers?: () => void; onCreateStudentAccount?: (data: StudentCreateInput) => Promise<StudentAccountResult>; onOpenCancellationRequests?: () => void; cancellationRequestCount?: number; initialSettings?: Partial<PlatformSettings>; onProfileSettingsChange?: (settings: PlatformSettings) => void | Promise<void>; authenticatedMode?: boolean; accountAccess?: AccountAccessInfo; initialStudents?: Student[]; initialSchedule?: ScheduledLesson[]; onCreateScheduledLesson?: (lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onUpdateScheduledLesson?: (id: Id, lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onCancelScheduledLesson?: (id: Id) => Promise<void>; onCompleteScheduledLesson?: (id: Id, record: LessonRecordInput) => Promise<void>; onCreateLessonRecord?: (studentId: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onUpdateLessonRecord?: (id: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onDeleteLessonRecord?: (id: Id) => Promise<void>; onUpdateStudentSkills?: (studentId: Id, skills: Record<Skill, number>) => Promise<void>; onUpdateStudentProfile?: (student: Student) => Promise<void>; onDeleteStudent?: (studentId: Id) => Promise<void>; onPreviewStudent?: (student: Student) => void; initialMaterials?: Material[]; onCreateMaterial?: (material: MaterialInput) => Promise<Material>; onDeleteMaterial?: (id: Id) => Promise<void>; onAssignMaterial?: (materialId: Id, studentIds: Id[]) => Promise<void>; initialAssignments?: Assignment[]; initialQuestionBank?: QuestionBankItem[]; onCreateAssignment?: (assignment: AssignmentInput) => Promise<Assignment>; onDeleteAssignment?: (id: Id) => Promise<void>; onReviewAssignment?: (id: Id, feedback: string, grade?: number) => Promise<void>; onCreateQuestionBankItem?: (question: QuestionBankInput) => Promise<QuestionBankItem>; onDeleteQuestionBankItem?: (id: Id) => Promise<void>; initialPayments?: Payment[]; initialNotifications?: AppNotification[]; onMarkNotificationRead?: (id: Id) => Promise<void>; onMarkAllNotificationsRead?: (ids: Id[]) => Promise<void>; onCreatePayment?: (payment: PaymentInput) => Promise<Payment>; onUpdatePaymentStatus?: (id: Id, status: PaymentStatus) => Promise<void>; onDeletePayment?: (id: Id) => Promise<void> }) {
+function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onCreateStudentAccount, onOpenCancellationRequests, cancellationRequestCount = 0, initialSettings, onProfileSettingsChange, authenticatedMode = false, accountAccess, initialStudents, initialSchedule, initialMaterials, initialAssignments, initialQuestionBank, initialPayments, initialNotifications, onMarkNotificationRead, onMarkAllNotificationsRead, onCreateScheduledLesson, onUpdateScheduledLesson, onCancelScheduledLesson, onCompleteScheduledLesson, onCreateLessonRecord, onUpdateLessonRecord, onDeleteLessonRecord, onUpdateStudentSkills, onUpdateStudentProfile, onDeleteStudent, onPreviewStudent, onCreateMaterial, onDeleteMaterial, onAssignMaterial, onCreateAssignment, onDeleteAssignment, onReviewAssignment, onCreateQuestionBankItem, onDeleteQuestionBankItem, onCreatePayment, onUpdatePaymentStatus, onDeletePayment }: { onLogout?: () => void; onInviteStudent?: () => void; onInviteTeacher?: () => void; onManageTeachers?: () => void; onCreateStudentAccount?: (data: StudentCreateInput) => Promise<StudentAccountResult>; onOpenCancellationRequests?: () => void; cancellationRequestCount?: number; initialSettings?: Partial<PlatformSettings>; onProfileSettingsChange?: (settings: PlatformSettings) => void | Promise<void>; authenticatedMode?: boolean; accountAccess?: AccountAccessInfo; initialStudents?: Student[]; initialSchedule?: ScheduledLesson[]; onCreateScheduledLesson?: (lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onUpdateScheduledLesson?: (id: Id, lesson: ScheduledLessonInput) => Promise<ScheduledLesson>; onCancelScheduledLesson?: (id: Id) => Promise<void>; onCompleteScheduledLesson?: (id: Id, record: LessonRecordInput) => Promise<void>; onCreateLessonRecord?: (studentId: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onUpdateLessonRecord?: (id: Id, record: LessonRecordInput) => Promise<ScheduledLesson>; onDeleteLessonRecord?: (id: Id) => Promise<void>; onUpdateStudentSkills?: (studentId: Id, skills: Record<Skill, number>) => Promise<void>; onUpdateStudentProfile?: (student: Student) => Promise<void>; onDeleteStudent?: (studentId: Id) => Promise<void>; onPreviewStudent?: (student: Student) => void; initialMaterials?: Material[]; onCreateMaterial?: (material: MaterialInput) => Promise<Material>; onDeleteMaterial?: (id: Id) => Promise<void>; onAssignMaterial?: (materialId: Id, studentIds: Id[]) => Promise<void>; initialAssignments?: Assignment[]; initialQuestionBank?: QuestionBankItem[]; onCreateAssignment?: (assignment: AssignmentInput) => Promise<Assignment>; onDeleteAssignment?: (id: Id) => Promise<void>; onReviewAssignment?: (id: Id, feedback: string, grade?: number, textComments?: TextComment[]) => Promise<void>; onCreateQuestionBankItem?: (question: QuestionBankInput) => Promise<QuestionBankItem>; onDeleteQuestionBankItem?: (id: Id) => Promise<void>; initialPayments?: Payment[]; initialNotifications?: AppNotification[]; onMarkNotificationRead?: (id: Id) => Promise<void>; onMarkAllNotificationsRead?: (ids: Id[]) => Promise<void>; onCreatePayment?: (payment: PaymentInput) => Promise<Payment>; onUpdatePaymentStatus?: (id: Id, status: PaymentStatus) => Promise<void>; onDeletePayment?: (id: Id) => Promise<void> }) {
   const [active, setActive] = useState<View>('Visão geral');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
@@ -449,7 +450,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
     } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível criar a tarefa.'); }
   };
   const deleteAssignment = async () => { if (!assignmentToDelete) return; try { await onDeleteAssignment?.(assignmentToDelete.id); setAssignments((current) => current.filter((item) => item.id !== assignmentToDelete.id)); setAssignmentToDelete(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a tarefa.'); } };
-  const reviewAssignment = async (feedback: string, grade?: number) => { if (!assignmentToReview) return; try { await onReviewAssignment?.(assignmentToReview.id, feedback, grade); setAssignments((current) => current.map((item) => item.id === assignmentToReview.id ? { ...item, feedback, grade, status: 'Corrigida' } : item)); setAssignmentToReview(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar o feedback.'); } };
+  const reviewAssignment = async (feedback: string, grade?: number, textComments: TextComment[] = []) => { if (!assignmentToReview) return; try { await onReviewAssignment?.(assignmentToReview.id, feedback, grade, textComments); setAssignments((current) => current.map((item) => item.id === assignmentToReview.id ? { ...item, feedback, grade, textComments, status: 'Corrigida' } : item)); setAssignmentToReview(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar o feedback.'); } };
   const addQuestionBankItem = async (input: QuestionBankInput) => { try { const created = onCreateQuestionBankItem ? await onCreateQuestionBankItem(input) : { ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() }; setQuestionBank((current) => [created, ...current]); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar a questão.'); } };
   const deleteQuestionBankItem = async (id: Id) => { if (!window.confirm('Excluir esta questão do banco?')) return; try { await onDeleteQuestionBankItem?.(id); setQuestionBank((current) => current.filter((item) => item.id !== id)); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a questão.'); } };
 
@@ -1064,6 +1065,7 @@ function SelectField({ name, label, options }: { name: string; label: string; op
 function AssignmentsPage({ assignments, students, mode, onNew, onManageBank, onDelete, onReview }: { assignments: Assignment[]; students: Student[]; mode: 'tasks' | 'quiz'; onNew: () => void; onManageBank?: () => void; onDelete: (assignment: Assignment) => void; onReview: (assignment: Assignment) => void }) {
   const [openAssignmentId, setOpenAssignmentId] = useState<Id | null>(null);
   const [previewAssignment, setPreviewAssignment] = useState<Assignment | null>(null);
+  const [activeCommentId, setActiveCommentId] = useState<Id | null>(null);
   const ordered = [...assignments].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const studentName = (id: Id) => students.find((student) => student.id === id)?.name ?? 'Aluno';
   const statusCount = (status: AssignmentStatus) => assignments.filter((assignment) => assignment.status === status).length;
@@ -1087,7 +1089,7 @@ function AssignmentsPage({ assignments, students, mode, onNew, onManageBank, onD
           <div className="assignment-card-meta"><div className="assignment-due"><span>Prazo</span><strong>{new Date(`${assignment.dueDate}T12:00:00`).toLocaleDateString('pt-BR')}</strong></div><button type="button" onClick={() => setOpenAssignmentId(isOpen ? null : assignment.id)}>{isOpen ? 'Fechar' : copy.open}</button></div>
         </div>
         {isOpen && <div className="assignment-card-details"><div className="assignment-instructions"><span>Instruções</span><p>{assignment.instructions}</p></div>
-        {(assignment.submissionText || assignment.submissionFileUrl || assignment.interactiveResult) && <div className="submission-preview"><strong>Resposta do aluno</strong>{assignment.interactiveResult && <p>Resultado do quiz: {interactiveResultSummary(assignment.interactiveResult)}</p>}{assignment.submissionText && <p>{assignment.submissionText}</p>}{assignment.submissionFileUrl && <a className="submission-file-link" href={assignment.submissionFileUrl} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submissionFileName || 'PDF anexado'}<ExternalLink size={13} /></a>}</div>}
+        {(assignment.submissionText || assignment.submissionFileUrl || assignment.interactiveResult) && <div className="submission-preview"><strong>Resposta do aluno</strong>{assignment.interactiveResult && <p>Resultado do quiz: {interactiveResultSummary(assignment.interactiveResult)}</p>}{assignment.submissionText && <AnnotatedSubmissionText text={assignment.submissionText} comments={assignment.textComments} activeId={activeCommentId} onActivate={setActiveCommentId} />}{assignment.submissionFileUrl && <a className="submission-file-link" href={assignment.submissionFileUrl} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submissionFileName || 'Arquivo anexado'}<ExternalLink size={13} /></a>}<TextCommentsList comments={assignment.textComments} activeId={activeCommentId} onActivate={setActiveCommentId} /></div>}
         {assignment.feedback && <div className="feedback-preview"><strong>Feedback</strong><p>{assignment.feedback}</p>{assignment.grade !== undefined && <span className="assignment-grade">Nota: {assignment.grade}</span>}</div>}</div>}
         <div className="assignment-card-actions">{mode === 'quiz' && assignment.assignmentType === 'interactive' && <button className="assignment-preview-button" onClick={() => setPreviewAssignment(assignment)}><Eye size={15} />Pré-visualizar</button>}{assignment.status === 'Entregue' && <button className="assignment-review-button" onClick={() => onReview(assignment)}><Check size={15} />{copy.review}</button>}<button className="assignment-delete-button" onClick={() => onDelete(assignment)} aria-label={`Excluir ${assignment.title}`}><Trash2 size={15} />Excluir</button></div>
       </article>; })}</div> : <div className="empty-state"><EmptyIcon size={38} /><h3>{copy.emptyTitle}</h3><p>{copy.emptyText}</p><button className="primary-button" onClick={onNew}><Plus size={16} />{copy.emptyButton}</button></div>}
@@ -1253,6 +1255,25 @@ function QuizPreviewModal({ assignment, onClose }: { assignment: Assignment; onC
   </div></Modal>;
 }
 
+function AnnotatedSubmissionText({ text, comments = [], activeId, onActivate }: { text: string; comments?: TextComment[]; activeId?: Id | null; onActivate?: (id: Id) => void }) {
+  const sorted = comments.filter((comment) => comment.start >= 0 && comment.end > comment.start && comment.end <= text.length).sort((a, b) => a.start - b.start);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  sorted.forEach((comment, index) => {
+    if (comment.start < cursor) return;
+    if (comment.start > cursor) nodes.push(<span key={`text-${index}`}>{text.slice(cursor, comment.start)}</span>);
+    nodes.push(<mark key={comment.id} className={activeId === comment.id ? 'active' : ''} title={comment.comment} onClick={() => onActivate?.(comment.id)}>{text.slice(comment.start, comment.end)}</mark>);
+    cursor = comment.end;
+  });
+  if (cursor < text.length) nodes.push(<span key="tail">{text.slice(cursor)}</span>);
+  return <div className="annotated-submission-text">{nodes.length ? nodes : text}</div>;
+}
+
+function TextCommentsList({ comments, activeId, onActivate }: { comments?: TextComment[]; activeId?: Id | null; onActivate?: (id: Id) => void }) {
+  if (!comments?.length) return null;
+  return <div className="text-comments-list"><strong>Comentários por trecho</strong>{comments.map((comment, index) => <article key={comment.id} className={activeId === comment.id ? 'active' : ''} onClick={() => onActivate?.(comment.id)}><span>{index + 1}</span><div><q>{comment.text}</q><p>{comment.comment}</p></div></article>)}</div>;
+}
+
 function QuestionBankModal({ questions, onClose, onCreate, onDelete }: { questions: QuestionBankItem[]; onClose: () => void; onCreate: (input: QuestionBankInput) => Promise<void> | void; onDelete: (id: Id) => Promise<void> | void }) {
   const [level, setLevel] = useState<QuestionBankLevel>('A1');
   const [type, setType] = useState<InteractiveQuestionType>('multiple_choice');
@@ -1303,9 +1324,46 @@ function QuestionBankModal({ questions, onClose, onCreate, onDelete }: { questio
   </div></Modal>;
 }
 
-function ReviewAssignmentModal({ assignment, onClose, onSave }: { assignment: Assignment; onClose: () => void; onSave: (feedback: string, grade?: number) => void }) {
-  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); const raw = String(form.get('grade') || ''); onSave(String(form.get('feedback')), raw ? Number(raw) : undefined); };
-  return <Modal title="Corrigir tarefa" onClose={onClose}><div className="submission-preview"><strong>Resposta do aluno</strong><p>{assignment.submissionText || 'Nenhuma resposta em texto.'}</p>{assignment.submissionFileUrl && <a className="submission-file-link" href={assignment.submissionFileUrl} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submissionFileName || 'PDF anexado'}<ExternalLink size={13} /></a>}</div><form className="form-grid" onSubmit={submit}><label className="full-field">Feedback<textarea name="feedback" rows={5} required defaultValue={assignment.feedback ?? ''} /></label><label>Nota <span>(opcional)</span><input name="grade" type="number" min="0" max="100" defaultValue={assignment.grade ?? ''} /></label><div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Cancelar</button><button className="primary-button"><Check size={16} />Salvar correção</button></div></form></Modal>;
+function ReviewAssignmentModal({ assignment, onClose, onSave }: { assignment: Assignment; onClose: () => void; onSave: (feedback: string, grade?: number, textComments?: TextComment[]) => void }) {
+  const [comments, setComments] = useState<TextComment[]>(assignment.textComments ?? []);
+  const [selection, setSelection] = useState<{ start: number; end: number; text: string } | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [activeCommentId, setActiveCommentId] = useState<Id | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<Id | null>(null);
+  const [editingDraft, setEditingDraft] = useState('');
+  const submissionText = assignment.submissionText ?? '';
+  const captureSelection = (event: SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = event.currentTarget;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    setSelection(end > start ? { start, end, text: submissionText.slice(start, end) } : null);
+  };
+  const addComment = () => {
+    if (!selection || !commentDraft.trim()) return;
+    const created = { id: crypto.randomUUID(), ...selection, comment: commentDraft.trim(), createdAt: new Date().toISOString() };
+    setComments((current) => [...current, created].sort((a, b) => a.start - b.start));
+    setActiveCommentId(created.id);
+    setCommentDraft('');
+    setSelection(null);
+  };
+  const startEditComment = (comment: TextComment) => {
+    setEditingCommentId(comment.id);
+    setEditingDraft(comment.comment);
+    setActiveCommentId(comment.id);
+  };
+  const saveEditedComment = () => {
+    if (!editingCommentId || !editingDraft.trim()) return;
+    setComments((current) => current.map((comment) => comment.id === editingCommentId ? { ...comment, comment: editingDraft.trim() } : comment));
+    setEditingCommentId(null);
+    setEditingDraft('');
+  };
+  const removeComment = (id: Id) => {
+    setComments((current) => current.filter((item) => item.id !== id));
+    if (activeCommentId === id) setActiveCommentId(null);
+    if (editingCommentId === id) { setEditingCommentId(null); setEditingDraft(''); }
+  };
+  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); const raw = String(form.get('grade') || ''); onSave(String(form.get('feedback')), raw ? Number(raw) : undefined, comments); };
+  return <Modal title="Corrigir tarefa" onClose={onClose} className="review-assignment-modal"><div className="submission-preview"><strong>Resposta do aluno</strong>{submissionText ? <><textarea className="review-selection-text" readOnly value={submissionText} rows={8} onSelect={captureSelection} onMouseUp={captureSelection} onKeyUp={captureSelection} /><AnnotatedSubmissionText text={submissionText} comments={comments} activeId={activeCommentId} onActivate={setActiveCommentId} /><small>Selecione uma parte do texto para comentar. Clique nos destaques para localizar comentários.</small></> : <p>Nenhuma resposta em texto.</p>}{assignment.submissionFileUrl && <a className="submission-file-link" href={assignment.submissionFileUrl} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submissionFileName || 'Arquivo anexado'}<ExternalLink size={13} /></a>}</div>{submissionText && <div className="inline-comment-composer"><div><strong>{selection ? 'Trecho selecionado' : 'Nenhum trecho selecionado'}</strong><p>{selection?.text ?? 'Selecione uma palavra, frase ou parágrafo na resposta acima.'}</p></div><textarea value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} rows={3} placeholder="Comentário para este trecho..." /><button type="button" className="secondary-button compact" disabled={!selection || !commentDraft.trim()} onClick={addComment}><Plus size={15} />Adicionar comentário</button></div>}<div className="text-comments-list editable"><strong>Comentários adicionados</strong>{comments.length ? comments.map((comment, index) => <article key={comment.id} className={activeCommentId === comment.id ? 'active' : ''} onClick={() => setActiveCommentId(comment.id)}><span>{index + 1}</span><div><q>{comment.text}</q>{editingCommentId === comment.id ? <textarea value={editingDraft} onChange={(event) => setEditingDraft(event.target.value)} rows={3} onClick={(event) => event.stopPropagation()} /> : <p>{comment.comment}</p>}</div>{editingCommentId === comment.id ? <div className="inline-comment-actions"><button type="button" className="icon-button" onClick={(event) => { event.stopPropagation(); saveEditedComment(); }}><Check size={14} /></button><button type="button" className="icon-button" onClick={(event) => { event.stopPropagation(); setEditingCommentId(null); setEditingDraft(''); }}><X size={14} /></button></div> : <div className="inline-comment-actions"><button type="button" className="icon-button" onClick={(event) => { event.stopPropagation(); startEditComment(comment); }}><Edit3 size={14} /></button><button type="button" className="icon-button danger" onClick={(event) => { event.stopPropagation(); removeComment(comment.id); }}><Trash2 size={14} /></button></div>}</article>) : <p className="empty-inline-comments">Nenhum comentário por trecho ainda.</p>}</div><form className="form-grid" onSubmit={submit}><label className="full-field">Feedback geral<textarea name="feedback" rows={5} required defaultValue={assignment.feedback ?? ''} /></label><label>Nota <span>(opcional)</span><input name="grade" type="number" min="0" max="100" defaultValue={assignment.grade ?? ''} /></label><div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Cancelar</button><button className="primary-button"><Check size={16} />Salvar correção</button></div></form></Modal>;
 }
 
 function ConfirmAssignmentDelete({ assignment, onClose, onConfirm }: { assignment: Assignment; onClose: () => void; onConfirm: () => void }) { return <Modal title="Excluir tarefa" onClose={onClose}><p>Deseja excluir <strong>{assignment.title}</strong>? A entrega e o feedback também serão removidos.</p><div className="form-actions"><button className="cancel-button" onClick={onClose}>Voltar</button><button className="danger-button" onClick={onConfirm}><Trash2 size={16} />Excluir</button></div></Modal>; }

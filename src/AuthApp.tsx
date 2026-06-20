@@ -1,6 +1,6 @@
-import { FormEvent, type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
+import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Award, Ban, Bell, BookOpen, Brain, CalendarDays, Check, ChevronRight, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileQuestion, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, MoreHorizontal, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus, X } from 'lucide-react';
-import App, { AppNotification, Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, MAX_UPLOAD_SIZE, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, STUDENT_SUBMISSION_ACCEPT, Student, StudentCreateInput, isMaterialUploadFile, isStudentSubmissionFile, materialTypeFromFile } from './App';
+import App, { AppNotification, Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, MAX_UPLOAD_SIZE, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, STUDENT_SUBMISSION_ACCEPT, Student, StudentCreateInput, TextComment, isMaterialUploadFile, isStudentSubmissionFile, materialTypeFromFile } from './App';
 import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbNotification, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
 import InviteAcceptance from './components/InviteAcceptance';
@@ -551,9 +551,9 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     const { error } = await supabase.from('assignments').delete().eq('id', id).eq('teacher_id', profile.id);
     if (error) throw new Error(error.message);
   };
-  const reviewAssignment = async (id: string, feedback: string, grade?: number) => {
+  const reviewAssignment = async (id: string, feedback: string, grade?: number, textComments: TextComment[] = []) => {
     if (!supabase) throw new Error('Supabase não configurado.');
-    const { error } = await supabase.from('assignments').update({ feedback, grade: grade ?? null, status: 'reviewed' }).eq('id', id).eq('teacher_id', profile.id);
+    const { error } = await supabase.from('assignments').update({ feedback, grade: grade ?? null, text_comments: textComments, status: 'reviewed' }).eq('id', id).eq('teacher_id', profile.id);
     if (error) throw new Error(error.message);
   };
   const createQuestionBankItem = async (question: QuestionBankInput) => {
@@ -727,7 +727,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
 
 function dbAssignmentToAssignment(row: DbAssignment): Assignment {
   const statusMap = { pending: 'Pendente', submitted: 'Entregue', reviewed: 'Corrigida' } as const;
-  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, submissionFileName: row.submission_file_name ?? undefined, submissionFileUrl: row.submission_file_url ?? undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, createdAt: row.created_at, assignmentType: row.assignment_type ?? 'regular', interactiveContent: row.interactive_content as InteractiveAssignmentContent | null | undefined, interactiveResult: row.interactive_result as InteractiveAssignmentResult | null | undefined };
+  return { id: row.id, teacherId: row.teacher_id, studentId: row.student_id, materialId: row.material_id ?? undefined, title: row.title, instructions: row.instructions, dueDate: row.due_date, status: statusMap[row.status], submissionText: row.submission_text || undefined, submittedAt: row.submitted_at || undefined, submissionFileName: row.submission_file_name ?? undefined, submissionFileUrl: row.submission_file_url ?? undefined, feedback: row.feedback || undefined, grade: row.grade ?? undefined, textComments: Array.isArray(row.text_comments) ? row.text_comments as TextComment[] : [], createdAt: row.created_at, assignmentType: row.assignment_type ?? 'regular', interactiveContent: row.interactive_content as InteractiveAssignmentContent | null | undefined, interactiveResult: row.interactive_result as InteractiveAssignmentResult | null | undefined };
 }
 
 function dbQuestionBankToQuestion(row: DbQuestionBankItem): QuestionBankItem {
@@ -1305,13 +1305,38 @@ function InteractiveDetailedFeedback({ assignment, result, revealAnswers }: { as
   })}</div>;
 }
 
+function assignmentTextComments(assignment: DbAssignment) {
+  return Array.isArray(assignment.text_comments) ? assignment.text_comments as TextComment[] : [];
+}
+
+function AnnotatedStudentSubmission({ text, comments, activeId, onActivate }: { text: string; comments: TextComment[]; activeId?: string | null; onActivate?: (id: string) => void }) {
+  const sorted = comments.filter((comment) => comment.start >= 0 && comment.end > comment.start && comment.end <= text.length).sort((a, b) => a.start - b.start);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  sorted.forEach((comment, index) => {
+    if (comment.start < cursor) return;
+    if (comment.start > cursor) nodes.push(<span key={`text-${index}`}>{text.slice(cursor, comment.start)}</span>);
+    nodes.push(<mark key={comment.id} className={activeId === comment.id ? 'active' : ''} title={comment.comment} onClick={() => onActivate?.(comment.id)}>{text.slice(comment.start, comment.end)}</mark>);
+    cursor = comment.end;
+  });
+  if (cursor < text.length) nodes.push(<span key="tail">{text.slice(cursor)}</span>);
+  return <div className="annotated-submission-text">{nodes.length ? nodes : text}</div>;
+}
+
+function StudentTextComments({ comments, activeId, onActivate }: { comments: TextComment[]; activeId?: string | null; onActivate?: (id: string) => void }) {
+  if (!comments.length) return null;
+  return <div className="text-comments-list"><strong>Comentários por trecho</strong>{comments.map((comment, index) => <article key={comment.id} className={activeId === comment.id ? 'active' : ''} onClick={() => onActivate?.(comment.id)}><span>{index + 1}</span><div><q>{comment.text}</q><p>{comment.comment}</p></div></article>)}</div>;
+}
+
 function InteractiveSubmissionReview({ assignment }: { assignment: DbAssignment }) {
   const result = assignment.interactive_result as InteractiveAssignmentResult | null | undefined;
   const content = assignment.interactive_content as InteractiveAssignmentContent | null | undefined;
   const attempts = interactiveAttempts(result);
   const maxAttempts = interactiveMaxAttempts(content);
   const revealAnswers = shouldRevealInteractiveAnswers(content, result);
-  return <div className="submission-preview student-submission-review"><div><strong>{assignment.assignment_type === 'interactive' ? 'Resultado da atividade' : 'Sua resposta'}</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div>{result && <><div className="interactive-result-card"><strong>{result.percentage}%</strong><span>{result.score}/{result.total} acertos</span><small>Tentativa {attempts.length}{maxAttempts ? ` de ${maxAttempts}` : ' · ilimitadas'}</small></div>{attempts.length > 1 && <div className="interactive-attempt-list">{attempts.map((attempt, index) => <span key={`${attempt.submittedAt}-${index}`}>Tentativa {index + 1}: <b>{attempt.percentage}%</b></span>)}</div>}<InteractiveDetailedFeedback assignment={assignment} result={result} revealAnswers={revealAnswers} /></>}<p>{assignment.submission_text || 'Nenhuma resposta em texto.'}</p>{assignment.submission_file_url && <a className="submission-file-link" href={assignment.submission_file_url} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submission_file_name || 'PDF anexado'}<ExternalLink size={13} /></a>}{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>;
+  const comments = assignmentTextComments(assignment);
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  return <div className="submission-preview student-submission-review"><div><strong>{assignment.assignment_type === 'interactive' ? 'Resultado da atividade' : 'Sua resposta'}</strong>{assignment.submitted_at && <small>Enviada em {new Date(assignment.submitted_at).toLocaleDateString('pt-BR')}</small>}</div>{result && <><div className="interactive-result-card"><strong>{result.percentage}%</strong><span>{result.score}/{result.total} acertos</span><small>Tentativa {attempts.length}{maxAttempts ? ` de ${maxAttempts}` : ' · ilimitadas'}</small></div>{attempts.length > 1 && <div className="interactive-attempt-list">{attempts.map((attempt, index) => <span key={`${attempt.submittedAt}-${index}`}>Tentativa {index + 1}: <b>{attempt.percentage}%</b></span>)}</div>}<InteractiveDetailedFeedback assignment={assignment} result={result} revealAnswers={revealAnswers} /></>}{assignment.submission_text ? <AnnotatedStudentSubmission text={assignment.submission_text} comments={comments} activeId={activeCommentId} onActivate={setActiveCommentId} /> : <p>Nenhuma resposta em texto.</p>}<StudentTextComments comments={comments} activeId={activeCommentId} onActivate={setActiveCommentId} />{assignment.submission_file_url && <a className="submission-file-link" href={assignment.submission_file_url} target="_blank" rel="noreferrer"><FileText size={15} />{assignment.submission_file_name || 'Arquivo anexado'}<ExternalLink size={13} /></a>}{assignment.status === 'submitted' && <div className="awaiting-review"><Clock3 size={15} />Aguardando correção do professor</div>}{assignment.feedback && <div className="teacher-feedback"><strong>Feedback do professor</strong><p>{assignment.feedback}</p>{assignment.grade !== null && <span>Nota: <b>{assignment.grade}</b>/100</span>}</div>}</div>;
 }
 
 const countWords = (value: string) => value.trim().split(/\s+/).filter(Boolean).length;

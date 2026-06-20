@@ -86,6 +86,7 @@ export type DbAssignment = {
   submission_file_size?: number | null;
   submission_file_mime_type?: string | null;
   submission_file_url?: string | null;
+  text_comments?: unknown;
   feedback: string;
   grade: number | null;
   created_at: string;
