@@ -13,6 +13,7 @@ type NotificationEmailRow = {
   description: string;
   target: string;
   scheduled_for: string;
+  metadata: Record<string, unknown> | null;
   profiles?: {
     email: string | null;
     full_name: string | null;
@@ -114,7 +115,7 @@ Deno.serve(async (request) => {
 
   const { data, error } = await admin
     .from('notifications')
-    .select('id,user_id,kind,title,description,target,scheduled_for,profiles:user_id(email,full_name)')
+    .select('id,user_id,kind,title,description,target,scheduled_for,metadata,profiles:user_id(email,full_name)')
     .contains('delivery_channels', ['email'])
     .eq('email_status', 'pending')
     .lte('scheduled_for', new Date().toISOString())
@@ -131,13 +132,13 @@ Deno.serve(async (request) => {
       const providerResponse = await sendEmail(notification, appUrl);
       await admin
         .from('notifications')
-        .update({ email_status: 'sent', metadata: { email_sent_at: new Date().toISOString(), provider: 'resend', provider_response: providerResponse } })
+        .update({ email_status: 'sent', metadata: { ...(notification.metadata ?? {}), email_sent_at: new Date().toISOString(), email_provider: 'resend', email_provider_response: providerResponse } })
         .eq('id', notification.id);
       results.push({ id: notification.id, status: 'sent' });
     } catch (error) {
       await admin
         .from('notifications')
-        .update({ email_status: 'failed', metadata: { email_failed_at: new Date().toISOString(), error: (error as Error).message } })
+        .update({ email_status: 'failed', metadata: { ...(notification.metadata ?? {}), email_failed_at: new Date().toISOString(), email_error: (error as Error).message } })
         .eq('id', notification.id);
       results.push({ id: notification.id, status: 'failed', error: (error as Error).message });
     }

@@ -14,7 +14,7 @@ type LessonStatus = 'Agendada' | 'Concluída' | 'Cancelada';
 type ScheduledLesson = { id: string; studentId: string; date: string; startTime: string; duration: number; topic: string; onlineUrl?: string; status: LessonStatus; notes: string; homework: string };
 type MaterialType = 'PDF' | 'Documento' | 'Apresentação' | 'Imagem' | 'Vídeo' | 'Áudio' | 'Link' | 'Atividade';
 type Material = { id: string; title: string; type: MaterialType; level: string; skill: Skill; url: string; description: string; createdAt: string };
-type PlatformSettings = { teacherName: string; email: string; schoolName: string; avatar: string; defaultDuration: number; defaultOnlineUrl: string; compactMode: boolean; theme: 'light' | 'dark'; confirmCancellations: boolean };
+type PlatformSettings = { teacherName: string; email: string; whatsappPhone: string; schoolName: string; avatar: string; defaultDuration: number; defaultOnlineUrl: string; compactMode: boolean; theme: 'light' | 'dark'; confirmCancellations: boolean };
 type Student = {
   id: string;
   name: string;
@@ -61,6 +61,7 @@ export function toDateInput(date: Date) {
 export const mockSettings: PlatformSettings = {
   teacherName: 'Maylton',
   email: '',
+  whatsappPhone: '',
   schoolName: 'LangSpot',
   avatar: '',
   defaultDuration: 60,

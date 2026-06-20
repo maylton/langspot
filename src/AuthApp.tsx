@@ -82,6 +82,29 @@ function mapDbNotificationToStudent(row: DbNotification): StudentNotification {
   return { id: row.id, kind: row.kind, title: row.title, description: row.description, date: row.scheduled_for ?? row.created_at, target: target as StudentTab, urgent: row.urgent, readAt: row.read_at };
 }
 
+function isPasswordAlreadyActive(error: { message?: string } | null) {
+  return Boolean(error?.message?.toLowerCase().includes('new password should be different'));
+}
+
+async function updateProfileContact(
+  id: string,
+  updates: Record<string, unknown>,
+  filters?: (query: any) => any,
+) {
+  if (!supabase) return { data: null, error: null, whatsappSkipped: false };
+  const client = supabase;
+  const run = (payload: Record<string, unknown>) => {
+    let query = client.from('profiles').update(payload).eq('id', id);
+    if (filters) query = filters(query);
+    return query.select('*').single();
+  };
+  const result = await run(updates);
+  if (!result.error || !('whatsapp_phone' in updates) || !isSchemaCacheMiss(result.error)) return { ...result, whatsappSkipped: false };
+  const { whatsapp_phone, ...fallbackUpdates } = updates;
+  const fallback = await run(fallbackUpdates);
+  return { ...fallback, whatsappSkipped: !fallback.error };
+}
+
 export default function AuthApp() {
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -129,6 +152,7 @@ export default function AuthApp() {
         ...data,
         full_name: data.full_name || metadata.full_name || metadata.name || '',
         email: data.email || user.email || '',
+        whatsapp_phone: data.whatsapp_phone || '',
         avatar_url: data.avatar_url || metadata.avatar_url || metadata.picture || '',
         school_name: data.school_name || '',
         onboarding_completed: Boolean(data.onboarding_completed),
@@ -301,6 +325,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
         id: row.student_id,
         name: row.student?.full_name || 'Aluno sem nome',
         email: row.student?.email || '',
+        whatsappPhone: row.student?.whatsapp_phone || '',
         age: row.age != null ? String(row.age) : '',
         level: row.level || 'A1',
         goal: row.goal || '',
@@ -404,6 +429,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       body: {
         email: form.get('email'),
         fullName: form.get('name'),
+        whatsappPhone: form.get('whatsappPhone'),
         level: form.get('level'),
         goal: form.get('goal'),
       },
@@ -419,9 +445,9 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     await loadTeacherData();
   };
 
-  const createStudentAccount = async ({ name, email, age, level, goal, notes }: StudentCreateInput) => {
+  const createStudentAccount = async ({ name, email, whatsappPhone, age, level, goal, notes }: StudentCreateInput) => {
     if (!supabase) throw new Error('Supabase não configurado.');
-    const { data, error } = await supabase.functions.invoke('invite-student', { body: { action: 'create-with-password', email, fullName: name, level, goal } });
+    const { data, error } = await supabase.functions.invoke('invite-student', { body: { action: 'create-with-password', email, fullName: name, age, level, goal, notes, whatsappPhone } });
     if (error) throw new Error(await functionErrorMessage(error));
     // Do not reload all teacher data here. That temporarily unmounts <App>
     // and would close the one-time temporary-password modal before it appears.
@@ -603,7 +629,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
   const updateStudentProfile = async (student: Student) => {
     if (!supabase) throw new Error('Supabase não configurado.');
     const [{ error: profileError }, { error: recordError }] = await Promise.all([
-      supabase.from('profiles').update({ full_name: student.name }).eq('id', student.id).eq('teacher_id', profile.id),
+      updateProfileContact(student.id, { full_name: student.name, whatsapp_phone: student.whatsappPhone ?? '' }, (query) => query.eq('teacher_id', profile.id)),
       supabase.from('student_records').update({ age: student.age ? Number(student.age) : null, level: student.level, goal: student.goal, notes: student.notes }).eq('student_id', student.id).eq('teacher_id', profile.id),
     ]);
     if (profileError || recordError) throw new Error(profileError?.message ?? recordError?.message ?? 'Não foi possível atualizar o aluno.');
@@ -657,6 +683,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       teacher_id: profile.id,
       must_change_password: false,
       email: previewStudent.email,
+      whatsapp_phone: previewStudent.whatsappPhone || '',
       avatar_url: '',
       school_name: '',
       onboarding_completed: true,
@@ -710,15 +737,16 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       onDeletePayment={deletePayment}
       onOpenCancellationRequests={() => setRequestsOpen(true)}
       cancellationRequestCount={pending}
-      initialSettings={{ teacherName: profile.full_name, email: profile.email || authEmail, schoolName: profile.school_name, avatar: profile.avatar_url }}
+      initialSettings={{ teacherName: profile.full_name, email: profile.email || authEmail, whatsappPhone: profile.whatsapp_phone || '', schoolName: profile.school_name, avatar: profile.avatar_url }}
       onProfileSettingsChange={async (settings) => {
         if (!supabase) return;
-        const updates = { full_name: settings.teacherName, email: settings.email, school_name: settings.schoolName, avatar_url: settings.avatar };
-        const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id);
+        const updates = { full_name: settings.teacherName, email: settings.email, whatsapp_phone: settings.whatsappPhone, school_name: settings.schoolName, avatar_url: settings.avatar };
+        const { data, error } = await updateProfileContact(profile.id, updates);
         if (!error) onProfileChange({ ...profile, ...updates });
+        if (!error && data) onProfileChange(data as Profile);
       }}
     />
-    {inviteOpen && <div className="modal-backdrop" onMouseDown={closeStudentInvite}><section className="modal invite-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><h2>Convidar aluno</h2><button className="icon-button" onClick={closeStudentInvite}>×</button></div><form className="form-grid" onSubmit={invite}><label>Nome completo<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>Nível<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Objetivo<input name="goal" placeholder="Conversação, intercâmbio..." /></label>{inviteMessage && <div className="auth-message full-field">{inviteMessage}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={closeStudentInvite}>Cancelar</button><button className="primary-button">Enviar convite</button></div></form></section></div>}
+    {inviteOpen && <div className="modal-backdrop" onMouseDown={closeStudentInvite}><section className="modal invite-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><h2>Convidar aluno</h2><button className="icon-button" onClick={closeStudentInvite}>×</button></div><form className="form-grid" onSubmit={invite}><label>Nome completo<input name="name" required /></label><label>E-mail<input name="email" type="email" required /></label><label>WhatsApp<input name="whatsappPhone" placeholder="+55 85 99999-9999" /></label><label>Nível<select name="level"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Objetivo<input name="goal" placeholder="Conversação, intercâmbio..." /></label>{inviteMessage && <div className="auth-message full-field">{inviteMessage}</div>}<div className="form-actions"><button type="button" className="cancel-button" onClick={closeStudentInvite}>Cancelar</button><button className="primary-button">Enviar convite</button></div></form></section></div>}
     {inviteTeacherOpen && subscription?.plan === 'owner' && <InviteTeacherModal onClose={() => setInviteTeacherOpen(false)} />}
     {manageTeachersOpen && subscription?.plan === 'owner' && <AdminTeachersModal onClose={() => setManageTeachersOpen(false)} />}
     {requestsOpen && <CancellationRequestsModal requests={requests} onClose={() => setRequestsOpen(false)} onResolve={resolveRequest} />}
@@ -795,21 +823,79 @@ function lessonRecordToDb(record: LessonRecordInput) {
 
 function FirstAccessPassword({ profile, onComplete, onLogout }: { profile: Profile; onComplete: () => void; onLogout: () => void }) {
   const [message, setMessage] = useState('');
+  const [avatarMessage, setAvatarMessage] = useState('');
+  const [avatar, setAvatar] = useState(profile.avatar_url || '');
+  const [step, setStep] = useState(0);
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [whatsappPhone, setWhatsappPhone] = useState(profile.whatsapp_phone ?? '');
   const [busy, setBusy] = useState(false);
+  const steps = [
+    { title: 'Boas-vindas', icon: Sparkles },
+    { title: 'Seu perfil', icon: UserRound },
+    { title: 'Aulas', icon: CalendarDays },
+    { title: 'Ferramentas', icon: LayoutDashboard },
+    { title: 'Começar', icon: Check },
+  ];
+  const tourCards = [
+    { icon: ClipboardList, title: 'Tarefas', text: 'Envie respostas, anexos e acompanhe correções do professor.' },
+    { icon: FileQuestion, title: 'Quiz', text: 'Responda atividades interativas direto na plataforma.' },
+    { icon: Brain, title: 'Flashcards', text: 'Revise vocabulário e estruturas com cartões de estudo.' },
+    { icon: Target, title: 'Metas', text: 'Acompanhe objetivos pequenos e veja seu progresso crescer.' },
+    { icon: NotebookPen, title: 'Diário', text: 'Registre percepções, dúvidas e avanços depois dos estudos.' },
+    { icon: Award, title: 'Conquistas', text: 'Ganhe conquistas e mantenha sua sequência de estudos ativa.' },
+  ];
+  const goNext = () => {
+    setMessage('');
+    if (step === 1) {
+      if (password.length < 8) { setMessage('A nova senha precisa ter pelo menos 8 caracteres.'); return; }
+      if (password !== confirmation) { setMessage('As senhas não coincidem.'); return; }
+    }
+    setStep((current) => Math.min(current + 1, steps.length - 1));
+  };
+  const goBack = () => {
+    setMessage('');
+    setStep((current) => Math.max(current - 1, 0));
+  };
+  const selectAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      setAvatar(await resizeProfileImage(file));
+      setAvatarMessage('Foto pronta para salvar junto com seu primeiro acesso.');
+    } catch (error) {
+      setAvatarMessage(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.');
+    } finally {
+      event.target.value = '';
+    }
+  };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase) return;
-    const form = new FormData(event.currentTarget);
-    const password = String(form.get('password'));
-    if (password !== String(form.get('confirmation'))) { setMessage('As senhas não coincidem.'); return; }
+    if (password.length < 8) { setMessage('A nova senha precisa ter pelo menos 8 caracteres.'); setStep(1); return; }
+    if (password !== confirmation) { setMessage('As senhas não coincidem.'); setStep(1); return; }
+    setMessage('');
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) { setMessage(error.message); setBusy(false); return; }
+    const passwordAlreadyActive = isPasswordAlreadyActive(error);
+    if (error && !isPasswordAlreadyActive(error)) { setMessage(error.message); setBusy(false); return; }
+    const { error: profileError, whatsappSkipped } = await updateProfileContact(profile.id, { avatar_url: avatar, whatsapp_phone: whatsappPhone.trim() });
+    if (profileError) { setMessage(profileError.message); setBusy(false); return; }
+    if ((whatsappSkipped && whatsappPhone.trim()) || passwordAlreadyActive) setMessage(whatsappSkipped && whatsappPhone.trim() ? 'Seu WhatsApp será salvo assim que a atualização do banco for aplicada.' : 'Senha já atualizada. Finalizando seu primeiro acesso...');
     const { error: completionError } = await supabase.rpc('complete_initial_password_change');
     if (completionError) { setMessage(completionError.message); setBusy(false); return; }
     onComplete();
   };
-  return <main className="first-access-page"><section className="first-access-card"><div className="first-access-icon"><LockKeyhole size={27} /></div><p className="eyebrow">PRIMEIRO ACESSO</p><h1>Olá, {profile.full_name}!</h1><p>Antes de entrar no portal, escolha uma senha pessoal. A senha temporária deixará de funcionar.</p><form onSubmit={submit}><PasswordField label="Nova senha" name="password" minLength={8} autoComplete="new-password" required /><PasswordField label="Confirmar nova senha" name="confirmation" minLength={8} autoComplete="new-password" required />{message && <div className="auth-message">{message}</div>}<button className="student-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <LockKeyhole size={16} />}{busy ? 'Atualizando...' : 'Definir senha e entrar'}</button></form><button className="auth-switch" onClick={onLogout}>Sair da conta</button></section></main>;
+  const StepIcon = steps[step].icon;
+  return <main className="first-access-page"><section className="first-access-card first-access-card-wide first-access-wizard"><div className="first-access-wizard-top"><div className="first-access-icon"><StepIcon size={27} /></div><div><p className="eyebrow">PRIMEIRO ACESSO</p><h1>{step === 0 ? `Olá, ${profile.full_name}!` : steps[step].title}</h1><p>{step === 0 ? 'Antes de entrar, vamos te mostrar rapidamente como usar seu portal de estudos.' : step === 1 ? 'Configure seus dados principais. A foto é opcional e pode ser alterada depois.' : step === 2 ? 'Aqui você acompanha suas aulas e encontra tudo para entrar no encontro certo.' : step === 3 ? 'Seu portal reúne as ferramentas que vão apoiar sua rotina de estudo.' : 'Tudo pronto. Agora é só começar sua jornada no LangSpot.'}</p></div></div><div className="first-access-steps">{steps.map(({ title, icon: Icon }, index) => <button key={title} type="button" className={index === step ? 'active' : index < step ? 'done' : ''} onClick={() => index < step && setStep(index)} aria-label={title}><Icon size={14} /><span>{title}</span></button>)}</div><form onSubmit={submit}>
+    <div key={step} className="first-access-step-content">
+    {step === 0 && <div className="first-access-hero-step"><div className="first-access-hero-badge"><GraduationCap size={32} /></div><h2>Seu espaço de aprendizagem</h2><p>No LangSpot você vê próximas aulas, recebe tarefas, responde quizzes, revisa com flashcards, acompanha metas e registra seu progresso em um só lugar.</p><div className="first-access-highlight-grid"><span><CalendarDays size={16} />Aulas organizadas</span><span><Target size={16} />Metas claras</span><span><Flame size={16} />Streaks de estudo</span></div></div>}
+    {step === 1 && <><div className="first-access-profile-setup"><div className="profile-photo-preview"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Pré-visualização de ${profile.full_name}`} /> : initials(profile.full_name)}</div><p>Foto de perfil opcional · JPG, PNG ou WebP de até 5 MB.</p></div><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida. Você pode entrar sem imagem.'); }}><Ban size={14} />Remover</button>}</div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}</div><label>WhatsApp<input value={whatsappPhone} onChange={(event) => setWhatsappPhone(event.target.value)} placeholder="+55 85 99999-9999" autoComplete="tel" /></label><PasswordField label="Nova senha" name="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} autoComplete="new-password" required /><PasswordField label="Confirmar nova senha" name="confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={8} autoComplete="new-password" required /></>}
+    {step === 2 && <div className="first-access-feature-list"><article><CalendarDays size={22} /><div><strong>Veja suas próximas aulas</strong><p>A área de aulas mostra data, horário, tema e status dos encontros agendados.</p></div></article><article><ExternalLink size={22} /><div><strong>Acesse o link da aula</strong><p>Quando o professor adiciona um link online, ele aparece ali para você entrar no encontro com facilidade.</p></div></article><article><Plus size={22} /><div><strong>Adicione ao Google Calendar</strong><p>Use a opção de calendário para colocar a aula na sua agenda e evitar esquecer o horário.</p></div></article></div>}
+    {step === 3 && <div className="first-access-tour-grid">{tourCards.map(({ icon: Icon, title, text }) => <article key={title}><Icon size={20} /><strong>{title}</strong><p>{text}</p></article>)}</div>}
+    {step === 4 && <div className="first-access-hero-step"><div className="first-access-hero-badge success"><Check size={32} /></div><h2>Pronto para começar</h2><p>Ao entrar, explore primeiro a visão geral e confira se há aula, tarefa ou missão diária esperando por você.</p><div className="first-access-final-note"><Sparkles size={17} /><span>Seu progresso começa pequeno, mas fica visível a cada estudo.</span></div></div>}
+    </div>
+    {message && <div className="auth-message">{message}</div>}<div className="first-access-actions">{step > 0 && <button type="button" className="cancel-button" onClick={goBack} disabled={busy}><ArrowLeft size={16} />Voltar</button>}{step < steps.length - 1 ? <button type="button" className="student-primary" onClick={goNext}><ArrowRight size={16} />Continuar</button> : <button className="student-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <LockKeyhole size={16} />}{busy ? 'Atualizando...' : 'Começar meus estudos'}</button>}</div></form><button className="auth-switch" onClick={onLogout}>Sair da conta</button></section></main>;
 }
 
 function formatNextLessonFromRows(studentId: string, lessons: DbLesson[]) {
@@ -1878,12 +1964,13 @@ function StudentProfilePage({ profile, record, email, theme, onThemeChange, onPr
     const fullName = String(form.get('fullName') || '').trim();
     const age = String(form.get('age') || '').trim();
     const goal = String(form.get('goal') || '').trim();
-    const [{ data: updatedProfile, error: profileError }, { error: recordError }] = await Promise.all([
-      supabase.from('profiles').update({ full_name: fullName }).eq('id', profile.id).select('*').single(),
+    const whatsappPhone = String(form.get('whatsappPhone') || '').trim();
+    const [{ data: updatedProfile, error: profileError, whatsappSkipped }, { error: recordError }] = await Promise.all([
+      updateProfileContact(profile.id, { full_name: fullName, whatsapp_phone: whatsappPhone }),
       supabase.from('student_records').update({ age: age ? Number(age) : null, goal }).eq('student_id', profile.id),
     ]);
     if (profileError || recordError) setProfileMessage(profileError?.message ?? recordError?.message ?? 'Não foi possível salvar o perfil.');
-    else { onProfileChange(updatedProfile as Profile); record.age = age ? Number(age) : null; record.goal = goal; setProfileMessage('Perfil atualizado com sucesso.'); }
+    else { onProfileChange(updatedProfile as Profile); record.age = age ? Number(age) : null; record.goal = goal; setProfileMessage(whatsappSkipped && whatsappPhone ? 'Perfil salvo. O WhatsApp será salvo assim que a atualização do banco for aplicada.' : 'Perfil atualizado com sucesso.'); }
     setSavingProfile(false);
   };
   const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
@@ -1901,7 +1988,7 @@ function StudentProfilePage({ profile, record, email, theme, onThemeChange, onPr
     {readOnly && <div className="student-readonly-note"><Eye size={16} /><span>Visualização somente leitura. Os dados abaixo são os dados reais do aluno.</span></div>}
     <section className="student-profile-hero"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Avatar de ${profile.full_name}`} /> : initials(profile.full_name)}</div><div><p className="eyebrow">MEU PERFIL</p><h2>{profile.full_name}</h2><p>{email}</p><span>{record?.level ?? 'Nível não informado'} · {record?.goal || 'Objetivo ainda não definido'}</span></div><UserRound size={66} /></section>
     <div className="student-profile-layout">
-      <section className="student-panel student-profile-information"><div className="student-section-heading"><div><p className="eyebrow">INFORMAÇÕES PESSOAIS</p><h2>Seus dados de aprendizagem</h2></div><UserRound size={19} /></div><p className="profile-section-description">Mantenha seus dados atualizados para que o professor acompanhe melhor seus objetivos.</p><form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível atual<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo de aprendizagem<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label>{profileMessage && <div className="auth-message full-field">{profileMessage}</div>}<div className="profile-form-actions full-field"><button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></div></form></section>
+      <section className="student-panel student-profile-information"><div className="student-section-heading"><div><p className="eyebrow">INFORMAÇÕES PESSOAIS</p><h2>Seus dados de aprendizagem</h2></div><UserRound size={19} /></div><p className="profile-section-description">Mantenha seus dados atualizados para que o professor acompanhe melhor seus objetivos.</p><form className="student-profile-form" onSubmit={saveStudentDetails}><label>Nome completo<input name="fullName" defaultValue={profile.full_name} required /></label><label>Idade<input name="age" type="number" min="1" max="120" defaultValue={record?.age ?? ''} /></label><label>Nível atual<input value={record?.level ?? 'Não informado'} disabled /></label><label>Objetivo de aprendizagem<input name="goal" defaultValue={record?.goal ?? ''} placeholder="Ex.: conversação, viagem..." /></label><label>WhatsApp<input name="whatsappPhone" defaultValue={profile.whatsapp_phone ?? ''} placeholder="+55 85 99999-9999" /></label>{profileMessage && <div className="auth-message full-field">{profileMessage}</div>}<div className="profile-form-actions full-field"><button className="student-primary" disabled={savingProfile}>{savingProfile ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button></div></form></section>
       <aside className="student-profile-side">
         <section className="student-panel profile-photo-card"><div className="student-section-heading"><div><p className="eyebrow">APARÊNCIA</p><h2>Foto de perfil</h2></div><ImagePlus size={19} /></div><div className="profile-photo-preview"><div className="student-avatar large editable-avatar">{avatar ? <img src={avatar} alt={`Pré-visualização de ${profile.full_name}`} /> : initials(profile.full_name)}</div><p>JPG, PNG ou WebP de até 5 MB.</p></div><div className="student-avatar-controls"><label><ImagePlus size={15} />Escolher foto<input type="file" accept="image/*" onChange={selectAvatar} /></label>{avatar && <button type="button" onClick={() => { setAvatar(''); setAvatarMessage('Foto removida da pré-visualização. Clique em salvar foto.'); }}><Ban size={14} />Remover</button>}<button type="button" className="student-primary" disabled={savingAvatar || avatar === profile.avatar_url} onClick={saveAvatar}>{savingAvatar ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}{savingAvatar ? 'Salvando...' : 'Salvar foto'}</button></div>{avatarMessage && <div className="auth-message avatar-message">{avatarMessage}</div>}</section>
         <section className="student-panel student-interface-card"><div className="student-section-heading"><div><p className="eyebrow">INTERFACE</p><h2>Tema do portal</h2></div><Moon size={19} /></div><div className="theme-setting"><strong>Tema</strong><span>A mudança é aplicada imediatamente neste dispositivo.</span><div><button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => onThemeChange('light')}><Sun size={16} />Claro</button><button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => onThemeChange('dark')}><Moon size={16} />Escuro</button></div></div></section>

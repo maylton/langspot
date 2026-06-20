@@ -1,5 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+function isWhatsappColumnMissing(error: { message?: string; code?: string } | null) {
+  return error?.code === 'PGRST204' || error?.code === 'PGRST205' || Boolean(error?.message?.includes('whatsapp_phone') || error?.message?.includes('schema cache'));
+}
+
+async function insertStudentProfile(admin: ReturnType<typeof createClient>, profile: Record<string, unknown>) {
+  const { error } = await admin.from('profiles').insert(profile);
+  if (!error || !isWhatsappColumnMissing(error)) return { error };
+  const { whatsapp_phone, ...fallbackProfile } = profile;
+  return await admin.from('profiles').insert(fallbackProfile);
+}
+
 Deno.serve(async (request) => {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -16,7 +27,7 @@ Deno.serve(async (request) => {
   const { data: hasAccess } = await admin.rpc('teacher_has_access', { target_teacher: user.id });
   if (!hasAccess) return Response.json({ error: 'Seu período de teste terminou. Ative uma assinatura para convidar alunos.' }, { status: 402, headers: cors });
 
-  const { action = 'invite', email, fullName, age = null, level = 'A1', goal = '', notes = '' } = await request.json();
+  const { action = 'invite', email, fullName, age = null, level = 'A1', goal = '', notes = '', whatsappPhone = '' } = await request.json();
   if (action === 'create-with-password') {
     const temporaryPassword = createTemporaryPassword();
     const { data, error } = await admin.auth.admin.createUser({
@@ -27,7 +38,7 @@ Deno.serve(async (request) => {
     });
     if (error || !data.user) return Response.json({ error: error?.message }, { status: 400, headers: cors });
 
-    const { error: profileError } = await admin.from('profiles').insert({ id: data.user.id, role: 'student', full_name: fullName, email, teacher_id: user.id, must_change_password: true });
+    const { error: profileError } = await insertStudentProfile(admin, { id: data.user.id, role: 'student', full_name: fullName, email, whatsapp_phone: whatsappPhone, teacher_id: user.id, must_change_password: true });
     const { error: recordError } = profileError ? { error: null } : await admin.from('student_records').insert({ teacher_id: user.id, student_id: data.user.id, age, level, goal, notes });
     if (profileError || recordError) {
       await admin.auth.admin.deleteUser(data.user.id);
@@ -52,11 +63,12 @@ Deno.serve(async (request) => {
   });
   if (error || !data.user) return Response.json({ error: error?.message }, { status: 400, headers: cors });
 
-  const { error: profileError } = await admin.from('profiles').insert({
+  const { error: profileError } = await insertStudentProfile(admin, {
     id: data.user.id,
     role: 'student',
     full_name: fullName,
     email,
+    whatsapp_phone: whatsappPhone,
     teacher_id: user.id,
     must_change_password: true,
   });

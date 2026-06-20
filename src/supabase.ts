@@ -19,6 +19,7 @@ export type Profile = {
   teacher_id: string | null;
   must_change_password: boolean;
   email: string;
+  whatsapp_phone: string;
   avatar_url: string;
   school_name: string;
   onboarding_completed: boolean;
