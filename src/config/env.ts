@@ -19,6 +19,9 @@ export const APP_MODE: AppMode = (
   import.meta.env.VITE_APP_MODE as AppMode
 ) || (import.meta.env.PROD ? 'production' : 'development');
 
+/** Assessments remain hidden until explicitly enabled for a controlled rollout. */
+export const ASSESSMENTS_ENABLED = import.meta.env.VITE_ASSESSMENTS_ENABLED === 'true';
+
 /**
  * Supabase configuration - required for backend connectivity
  */
@@ -78,6 +81,7 @@ export const can = {
   debugLog: () => CURRENT_FEATURES.enableDebugLogging,
   resetData: () => CURRENT_FEATURES.enableDataReset,
   useDevTools: () => CURRENT_FEATURES.enableDevTools,
+  useAssessments: () => ASSESSMENTS_ENABLED,
 };
 
 /**
