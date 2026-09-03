@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, type ReactNode, type SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import { APP_VERSION, can } from './config/env';
+import type { QuestionAttempt, QuestionDefinition, QuestionSetResult, QuestionType } from './domains/questions';
 import { supabase } from './supabase';
 import { mockStudents, mockSchedule, mockMaterials, mockSettings, resetToMockData, toDateInput, addDays, startOfWeek } from './config/mockData';
 
@@ -80,12 +81,12 @@ export function materialTypeFromFile(file: File): MaterialType {
   return 'PDF';
 }
 export type AssignmentStatus = 'Pendente' | 'Entregue' | 'Corrigida';
-export type InteractiveQuestionType = 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
-export type InteractiveQuestion = { id: Id; type: InteractiveQuestionType; prompt: string; options: string[]; answer: string; explanation?: string };
+export type InteractiveQuestionType = QuestionType;
+export type InteractiveQuestion = QuestionDefinition;
 export type InteractiveAssignmentSettings = { maxAttempts: number; revealAnswers: 'after_each' | 'after_last' };
 export type InteractiveAssignmentContent = { questions: InteractiveQuestion[]; settings?: InteractiveAssignmentSettings };
-export type InteractiveAttempt = { answers: Record<Id, string>; score: number; total: number; percentage: number; submittedAt: string };
-export type InteractiveAssignmentResult = { answers: Record<Id, string>; score: number; total: number; percentage: number; attempts?: InteractiveAttempt[] };
+export type InteractiveAttempt = QuestionAttempt;
+export type InteractiveAssignmentResult = QuestionSetResult;
 export type TextComment = { id: Id; start: number; end: number; text: string; comment: string; createdAt: string };
 export type Assignment = { id: Id; teacherId?: Id; studentId: Id; materialId?: Id; title: string; instructions: string; dueDate: string; status: AssignmentStatus; submissionText?: string; submittedAt?: string; submissionFileName?: string; submissionFileUrl?: string; feedback?: string; grade?: number; textComments?: TextComment[]; createdAt: string; assignmentType?: 'regular' | 'interactive'; interactiveContent?: InteractiveAssignmentContent | null; interactiveResult?: InteractiveAssignmentResult | null };
 export type AssignmentInput = Pick<Assignment, 'studentId' | 'materialId' | 'title' | 'instructions' | 'dueDate' | 'assignmentType' | 'interactiveContent'>;

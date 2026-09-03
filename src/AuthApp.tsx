@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Award, Ban, Bell, BookOpen, Brain, CalendarDays,
 import App, { AppNotification, Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, MAX_UPLOAD_SIZE, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, STUDENT_SUBMISSION_ACCEPT, Student, StudentCreateInput, TextComment, isMaterialUploadFile, isStudentSubmissionFile, materialTypeFromFile } from './App';
 import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbNotification, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
 import { can } from './config/env';
+import { gradeQuestion, gradeQuestionSet as scoreInteractiveAssignment, joinOrderingAnswer, splitOrderingAnswer } from './domains/questions';
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
 import AdminTeachersModal from './components/AdminTeachersModal';
@@ -26,28 +27,6 @@ type AchievementDefinition = {
   icon: typeof Award;
 };
 
-const ORDERING_RESPONSE_SEPARATOR = '\u001f';
-const normalizeInteractiveAnswer = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
-const splitOrderingAnswer = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-  const parts = trimmed.includes(ORDERING_RESPONSE_SEPARATOR)
-    ? trimmed.split(ORDERING_RESPONSE_SEPARATOR)
-    : trimmed.includes('/')
-      ? trimmed.split('/')
-      : trimmed.split(',');
-  return parts.map((item) => item.trim()).filter(Boolean);
-};
-const joinOrderingAnswer = (items: string[]) => items.join(ORDERING_RESPONSE_SEPARATOR);
-const normalizeQuestionAnswer = (question: InteractiveAssignmentContent['questions'][number], value: string) => {
-  if (question.type !== 'ordering') return normalizeInteractiveAnswer(value);
-  return splitOrderingAnswer(value).map(normalizeInteractiveAnswer).join(' ');
-};
-const scoreInteractiveAssignment = (content: InteractiveAssignmentContent | null | undefined, answers: Record<string, string>): InteractiveAssignmentResult => {
-  const questions = content?.questions ?? [];
-  const score = questions.reduce((sum, question) => sum + (normalizeQuestionAnswer(question, answers[question.id] ?? '') === normalizeQuestionAnswer(question, question.answer) ? 1 : 0), 0);
-  return { answers, score, total: questions.length, percentage: questions.length ? Math.round((score / questions.length) * 100) : 0 };
-};
 const interactiveAttempts = (result: InteractiveAssignmentResult | null | undefined) => result?.attempts?.length ? result.attempts : result ? [{ answers: result.answers, score: result.score, total: result.total, percentage: result.percentage, submittedAt: new Date().toISOString() }] : [];
 const interactiveMaxAttempts = (content: InteractiveAssignmentContent | null | undefined) => content?.settings?.maxAttempts ?? 1;
 const canAttemptInteractive = (content: InteractiveAssignmentContent | null | undefined, result: InteractiveAssignmentResult | null | undefined) => {
@@ -1386,7 +1365,7 @@ function InteractiveDetailedFeedback({ assignment, result, revealAnswers }: { as
   if (!content?.questions.length) return null;
   return <div className="interactive-feedback-list"><strong>Correção detalhada</strong>{content.questions.map((question, index) => {
     const userAnswer = result.answers[question.id] ?? '';
-    const correct = normalizeQuestionAnswer(question, userAnswer) === normalizeQuestionAnswer(question, question.answer);
+    const correct = gradeQuestion(question, userAnswer).correct;
     return <article key={question.id} className={correct ? 'correct' : 'incorrect'}><div><span>{correct ? <Check size={14} /> : <X size={14} />}{correct ? 'Correta' : 'Revisar'}</span><h4>{index + 1}. {question.prompt}</h4></div><p><b>Sua resposta:</b> {userAnswer ? displayInteractiveAnswer(question, userAnswer) : 'Sem resposta'}</p>{revealAnswers && !correct && <p><b>Resposta correta:</b> {displayInteractiveAnswer(question, question.answer)}</p>}{revealAnswers && question.explanation && <small>{question.explanation}</small>}{!revealAnswers && !correct && <small>O gabarito será liberado após a última tentativa.</small>}</article>;
   })}</div>;
 }
