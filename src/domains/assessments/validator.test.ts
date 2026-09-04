@@ -36,4 +36,15 @@ describe('validateAssessmentDraft', () => {
     draft.assessmentMode = 'adaptive'; draft.navigationMode = 'linear'; draft.adaptiveMinItems = 3; draft.adaptiveMaxItems = 2;
     expect(validateAssessmentDraft(draft).filter((issue) => issue.severity === 'error').length).toBeGreaterThan(1);
   });
+  it('validates listening media and manual rubrics', () => {
+    const draft = validDraft();
+    draft.sections[0].questions = [
+      { id: 'l1', questionBankId: null, weight: 1, required: true, snapshot: { id: 'l1', type: 'listening', prompt: 'Listen', options: ['A', 'B'], answer: 'A', audioPath: 'teacher/listening/a/l1.webm', maxPlays: 2 } },
+      { id: 'w1', questionBankId: null, weight: 1, required: true, snapshot: { id: 'w1', type: 'writing', prompt: 'Write', options: [], answer: '', rubric: [{ key: 'grammar', label: 'Grammar', maxScore: 5 }] } },
+      { id: 's1', questionBankId: null, weight: 1, required: true, snapshot: { id: 's1', type: 'speaking', prompt: 'Speak', options: [], answer: '', rubric: [{ key: 'fluency', label: 'Fluency', maxScore: 5 }] } },
+    ];
+    expect(validateAssessmentDraft(draft)).toEqual([]);
+    delete draft.sections[0].questions[0].snapshot.audioPath;
+    expect(validateAssessmentDraft(draft)).toContainEqual(expect.objectContaining({ path: 'sections.0.questions.0.audioPath' }));
+  });
 });

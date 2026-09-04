@@ -1,12 +1,17 @@
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useEffect } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { joinOrderingAnswer, splitOrderingAnswer } from '../../questions';
 import type { AssessmentPresentedQuestion } from '../types';
+import { ListeningQuestion, SpeakingQuestion } from './MediaQuestions';
 
-export function QuestionRenderer({ question, value, onChange }: { question: AssessmentPresentedQuestion; value: string; onChange: (value: string) => void }) {
+export function QuestionRenderer({ client, attemptId, question, value, onChange }: { client: SupabaseClient; attemptId: string; question: AssessmentPresentedQuestion; value: string; onChange: (value: string) => void }) {
   useEffect(() => {
     if (question.type === 'ordering' && !value && question.options.length) onChange(joinOrderingAnswer(question.options));
   }, [question.id, question.type, question.options, value, onChange]);
+  if (question.type === 'listening') return <><ListeningQuestion client={client} attemptId={attemptId} question={question} /><div className="assessment-options">{question.options.map((option) => <label key={option} className={value === option ? 'selected' : ''}><input type="radio" name={question.id} checked={value === option} onChange={() => onChange(option)} />{option}</label>)}</div></>;
+  if (question.type === 'writing') return <label className="assessment-writing-answer">Sua resposta<textarea value={value} onChange={(event) => onChange(event.target.value)} rows={12} maxLength={50000} spellCheck autoComplete="off" /><span>{value.length.toLocaleString('pt-BR')} / 50.000 caracteres</span></label>;
+  if (question.type === 'speaking') return <SpeakingQuestion client={client} attemptId={attemptId} question={question} value={value} onChange={onChange} />;
   if (question.type === 'fill_blank') return <label className="assessment-fill-answer">Sua resposta<input value={value} onChange={(event) => onChange(event.target.value)} autoComplete="off" /></label>;
   if (question.type === 'ordering') {
     const items = value ? splitOrderingAnswer(value) : question.options;

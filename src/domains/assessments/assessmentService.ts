@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
-import type { AssessmentDraft, TeacherAssessmentResult } from './types';
+import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -62,12 +62,22 @@ export async function getAssessmentResult(client: SupabaseClient, attemptId: str
   return requireData(data as TeacherAssessmentResult | null, error);
 }
 
-export async function reviewAssessmentResponse(client: SupabaseClient, responseId: string, score: number, feedback: string): Promise<void> {
-  const { error } = await client.rpc('review_assessment_response', { p_response_id: responseId, p_score: score, p_feedback: feedback });
+export async function reviewAssessmentResponse(client: SupabaseClient, responseId: string, score: number, feedback: string, rubricScores: Record<string, number> = {}): Promise<void> {
+  const { error } = await client.rpc('review_assessment_response', { p_response_id: responseId, p_score: score, p_feedback: feedback, p_rubric_scores: rubricScores });
   if (error) throw new Error(error.message);
 }
 
 export async function finalizeAssessmentReview(client: SupabaseClient, attemptId: string): Promise<void> {
   const { error } = await client.rpc('finalize_assessment_review', { p_attempt_id: attemptId });
+  if (error) throw new Error(error.message);
+}
+
+export async function getAssessmentProgress(client: SupabaseClient, studentId: string): Promise<AssessmentProgressReport> {
+  const { data, error } = await client.rpc('get_assessment_progress', { p_student_id: studentId });
+  return requireData(data as AssessmentProgressReport | null, error);
+}
+
+export async function confirmAssessmentLevel(client: SupabaseClient, studentId: string, attemptId: string, level: CefrLevel): Promise<void> {
+  const { error } = await client.rpc('confirm_assessment_level_update', { p_student_id: studentId, p_attempt_id: attemptId, p_level: level });
   if (error) throw new Error(error.message);
 }

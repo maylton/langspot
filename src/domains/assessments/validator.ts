@@ -26,6 +26,9 @@ export function validateAssessmentDraft(draft: AssessmentDraft): AssessmentValid
         message: `Questão ${questionIndex + 1}: ${error.message}`,
       }));
       if (draft.assessmentMode === 'adaptive' && (!question.snapshot.difficulty || !question.snapshot.cefr)) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}`, message: `Questão ${questionIndex + 1}: informe dificuldade e nível CEFR para o placement.` });
+      if (question.snapshot.type === 'listening' && !question.snapshot.audioPath) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.audioPath`, message: `Questão ${questionIndex + 1}: envie o áudio de Listening.` });
+      if (question.snapshot.type === 'listening' && (!question.snapshot.maxPlays || question.snapshot.maxPlays < 1)) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.maxPlays`, message: `Questão ${questionIndex + 1}: informe ao menos uma reprodução.` });
+      if (['writing', 'speaking'].includes(question.snapshot.type) && !question.snapshot.rubric?.length) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.rubric`, message: `Questão ${questionIndex + 1}: configure a rubrica de correção.` });
     });
   });
 

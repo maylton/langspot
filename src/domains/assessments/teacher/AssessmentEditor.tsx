@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, Eye, Plus, Save, Send, Trash2 } from 'lucide-react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { joinOrderingAnswer, type QuestionDefinition, type QuestionType } from '../../questions';
 import { validateAssessmentDraft } from '../validator';
 import type { AssessmentDraft, AssessmentDraftSection, AssessmentQuestionSnapshot, AssessmentSectionSkill, CefrLevel } from '../types';
 import { AssessmentPreview } from './AssessmentPreview';
+import { uploadListeningAudio } from '../mediaService';
 
 export type AssessmentBankQuestion = QuestionDefinition & { bankId: string; cefr?: CefrLevel; difficulty?: number };
 
 const newSection = (): AssessmentDraftSection => ({ id: crypto.randomUUID(), title: 'Nova seção', skill: 'grammar', instructions: '', weight: 1, drawCount: null, questions: [] });
 
-export function AssessmentEditor({ initialDraft, bank, onBack, onSave, onPublish }: {
+export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack, onSave, onPublish }: {
+  client: SupabaseClient;
+  teacherId: string;
   initialDraft: AssessmentDraft;
   bank: AssessmentBankQuestion[];
   onBack: () => void;
@@ -85,31 +89,52 @@ export function AssessmentEditor({ initialDraft, bank, onBack, onSave, onPublish
       </section>
       <div className="assessment-section-list">{draft.sections.map((section, index) => <section className="assessment-section-editor" key={section.id}>
         <div className="assessment-section-heading"><strong>Seção {index + 1}</strong><button className="icon-button danger" aria-label="Excluir seção" onClick={() => removeSection(section.id)}><Trash2 size={16} /></button></div>
-        <div className="assessment-section-fields"><label>Título<input value={section.title} onChange={(event) => changeSection(section.id, { title: event.target.value })} /></label><label>Skill<select value={section.skill} onChange={(event) => changeSection(section.id, { skill: event.target.value as AssessmentSectionSkill })}><option value="grammar">Grammar</option><option value="vocabulary">Vocabulary</option><option value="reading">Reading</option><option value="use_of_english">Use of English</option></select></label><label>Questões do pool<input type="number" min="1" max={section.questions.length || undefined} value={section.drawCount ?? ''} placeholder="Todas" onChange={(event) => changeSection(section.id, { drawCount: event.target.value ? Number(event.target.value) : null })} /></label><label className="wide">Instruções<input value={section.instructions} onChange={(event) => changeSection(section.id, { instructions: event.target.value })} /></label></div>
+        <div className="assessment-section-fields"><label>Título<input value={section.title} onChange={(event) => changeSection(section.id, { title: event.target.value })} /></label><label>Skill<select value={section.skill} onChange={(event) => changeSection(section.id, { skill: event.target.value as AssessmentSectionSkill })}><option value="grammar">Grammar</option><option value="vocabulary">Vocabulary</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="writing">Writing</option><option value="speaking">Speaking</option><option value="use_of_english">Use of English</option></select></label><label>Questões do pool<input type="number" min="1" max={section.questions.length || undefined} value={section.drawCount ?? ''} placeholder="Todas" onChange={(event) => changeSection(section.id, { drawCount: event.target.value ? Number(event.target.value) : null })} /></label><label className="wide">Instruções<input value={section.instructions} onChange={(event) => changeSection(section.id, { instructions: event.target.value })} /></label></div>
         <div className="assessment-question-list">{section.questions.map((question, questionIndex) => <article key={question.id}><span>{questionIndex + 1}</span><div><strong>{question.snapshot.prompt}</strong><small>{question.snapshot.type.replace(/_/g, ' ')}</small></div><button className="icon-button danger" aria-label="Remover questão" onClick={() => removeQuestion(section.id, question.id)}><Trash2 size={15} /></button></article>)}</div>
-        <div className="assessment-question-actions"><label>Adicionar do banco<select defaultValue="" onChange={(event) => { addBankQuestion(section.id, event.target.value); event.target.value = ''; }}><option value="" disabled>Escolha uma questão</option>{bank.map((question) => <option key={question.bankId} value={question.bankId}>{question.prompt}</option>)}</select></label><ManualQuestionForm onAdd={(question) => addManualQuestion(section.id, question)} /></div>
+        <div className="assessment-question-actions"><label>Adicionar do banco<select defaultValue="" onChange={(event) => { addBankQuestion(section.id, event.target.value); event.target.value = ''; }}><option value="" disabled>Escolha uma questão</option>{bank.map((question) => <option key={question.bankId} value={question.bankId}>{question.prompt}</option>)}</select></label><ManualQuestionForm assessmentId={draft.id} onUpload={(questionId, file) => {
+          if (!draft.id) throw new Error('Salve o draft antes de enviar o áudio.');
+          return uploadListeningAudio(client, teacherId, draft.id, questionId, file);
+        }} onAdd={(question) => addManualQuestion(section.id, question)} /></div>
       </section>)}</div>
       <button className="secondary-button assessment-add-section" onClick={() => setDraft((current) => ({ ...current, sections: [...current.sections, newSection()] }))}><Plus size={16} />Adicionar seção</button>
     </>}
   </div>;
 }
 
-function ManualQuestionForm({ onAdd }: { onAdd: (question: AssessmentQuestionSnapshot) => void }) {
+const WRITING_RUBRIC = ['Task Achievement', 'Grammar', 'Vocabulary', 'Organization', 'Range', 'Accuracy'].map((label) => ({ key: label.toLowerCase().replace(/ /g, '_'), label, maxScore: 5 }));
+const SPEAKING_RUBRIC = ['Fluency', 'Pronunciation', 'Vocabulary', 'Grammar', 'Communication'].map((label) => ({ key: label.toLowerCase(), label, maxScore: 5 }));
+
+function ManualQuestionForm({ assessmentId, onUpload, onAdd }: { assessmentId: string | null; onUpload: (questionId: string, file: File) => Promise<string>; onAdd: (question: AssessmentQuestionSnapshot) => void }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<QuestionType>('multiple_choice');
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const [message, setMessage] = useState('');
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const prompt = String(form.get('prompt')).trim();
     let options = String(form.get('options') ?? '').split('\n').map((item) => item.trim()).filter(Boolean);
     if (type === 'true_false') options = ['True', 'False'];
-    let answer = String(form.get('answer')).trim();
+    let answer = String(form.get('answer') ?? '').trim();
     if (type === 'ordering') answer = joinOrderingAnswer(answer.split('\n').map((item) => item.trim()).filter(Boolean));
     const cefr = String(form.get('cefr') ?? 'B1') as CefrLevel;
     const difficulty = Number(form.get('difficulty') ?? 5);
-    onAdd({ id: crypto.randomUUID(), type, prompt, options, answer, cefr, difficulty });
-    event.currentTarget.reset(); setOpen(false);
+    const id = crypto.randomUUID();
+    try {
+      const audioFile = form.get('audio');
+      const audioPath = type === 'listening' && audioFile instanceof File && audioFile.size ? await onUpload(id, audioFile) : undefined;
+      onAdd({ id, type, prompt, options, answer, cefr, difficulty, audioPath,
+        maxPlays: type === 'listening' ? Number(form.get('maxPlays') ?? 2) : undefined,
+        autoplay: type === 'listening' ? form.get('autoplay') === 'on' : undefined,
+        transcript: type === 'listening' ? String(form.get('transcript') ?? '') : undefined,
+        transcriptVisibility: type === 'listening' ? String(form.get('transcriptVisibility') ?? 'after_submit') as AssessmentQuestionSnapshot['transcriptVisibility'] : undefined,
+        preparationSeconds: type === 'speaking' ? Number(form.get('preparationSeconds') ?? 30) : undefined,
+        recordingSeconds: type === 'speaking' ? Number(form.get('recordingSeconds') ?? 120) : undefined,
+        allowReview: type === 'speaking' ? form.get('allowReview') === 'on' : undefined,
+        rubric: type === 'writing' ? WRITING_RUBRIC : type === 'speaking' ? SPEAKING_RUBRIC : undefined });
+      event.currentTarget.reset(); setOpen(false); setMessage('');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível criar a questão.'); }
   };
   if (!open) return <button className="secondary-button" onClick={() => setOpen(true)}><Plus size={15} />Criar questão</button>;
-  return <form className="manual-question-form" onSubmit={submit}><label>Tipo<select value={type} onChange={(event) => setType(event.target.value as QuestionType)}><option value="multiple_choice">Múltipla escolha</option><option value="fill_blank">Preencher lacuna</option><option value="true_false">Verdadeiro/falso</option><option value="ordering">Ordenação</option></select></label><label>Enunciado<input name="prompt" required /></label><label>Nível CEFR<select name="cefr" defaultValue="B1"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Dificuldade (1–10)<input name="difficulty" type="number" min="1" max="10" defaultValue="5" required /></label>{type !== 'true_false' && type !== 'fill_blank' && <label>Opções (uma por linha)<textarea name="options" required rows={4} /></label>}<label>{type === 'ordering' ? 'Ordem correta (uma por linha)' : 'Resposta correta'}<textarea name="answer" required rows={type === 'ordering' ? 4 : 2} /></label><div><button type="button" className="cancel-button" onClick={() => setOpen(false)}>Cancelar</button><button className="primary-button">Adicionar</button></div></form>;
+  const manual = type === 'writing' || type === 'speaking';
+  return <form className="manual-question-form" onSubmit={(event) => void submit(event)}><label>Tipo<select value={type} onChange={(event) => setType(event.target.value as QuestionType)}><option value="multiple_choice">Múltipla escolha</option><option value="fill_blank">Preencher lacuna</option><option value="true_false">Verdadeiro/falso</option><option value="ordering">Ordenação</option><option value="listening">Listening</option><option value="writing">Writing</option><option value="speaking">Speaking</option></select></label><label>Enunciado<input name="prompt" required /></label><label>Nível CEFR<select name="cefr" defaultValue="B1"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><label>Dificuldade (1–10)<input name="difficulty" type="number" min="1" max="10" defaultValue="5" required /></label>{!manual && type !== 'true_false' && type !== 'fill_blank' && <label>Opções (uma por linha)<textarea name="options" required rows={4} /></label>}{!manual && <label>{type === 'ordering' ? 'Ordem correta (uma por linha)' : 'Resposta correta'}<textarea name="answer" required rows={type === 'ordering' ? 4 : 2} /></label>}{type === 'listening' && <><label>Arquivo de áudio<input name="audio" type="file" accept="audio/*" required disabled={!assessmentId} /></label><label>Máximo de reproduções<input name="maxPlays" type="number" min="1" max="10" defaultValue="2" required /></label><label className="check"><input name="autoplay" type="checkbox" />Reproduzir automaticamente</label><label>Transcrição<textarea name="transcript" rows={3} /></label><label>Exibir transcrição<select name="transcriptVisibility" defaultValue="after_submit"><option value="never">Nunca ao aluno</option><option value="after_submit">Após o envio</option><option value="always">Durante a questão</option></select></label></>}{type === 'writing' && <p className="rubric-summary">Rubrica: Task Achievement, Grammar, Vocabulary, Organization, Range e Accuracy (0–5).</p>}{type === 'speaking' && <><label>Preparação (segundos)<input name="preparationSeconds" type="number" min="0" max="600" defaultValue="30" /></label><label>Gravação (segundos)<input name="recordingSeconds" type="number" min="10" max="900" defaultValue="120" /></label><label className="check"><input name="allowReview" type="checkbox" defaultChecked />Permitir ouvir e regravar</label><p className="rubric-summary">Rubrica: Fluency, Pronunciation, Vocabulary, Grammar e Communication (0–5).</p></>}{type === 'listening' && !assessmentId && <p className="assessment-message">Salve o draft para habilitar o upload.</p>}{message && <p className="assessment-message" role="alert">{message}</p>}<div><button type="button" className="cancel-button" onClick={() => setOpen(false)}>Cancelar</button><button className="primary-button">Adicionar</button></div></form>;
 }

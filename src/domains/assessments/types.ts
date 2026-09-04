@@ -45,6 +45,7 @@ export type AssessmentEventType =
   | 'question_opened'
   | 'question_closed'
   | 'answer_saved'
+  | 'audio_play_started'
   | 'tab_blur'
   | 'tab_focus'
   | 'fullscreen_exit'
@@ -59,7 +60,22 @@ export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 import type { QuestionDefinition, QuestionType } from '../questions';
 
-export type AssessmentQuestionSnapshot = QuestionDefinition & { difficulty?: number; cefr?: CefrLevel };
+export type AssessmentRubricCriterion = { key: string; label: string; maxScore: number };
+export type TranscriptVisibility = 'never' | 'after_submit' | 'always';
+
+export type AssessmentQuestionSnapshot = QuestionDefinition & {
+  difficulty?: number;
+  cefr?: CefrLevel;
+  audioPath?: string;
+  maxPlays?: number;
+  autoplay?: boolean;
+  transcript?: string;
+  transcriptVisibility?: TranscriptVisibility;
+  preparationSeconds?: number;
+  recordingSeconds?: number;
+  allowReview?: boolean;
+  rubric?: AssessmentRubricCriterion[];
+};
 
 export type AssessmentDraftQuestion = {
   id: string;
@@ -107,6 +123,13 @@ export type AssessmentPresentedQuestion = {
   prompt: string;
   options: string[];
   required: boolean;
+  audioPath?: string;
+  maxPlays?: number;
+  autoplay?: boolean;
+  transcript?: string;
+  preparationSeconds?: number;
+  recordingSeconds?: number;
+  allowReview?: boolean;
 };
 
 export type StudentAssessmentSummary = {
@@ -177,6 +200,10 @@ export type AssessmentResultQuestion = {
   gradingStatus?: AssessmentGradingStatus;
   teacherFeedback: string;
   timeSpentMs?: number;
+  transcript?: string | null;
+  mediaPath?: string | null;
+  rubric?: AssessmentRubricCriterion[];
+  rubricScores?: Record<string, number>;
 };
 
 export type TeacherAssessmentResult = {
@@ -234,3 +261,6 @@ export type StudentAssessmentResult = {
   sections?: AssessmentResultSection[];
   questions?: AssessmentResultQuestion[];
 };
+
+export type AssessmentProgressPoint = { attemptId: string; assessmentId: string; title: string; type: AssessmentType; version: number; completedAt: string; score: number | null; estimatedCefr: CefrLevel | null; skills: Record<string, number> };
+export type AssessmentProgressReport = { studentId: string; currentLevel: CefrLevel; history: AssessmentProgressPoint[]; levelUpdates: { attemptId: string; previousLevel: CefrLevel; confirmedLevel: CefrLevel; createdAt: string }[] };

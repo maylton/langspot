@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ClipboardList, Edit3, FileQuestion, LoaderCircle, Plus } from 'lucide-react';
+import { ClipboardList, Edit3, FileQuestion, LoaderCircle, Plus, TrendingUp } from 'lucide-react';
 import { assignAssessment, listTeacherAssessments, loadAssessmentDraft, publishAssessment, saveAssessmentDraft } from '../assessmentService';
 import type { AssessmentRow } from '../database';
 import type { AssessmentDraft } from '../types';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
 import { AssessmentEditor, type AssessmentBankQuestion } from './AssessmentEditor';
 import { AssessmentResults } from './AssessmentResults';
+import { AssessmentProgress } from './AssessmentProgress';
 
 const emptyDraft = (): AssessmentDraft => ({
   id: null, title: '', description: '', type: 'custom', assessmentMode: 'fixed', navigationMode: 'free',
@@ -25,6 +26,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [draft, setDraft] = useState<AssessmentDraft | null>(null);
   const [assigning, setAssigning] = useState<AssessmentRow | null>(null);
   const [resultsFor, setResultsFor] = useState<AssessmentRow | null>(null);
+  const [progressOpen, setProgressOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -53,10 +55,11 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     } finally { setBusy(false); }
   };
 
-  if (draft) return <AssessmentEditor initialDraft={draft} bank={bank} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} />;
+  if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} />;
   if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} onBack={() => setResultsFor(null)} />;
+  if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} />;
   return <section className="assessment-dashboard">
-    <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie provas objetivas, publique versões imutáveis e atribua aos seus alunos.</p></div><button className="primary-button" onClick={() => setDraft(emptyDraft())}><Plus size={17} />Nova avaliação</button></header>
+    <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button><button className="primary-button" onClick={() => setDraft(emptyDraft())}><Plus size={17} />Nova avaliação</button></div></header>
     {message && <div className="assessment-message" role="alert">{message}</div>}
     {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><FileQuestion size={21} /></div>
