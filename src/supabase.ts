@@ -95,14 +95,37 @@ export type DbAssignment = {
 
 export type DbQuestionBankItem = {
   id: string;
-  teacher_id: string;
+  teacher_id: string | null;
+  external_id?: string | null;
+  bank_version?: string | null;
+  source_origin?: 'teacher' | 'cefr_pilot';
   level: string;
   category: string;
-  question_type: 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
+  question_type: import('./domains/questions').QuestionType;
   prompt: string;
   options: string[];
-  answer: string;
+  answer: string | null;
+  answer_key?: 'A' | 'B' | 'C' | 'D' | null;
   explanation: string | null;
+  skill?: 'reading' | 'listening' | 'writing' | 'spoken_production' | 'spoken_interaction' | 'mediation' | 'language_use' | null;
+  subskill?: string | null;
+  difficulty?: number | null;
+  task_type?: string | null;
+  topic?: string | null;
+  genre?: string | null;
+  audience?: 'child' | 'teen' | 'adult' | 'general' | 'teen_adult';
+  operational_descriptor?: string | null;
+  primary_evidence?: string | null;
+  response_constraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string } | null;
+  rubric?: import('./App').QuestionBankRubricCriterion[] | null;
+  source_material?: string | null;
+  tasklet_id?: string | null;
+  psychometric_status?: 'uncalibrated' | 'pilot_data_collected' | 'under_analysis' | 'calibrated' | null;
+  question_bank_tasklets?: { external_id: string; input_kind: 'text' | 'audio_script'; input_text: string } | null;
+  quality_status?: 'draft' | 'reviewed' | 'approved_for_pilot' | 'pilot_data_collected' | 'item_analysis' | 'approved' | 'pilot' | 'needs_revision' | 'retired';
+  restricted?: boolean;
+  usage_count?: number;
+  last_used_at?: string | null;
   created_at: string;
 };
 
