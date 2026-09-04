@@ -4,16 +4,17 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-export const PILOT_VERSION = 'pilot-0.1';
+export const PILOT_VERSION = 'pilot-0.2';
 export const PILOT_STATUS = 'approved_for_pilot';
 export const PSYCHOMETRIC_STATUS = 'uncalibrated';
 
 const EXPECTED = {
-  total: 198,
-  objective: 156,
-  productive: 42,
-  tasklets: 24,
-  bySkill: { reading: 48, listening: 48, language_use: 60, writing: 12, spoken_production: 12, spoken_interaction: 12, mediation: 6 },
+  total: 300,
+  objective: 234,
+  productive: 66,
+  tasklets: 36,
+  answerKeys: { A: 59, B: 58, C: 59, D: 58 },
+  bySkill: { reading: 72, listening: 72, language_use: 90, writing: 18, spoken_production: 18, spoken_interaction: 18, mediation: 12 },
 };
 
 const RUBRICS = {
@@ -43,7 +44,7 @@ const answerKeys = (markdown) => new Map(
 );
 
 const levelSegments = (content) => {
-  const matches = [...content.matchAll(/^## (A1|A2|B1|B2|C1|C2) —.*$/gm)];
+  const matches = [...content.matchAll(/^## (A1|A2|B1|B2|C1|C2)(?: —.*)?$/gm)];
   return matches.map((match, index) => ({
     level: match[1],
     body: content.slice(match.index + match[0].length, matches[index + 1]?.index ?? content.length),
@@ -57,6 +58,25 @@ const parseRange = (value) => {
   const unit = value.includes('word') ? 'words' : value.includes('minute') ? 'minutes' : 'seconds';
   return numbers.length >= 2 ? { min: numbers[0], max: numbers[1], unit, label: value } : null;
 };
+
+const parseDurationRange = (value) => {
+  if (!value) return null;
+  const clock = value.match(/(\d+):(\d+)/);
+  if (clock) {
+    const seconds = Number(clock[1]) * 60 + Number(clock[2]);
+    return { min: seconds, max: seconds, label: value };
+  }
+  const minuteSecond = value.match(/(\d+)\s*min(?:ute)?s?\s*(\d+)?\s*sec/i);
+  if (minuteSecond) {
+    const seconds = Number(minuteSecond[1]) * 60 + Number(minuteSecond[2] ?? 0);
+    return { min: seconds, max: seconds, label: value };
+  }
+  const seconds = [...value.matchAll(/\d+/g)].map((match) => Number(match[0]));
+  if (/seconds?/i.test(value) && seconds.length) return { min: seconds[0], max: seconds.at(-1), label: value };
+  throw new Error(`Unsupported duration: ${value}`);
+};
+
+const wordCount = (value) => value.trim().split(/\s+/).filter(Boolean).length;
 
 const parseOptions = (body) => {
   const options = [...body.matchAll(/^- \*\*([A-D])\.\*\* (.+)$/gm)].map((match) => ({ key: match[1], text: match[2].trim() }));
@@ -106,20 +126,24 @@ const parseTaskletBank = (markdown, start, end, skill) => {
     for (let index = 0; index < taskletMatches.length; index += 1) {
       const match = taskletMatches[index];
       const taskletBody = body.slice(match.index + match[0].length, taskletMatches[index + 1]?.index ?? body.length);
-      const inputHeading = skill === 'reading' ? '#### Input' : '#### Internal audio script';
-      const inputStart = taskletBody.indexOf(inputHeading);
+      const inputHeadings = skill === 'reading' ? ['#### Input'] : ['#### Internal audio script', '#### Script'];
+      const inputHeading = inputHeadings.find((heading) => taskletBody.includes(heading));
+      const inputStart = inputHeading ? taskletBody.indexOf(inputHeading) : -1;
       const itemsStart = taskletBody.indexOf('#### Items', inputStart);
-      if (inputStart < 0 || itemsStart < 0) throw new Error(`Input/items not found for ${match[1]}`);
+      if (!inputHeading || inputStart < 0 || itemsStart < 0) throw new Error(`Input/items not found for ${match[1]}`);
       const inputText = taskletBody.slice(inputStart + inputHeading.length, itemsStart).trim();
       const durationLabel = metadataValue(taskletBody, 'Estimated duration');
-      const durationParts = durationLabel?.match(/(\d+):(\d+)/);
+      const duration = parseDurationRange(durationLabel);
       const tasklet = {
         externalId: match[1], level, skill, title: match[3].trim(),
         topic: metadataValue(taskletBody, 'Topic'), genre: metadataValue(taskletBody, 'Genre'),
         audience: metadataValue(taskletBody, 'Audience'),
         inputKind: skill === 'reading' ? 'text' : 'audio_script', inputText,
-        inputLength: Number(metadataValue(taskletBody, skill === 'reading' ? 'Input length' : 'Script length')?.match(/\d+/)?.[0]),
-        estimatedDurationSeconds: durationParts ? Number(durationParts[1]) * 60 + Number(durationParts[2]) : null,
+        inputLength: Number(metadataValue(taskletBody, skill === 'reading' ? 'Input length' : 'Script length')?.match(/\d+/)?.[0]) || wordCount(inputText),
+        estimatedDurationSeconds: duration?.max ?? null,
+        estimatedDurationMinSeconds: duration?.min ?? null,
+        estimatedDurationMaxSeconds: duration?.max ?? null,
+        estimatedDurationLabel: duration?.label ?? null,
       };
       tasklets.push(tasklet);
       items.push(...parseObjectiveItems(taskletBody.slice(itemsStart + '#### Items'.length), keys, {
@@ -131,14 +155,19 @@ const parseTaskletBank = (markdown, start, end, skill) => {
   return { tasklets, items };
 };
 
-const parseLanguageUse = (markdown) => {
-  const content = sectionBetween(markdown, '# 6. Language Use Bank', '# 7. Writing Task Bank');
+const parseLanguageUseSection = (markdown, start, end) => {
+  const content = sectionBetween(markdown, start, end);
   const keys = answerKeys(content);
   return levelSegments(content).flatMap(({ level, body }) => parseObjectiveItems(body, keys, {
     level, skill: 'language_use', category: 'Language Use', topic: null, genre: null,
     audience: 'general', taskletExternalId: null, taskletPosition: null,
   }));
 };
+
+const parseLanguageUse = (markdown) => [
+  ...parseLanguageUseSection(markdown, '# 6. Language Use Bank', '# 7. Writing Task Bank'),
+  ...parseLanguageUseSection(markdown, '# 23. Additional Language Use items', '# 24. Additional Writing prompts'),
+];
 
 const productiveConfig = [
   ['# 7. Writing Task Bank', '# 8. Spoken Production Task Bank', 'writing', 'Writing', 'Target'],
@@ -174,12 +203,41 @@ const parseProductive = (markdown) => productiveConfig.flatMap(([start, end, ski
   });
 });
 
+const expansionProductiveConfig = [
+  ['# 24. Additional Writing prompts', '# 25. Additional Spoken Production prompts', 'writing', 'Writing', 'Target length', 'Prompt'],
+  ['# 25. Additional Spoken Production prompts', '# 26. Additional Spoken Interaction tasks', 'spoken_production', 'Speaking', 'Target speaking time', 'Prompt'],
+  ['# 26. Additional Spoken Interaction tasks', '# 27. Additional Mediation tasks', 'spoken_interaction', 'Speaking', null, 'Task'],
+  ['# 27. Additional Mediation tasks', '# 28. QA validation of expansion v0.2', 'mediation', 'Mediation', null, 'Task'],
+];
+
+const parseExpansionProductive = (markdown) => expansionProductiveConfig.flatMap(([start, end, skill, category, targetKey, promptKey]) => {
+  const content = sectionBetween(markdown, start, end);
+  return levelSegments(content).flatMap(({ level, body }) => {
+    const matches = [...body.matchAll(/^### ((?:W|SP|SI|M)-(?:A1|A2|B1|B2|C1|C2)-[0-9]{3}) — ([a-z0-9_]+)$/gm)];
+    return matches.map((match, index) => {
+      const itemBody = body.slice(match.index + match[0].length, matches[index + 1]?.index ?? body.length).split(/^---$/m)[0].trim();
+      const prompt = metadataValue(itemBody, promptKey);
+      if (!prompt) throw new Error(`Prompt not found for ${match[1]}`);
+      const sourceMaterial = skill === 'mediation' ? itemBody.slice(0, itemBody.search(/^\*\*Task:\*\*/m)).trim() : null;
+      return {
+        externalId: match[1], level, skill, category, subskill: match[2], difficulty: null,
+        taskType: match[2], questionType: skill === 'writing' ? 'writing' : skill === 'mediation' ? 'mediation' : 'speaking',
+        topic: null, genre: match[2], audience: 'general', taskletExternalId: null, taskletPosition: null,
+        prompt, options: [], answer: null, answerKey: null, rubric: rubricFor(skill), sourceMaterial,
+        responseConstraints: targetKey ? parseRange(metadataValue(itemBody, targetKey)) : null, primaryEvidence: null,
+      };
+    });
+  });
+});
+
 export function parsePilotBank(markdown) {
   const reading = parseTaskletBank(markdown, '# 4. Reading Bank', '# 5. Listening Bank', 'reading');
   const listening = parseTaskletBank(markdown, '# 5. Listening Bank', '# 6. Language Use Bank', 'listening');
-  const items = [...reading.items, ...listening.items, ...parseLanguageUse(markdown), ...parseProductive(markdown)]
+  const additionalReading = parseTaskletBank(markdown, '# 21. Additional Reading tasklets', '# 22. Additional Listening tasklets', 'reading');
+  const additionalListening = parseTaskletBank(markdown, '# 22. Additional Listening tasklets', '# 23. Additional Language Use items', 'listening');
+  const items = [...reading.items, ...additionalReading.items, ...listening.items, ...additionalListening.items, ...parseLanguageUse(markdown), ...parseProductive(markdown), ...parseExpansionProductive(markdown)]
     .map((item) => ({ ...item, bankVersion: PILOT_VERSION, qualityStatus: PILOT_STATUS, psychometricStatus: PSYCHOMETRIC_STATUS }));
-  const tasklets = [...reading.tasklets, ...listening.tasklets]
+  const tasklets = [...reading.tasklets, ...additionalReading.tasklets, ...listening.tasklets, ...additionalListening.tasklets]
     .map((tasklet) => ({ ...tasklet, bankVersion: PILOT_VERSION, qualityStatus: PILOT_STATUS, psychometricStatus: PSYCHOMETRIC_STATUS }));
   return { version: PILOT_VERSION, status: PILOT_STATUS, psychometricStatus: PSYCHOMETRIC_STATUS, tasklets, items };
 }
@@ -201,8 +259,12 @@ export function validatePilotBank(bank) {
   }
   for (const key of ['A', 'B', 'C', 'D']) {
     const count = objective.filter((item) => item.answerKey === key).length;
-    if (count !== 39) errors.push(`Answer key ${key}: expected 39, found ${count}.`);
+    if (count !== EXPECTED.answerKeys[key]) errors.push(`Answer key ${key}: expected ${EXPECTED.answerKeys[key]}, found ${count}.`);
   }
+  const contentSignatures = bank.items.map((item) => JSON.stringify([
+    item.skill, item.taskletExternalId, item.prompt.trim().replace(/\s+/g, ' ').toLowerCase(), item.options,
+  ]));
+  if (new Set(contentSignatures).size !== contentSignatures.length) errors.push('Exact item content is duplicated.');
   for (const item of productive) {
     if (item.answer !== null || item.answerKey !== null || item.options.length) errors.push(`${item.externalId}: productive task must not have an objective answer.`);
     if (!item.rubric?.length) errors.push(`${item.externalId}: productive task requires a rubric.`);
@@ -227,11 +289,20 @@ export function validatePilotBank(bank) {
   }
   for (const skill of ['reading', 'listening']) for (const level of CEFR_LEVELS) {
     const count = bank.tasklets.filter((tasklet) => tasklet.skill === skill && tasklet.level === level).length;
-    if (count !== 2) errors.push(`${skill}/${level}: expected 2 tasklets, found ${count}.`);
+    if (count !== 3) errors.push(`${skill}/${level}: expected 3 tasklets, found ${count}.`);
+  }
+  for (const tasklet of bank.tasklets.filter((item) => item.skill === 'listening')) {
+    if (!tasklet.estimatedDurationMinSeconds || !tasklet.estimatedDurationMaxSeconds || tasklet.estimatedDurationMinSeconds > tasklet.estimatedDurationMaxSeconds) errors.push(`${tasklet.externalId}: invalid listening duration range.`);
   }
   if (errors.length) throw new Error(errors.join('\n'));
+  const promptGroups = new Map();
+  for (const item of bank.items) {
+    const prompt = item.prompt.trim().replace(/\s+/g, ' ').toLowerCase();
+    promptGroups.set(prompt, [...(promptGroups.get(prompt) ?? []), item.externalId]);
+  }
   return {
     total: bank.items.length, objective: objective.length, productive: productive.length, tasklets: bank.tasklets.length,
+    repeatedPromptGroups: [...promptGroups.values()].filter((ids) => ids.length > 1),
     bySkillAndLevel: Object.fromEntries(Object.keys(EXPECTED.bySkill).map((skill) => [skill, Object.fromEntries(CEFR_LEVELS.map((level) => [level, bank.items.filter((item) => item.skill === skill && item.level === level).length]))])),
   };
 }
@@ -240,13 +311,13 @@ const sqlLiteral = (value) => value === null || value === undefined ? 'null' : `
 const jsonLiteral = (value) => value === null || value === undefined ? 'null' : `${sqlLiteral(JSON.stringify(value))}::jsonb`;
 
 export function buildSeedSql(bank) {
-  return `-- Generated from docs/cefr/LangSpot_CEFR_Pilot_Bank_v0.1.md. Do not edit pedagogical content here.\n` +
+  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md. Do not edit pedagogical content here.\n` +
 `begin;\nselect private.import_cefr_pilot_bank(\n  ${jsonLiteral(bank.tasklets)},\n  ${jsonLiteral(bank.items)}\n);\nselect private.validate_cefr_pilot_bank('${PILOT_VERSION}');\ncommit;\n`;
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Pilot_Bank_v0.1.md');
+  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md');
   const outputArg = args.find((arg) => arg.startsWith('--output='));
   const markdown = await readFile(source, 'utf8');
   const bank = parsePilotBank(markdown);

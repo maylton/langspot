@@ -26,6 +26,7 @@ migrations=(
   20260904060000_integrate_assessment_progress.sql
   20260904104029_add_cefr_assessment_layer.sql
   20260904110918_add_cefr_pilot_bank.sql
+  20260904121534_expand_cefr_pilot_bank_v0_2.sql
 )
 for index in "${!migrations[@]}"; do
   number=$((index + 1))

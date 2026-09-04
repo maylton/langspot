@@ -1,8 +1,8 @@
-# CEFR Pilot Bank v0.1 — auditoria e implementação
+# CEFR Placement Pilot Bank v0.2 — auditoria e implementação
 
 ## Resultado
 
-O conteúdo de `LangSpot_CEFR_Pilot_Bank_v0.1.md` foi importado sem alteração pedagógica: 198 unidades avaliativas, 24 tasklets de Reading/Listening e todos os metadados globais `approved_for_pilot`, `uncalibrated` e `pilot-0.1`.
+O conteúdo consolidado de `LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md` foi importado sem alteração pedagógica: 300 unidades avaliativas, 36 tasklets de Reading/Listening e todos os metadados globais `approved_for_pilot`, `uncalibrated` e `pilot-0.2`. A expansão substitui a versão operacional anterior porque conserva os seus IDs e acrescenta 102 unidades; ela não é somada como um segundo banco de 300 itens.
 
 O adaptive engine não foi alterado nem ampliado.
 
@@ -34,7 +34,7 @@ O adaptive engine não foi alterado nem ampliado.
 | ID do tasklet `R-B1-001` | `question_bank_tasklets.external_id` |
 | texto de Reading | `question_bank_tasklets.input_text`, `input_kind = text` |
 | script de Listening | `question_bank_tasklets.input_text`, `input_kind = audio_script` |
-| duração estimada do áudio | `question_bank_tasklets.estimated_duration_seconds` |
+| duração estimada do áudio | `estimated_duration_seconds` e limites `estimated_duration_min_seconds` / `estimated_duration_max_seconds` |
 | posição Q1–Q4 | `question_bank.tasklet_position` |
 | nível, skill, subskill, dificuldade, tópico, gênero e público | colunas homônimas do catálogo/tasklet |
 | alternativas A–D | `question_bank.options` |
@@ -59,22 +59,26 @@ Para itens objetivos, o documento não declara um campo separado chamado “task
 
 | Skill | A1 | A2 | B1 | B2 | C1 | C2 | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Reading | 8 | 8 | 8 | 8 | 8 | 8 | 48 |
-| Listening | 8 | 8 | 8 | 8 | 8 | 8 | 48 |
-| Language Use | 10 | 10 | 10 | 10 | 10 | 10 | 60 |
-| Writing | 2 | 2 | 2 | 2 | 2 | 2 | 12 |
-| Spoken Production | 2 | 2 | 2 | 2 | 2 | 2 | 12 |
-| Spoken Interaction | 2 | 2 | 2 | 2 | 2 | 2 | 12 |
-| Mediation | 1 | 1 | 1 | 1 | 1 | 1 | 6 |
-| **Total** | **33** | **33** | **33** | **33** | **33** | **33** | **198** |
+| Reading | 12 | 12 | 12 | 12 | 12 | 12 | 72 |
+| Listening | 12 | 12 | 12 | 12 | 12 | 12 | 72 |
+| Language Use | 15 | 15 | 15 | 15 | 15 | 15 | 90 |
+| Writing | 3 | 3 | 3 | 3 | 3 | 3 | 18 |
+| Spoken Production | 3 | 3 | 3 | 3 | 3 | 3 | 18 |
+| Spoken Interaction | 3 | 3 | 3 | 3 | 3 | 3 | 18 |
+| Mediation | 2 | 2 | 2 | 2 | 2 | 2 | 12 |
+| **Total** | **50** | **50** | **50** | **50** | **50** | **50** | **300** |
 
 ## Validações automatizadas
 
-O parser e o validador SQL verificam IDs únicos, 198 unidades, 24 tasklets, contagem por skill/nível, associação tasklet-item, quatro alternativas distintas, resposta presente nas opções, chave A–D, skills e níveis conhecidos, subskill não vazia, rubricas produtivas e ausência de resposta objetiva em tarefas produtivas. O teste de banco executa o seed duas vezes e confirma que as contagens permanecem iguais.
+O parser e o validador SQL verificam IDs únicos, 300 unidades, 36 tasklets, contagem por skill/nível, associação tasklet-item, quatro alternativas distintas, resposta presente nas opções, distribuição A–D 59/58/59/58, skills e níveis conhecidos, subskill não vazia, rubricas produtivas, ausência de resposta objetiva em tarefas produtivas e intervalos válidos de duração dos áudios. O teste de banco executa o seed duas vezes e confirma que as contagens permanecem iguais.
 
 ## Observações do conteúdo-fonte
 
-- Não foram encontradas divergências de contagem, IDs duplicados, alternativas duplicadas, chaves ausentes ou comprimentos declarados incorretos.
+- Não foram encontradas divergências de contagem, IDs duplicados, itens integralmente duplicados, alternativas duplicadas ou chaves ausentes.
+- O documento repete o enunciado genérico “What is the writer mainly describing?” em `R-B1-001-Q1` e `R-B1-003-Q1`, mas os textos-base e alternativas são distintos; portanto não são itens duplicados.
+- `LU-C1-009` e `LU-C1-013` repetem a mesma lacuna e o mesmo conteúdo-alvo com conjuntos de alternativas diferentes. Ambos foram preservados por terem IDs e chaves próprios, mas constituem sobreposição pedagógica recomendada para revisão antes da calibração.
+- Os novos tasklets de Listening não declaram `genre` nem contagem de palavras. `genre` permanece `NULL`, e `input_length` é calculado diretamente do script. Os prompts produtivos adicionais sem público explícito usam o padrão estrutural `general`.
+- As durações em faixa, como 25–30 segundos, são preservadas com limites mínimo/máximo; `estimated_duration_seconds` mantém o limite máximo por compatibilidade.
 - O exemplo do pedido usa `R-B1-001-Q03`, mas a fonte pedagógica usa `R-B1-001-Q3`. Como o Markdown foi definido como fonte de verdade, o ID foi preservado exatamente como `R-B1-001-Q3`, sem zero adicional.
 - O documento fornece scripts, mas não arquivos de áudio. Os itens de Listening ficam disponíveis no catálogo com o transcript integral; uma prova não pode ser publicada até que o áudio correspondente seja preparado e associado, mantendo a regra operacional existente.
 - O documento não fornece IDs de descritores CEFR nem descritores operacionais individuais. Nenhum vínculo com `cefr_descriptors` foi inventado.
