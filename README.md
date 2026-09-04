@@ -37,6 +37,7 @@ Preencha no `.env`:
 VITE_APP_MODE=development
 VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 VITE_SUPABASE_ANON_KEY=SUA_CHAVE_PUBLICA
+VITE_ASSESSMENTS_ENABLED=true
 ```
 
 Para testar a experiência beta sem o modo demonstração, use:
@@ -60,8 +61,12 @@ npx supabase functions deploy accept-teacher-invite
 
 ```bash
 npm run check
+npm test
+npm run test:assessments:db
 npm run preview
 ```
+
+Assessments ficam habilitados por padrão quando o Supabase está configurado. Use `VITE_ASSESSMENTS_ENABLED=false` apenas como rollback emergencial. O teste de banco usa um PostgreSQL descartável via Docker e não altera o projeto remoto.
 
 O roteiro completo está em [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 

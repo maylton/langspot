@@ -19,8 +19,8 @@ export const APP_MODE: AppMode = (
   import.meta.env.VITE_APP_MODE as AppMode
 ) || (import.meta.env.PROD ? 'production' : 'development');
 
-/** Assessments remain hidden until explicitly enabled for a controlled rollout. */
-export const ASSESSMENTS_ENABLED = import.meta.env.VITE_ASSESSMENTS_ENABLED === 'true';
+/** Assessments are generally available after hardening; set false only for an emergency rollback. */
+export const ASSESSMENTS_ENABLED = import.meta.env.VITE_ASSESSMENTS_ENABLED !== 'false';
 
 /**
  * Supabase configuration - required for backend connectivity

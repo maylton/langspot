@@ -1,4 +1,4 @@
-import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, lazy, type ComponentProps, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Award, Ban, Bell, BookOpen, Brain, CalendarDays, Check, ChevronRight, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileQuestion, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, MoreHorizontal, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import App, { AppNotification, Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, MAX_UPLOAD_SIZE, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, STUDENT_SUBMISSION_ACCEPT, Student, StudentCreateInput, TextComment, isMaterialUploadFile, isStudentSubmissionFile, materialTypeFromFile } from './App';
 import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbNotification, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
@@ -7,7 +7,9 @@ import { gradeQuestion, gradeQuestionSet as scoreInteractiveAssignment, joinOrde
 import InviteAcceptance from './components/InviteAcceptance';
 import InviteTeacherModal from './components/InviteTeacherModal';
 import AdminTeachersModal from './components/AdminTeachersModal';
-import { AssessmentDashboard, AssessmentHub } from './domains/assessments';
+const AssessmentDashboard = lazy(() => import('./domains/assessments/teacher/AssessmentDashboard').then((module) => ({ default: module.AssessmentDashboard })));
+const LazyAssessmentHub = lazy(() => import('./domains/assessments/student/AssessmentHub').then((module) => ({ default: module.AssessmentHub })));
+const AssessmentHub = (props: ComponentProps<typeof LazyAssessmentHub>) => <Suspense fallback={<div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div>}><LazyAssessmentHub {...props} /></Suspense>;
 
 type AuthMode = 'login' | 'register' | 'forgot';
 const streakMilestones = [
@@ -679,7 +681,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     <App
       authenticatedMode
       accountAccess={accountAccess}
-      assessmentContent={can.useAssessments() && supabase ? <AssessmentDashboard client={supabase} teacherId={profile.id} students={students.map((student) => ({ id: student.id, name: student.name }))} bank={questionBank.map((question) => ({ bankId: question.id, id: question.id, type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation, cefr: question.level, difficulty: ({ A1: 1.5, A2: 3, B1: 5, B2: 6.5, C1: 8, C2: 9.5 } as const)[question.level] }))} /> : undefined}
+      assessmentContent={can.useAssessments() && supabase ? <Suspense fallback={<div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div>}><AssessmentDashboard client={supabase} teacherId={profile.id} students={students.map((student) => ({ id: student.id, name: student.name }))} bank={questionBank.map((question) => ({ bankId: question.id, id: question.id, type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation, cefr: question.level, difficulty: ({ A1: 1.5, A2: 3, B1: 5, B2: 6.5, C1: 8, C2: 9.5 } as const)[question.level] }))} /></Suspense> : undefined}
       initialStudents={students}
       initialSchedule={schedule}
       initialMaterials={materials}
@@ -1172,7 +1174,7 @@ function StudentPortal({ profile, onLogout, previewMode = false, previewTeacherN
     { label: 'Aulas', icon: CalendarDays },
     { label: 'Tarefas', icon: ClipboardList },
     { label: 'Quiz', icon: FileQuestion },
-    ...(can.useAssessments() ? [{ label: 'Avaliações' as StudentTab, icon: ClipboardList }] : []),
+    ...(can.useAssessments() && supabase ? [{ label: 'Avaliações' as StudentTab, icon: ClipboardList }] : []),
     { label: 'Materiais', icon: BookOpen },
     { label: 'Flashcards', icon: Brain },
     { label: 'Metas', icon: Flag },
