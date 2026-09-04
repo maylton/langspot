@@ -22,27 +22,37 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm install 2>&1 | tee validation-install.log
 
       - name: Unit tests
-        run: npm test
+        run: npm test 2>&1 | tee validation-unit.log
 
       - name: Validate CEFR pilot bank
-        run: npm run test:cefr:pilot
+        run: npm run test:cefr:pilot 2>&1 | tee validation-pilot.log
 
       - name: Validate CEFR presets
-        run: npm run test:cefr:presets
+        run: npm run test:cefr:presets 2>&1 | tee validation-presets.log
 
       - name: Typecheck
-        run: npm run typecheck
+        run: npm run typecheck 2>&1 | tee validation-typecheck.log
 
       - name: Production build
-        run: npm run build
+        run: npm run build 2>&1 | tee validation-build.log
 
       - name: Assessment database smoke tests
-        run: npm run test:assessments:db
+        run: npm run test:assessments:db 2>&1 | tee validation-db.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-logs
+          path: validation-*.log
+          if-no-files-found: warn
+          retention-days: 1
 
       - name: Upload resolved lockfile
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: resolved-package-lock
