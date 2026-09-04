@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:cefr:pilot": "node --test scripts/cefr-pilot-bank.node.mjs",
     "cefr:pilot:validate": "node scripts/cefr-pilot-bank.mjs",
-    "cefr:pilot:build-seed": "node scripts/cefr-pilot-bank.mjs --output=supabase/seeds/cefr_pilot_bank_v0_1.sql",
+    "cefr:pilot:build-seed": "node scripts/cefr-pilot-bank.mjs --output=supabase/seed.sql",
     "test:assessments:db": "bash scripts/test-assessment-migrations.sh",
     "test:watch": "vitest",
     "preview": "vite preview",

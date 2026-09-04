@@ -16,7 +16,7 @@ done
 docker cp "$repo_dir/supabase/tests/assessment_bootstrap.sql" "$container_name:/tmp/bootstrap.sql" >/dev/null
 docker cp "$repo_dir/supabase/tests/assessment_smoke.sql" "$container_name:/tmp/smoke.sql" >/dev/null
 docker cp "$repo_dir/supabase/tests/cefr_pilot_bank_smoke.sql" "$container_name:/tmp/pilot-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/seeds/cefr_pilot_bank_v0_1.sql" "$container_name:/tmp/pilot-seed.sql" >/dev/null
+docker cp "$repo_dir/supabase/seed.sql" "$container_name:/tmp/pilot-seed.sql" >/dev/null
 migrations=(
   20260903204901_create_assessments_foundation.sql
   20260903210547_add_assessment_mvp_workflows.sql

@@ -93,7 +93,7 @@ npx supabase db reset
 Para aplicar somente o seed em um banco que já possui a migration:
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seeds/cefr_pilot_bank_v0_1.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
 ```
 
 Validação completa usada no repositório:
