@@ -65,7 +65,7 @@ export type CefrBaseLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type CefrLevel = CefrBaseLevel | 'A1+' | 'A2+' | 'B1+' | 'B2+' | 'C1+';
 export type CefrSkill = 'reading' | 'listening' | 'writing' | 'spoken_production' | 'spoken_interaction' | 'mediation' | 'language_use';
 export type CefrConfidence = 'low' | 'moderate' | 'high';
-export type CefrQualityStatus = 'draft' | 'reviewed' | 'approved' | 'pilot' | 'needs_revision' | 'retired';
+export type CefrQualityStatus = 'draft' | 'reviewed' | 'approved_for_pilot' | 'pilot_data_collected' | 'item_analysis' | 'approved' | 'pilot' | 'needs_revision' | 'retired';
 
 import type { QuestionDefinition, QuestionType } from '../questions';
 
@@ -73,6 +73,7 @@ export type AssessmentRubricCriterion = { key: string; label: string; maxScore: 
 export type TranscriptVisibility = 'never' | 'after_submit' | 'always';
 
 export type AssessmentQuestionSnapshot = QuestionDefinition & {
+  externalId?: string;
   difficulty?: number;
   cefr?: CefrLevel;
   skill?: CefrSkill;
@@ -82,11 +83,15 @@ export type AssessmentQuestionSnapshot = QuestionDefinition & {
   taskType?: string;
   topic?: string;
   genre?: string;
-  audience?: 'child' | 'teen' | 'adult' | 'general';
+  audience?: 'child' | 'teen' | 'adult' | 'general' | 'teen_adult';
   cognitiveProcesses?: string[];
   sourceMaterial?: string;
   qualityStatus?: CefrQualityStatus;
   isPilot?: boolean;
+  psychometricStatus?: 'uncalibrated' | 'pilot_data_collected' | 'under_analysis' | 'calibrated';
+  primaryEvidence?: string;
+  responseConstraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string };
+  taskletId?: string;
   audioPath?: string;
   maxPlays?: number;
   autoplay?: boolean;
@@ -161,6 +166,7 @@ export type AssessmentPresentedQuestion = {
   recordingSeconds?: number;
   allowReview?: boolean;
   sourceMaterial?: string;
+  responseConstraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string };
 };
 
 export type StudentAssessmentSummary = {
