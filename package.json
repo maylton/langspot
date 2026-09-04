@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:cefr:pilot": "node --test scripts/cefr-pilot-bank.node.mjs",
+    "test:cefr:presets": "vitest run src/domains/assessments/a2B1PlacementPreset.test.ts",
     "cefr:pilot:validate": "node scripts/cefr-pilot-bank.mjs",
     "cefr:pilot:build-seed": "node scripts/cefr-pilot-bank.mjs --output=supabase/seed.sql",
     "test:assessments:db": "bash scripts/test-assessment-migrations.sh",

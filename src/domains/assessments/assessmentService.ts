@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
-import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrProfile, TeacherAssessmentResult } from './types';
+import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -40,6 +40,25 @@ export async function saveAssessmentDraft(client: SupabaseClient, draft: Assessm
 export async function publishAssessment(client: SupabaseClient, assessmentId: string): Promise<void> {
   const { error } = await client.rpc('publish_assessment', { p_assessment_id: assessmentId });
   if (error) throw new Error(error.message);
+}
+
+export async function listCefrLevelCheckPresets(client: SupabaseClient): Promise<CefrLevelCheckPreset[]> {
+  const { data, error } = await client.from('cefr_level_check_presets').select('*').eq('active', true).order('target_level');
+  const rows = requireData(data, error) as Array<Record<string, string | number | null>>;
+  return rows.map((row) => ({
+    id: String(row.id), name: String(row.name), purpose: String(row.purpose),
+    targetLevel: String(row.target_level) as CefrLevelCheckPreset['targetLevel'],
+    floorLevel: row.floor_level as CefrLevelCheckPreset['floorLevel'],
+    ceilingLevel: row.ceiling_level as CefrLevelCheckPreset['ceilingLevel'],
+    formVersion: String(row.form_version), presetVersion: String(row.preset_version),
+    estimatedDurationMinMinutes: Number(row.estimated_duration_min_minutes),
+    estimatedDurationMaxMinutes: Number(row.estimated_duration_max_minutes),
+  }));
+}
+
+export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = 'pilot-0.2', selectionSeed = 'pilot-form-1'): Promise<string> {
+  const { data, error } = await client.rpc('generate_assessment_from_preset', { p_preset_id: presetId, p_bank_version: bankVersion, p_selection_seed: selectionSeed });
+  return requireData(data as string | null, error);
 }
 
 export async function assignAssessment(client: SupabaseClient, input: {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, Eye, Plus, Save, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Eye, FileAudio, Plus, Save, Send, Trash2, UploadCloud } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { joinOrderingAnswer, type QuestionType } from '../../questions';
 import { validateAssessmentDraft } from '../validator';
@@ -27,6 +27,7 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack
   const [bankLevel, setBankLevel] = useState('all');
   const [bankStatus, setBankStatus] = useState('all');
   const [bankSearch, setBankSearch] = useState('');
+  const [audioUploadingFor, setAudioUploadingFor] = useState<string | null>(null);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -57,6 +58,19 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack
   const addManualQuestion = (sectionId: string, question: AssessmentQuestionSnapshot) => {
     const section = draft.sections.find((item) => item.id === sectionId);
     if (section) changeSection(sectionId, { questions: [...section.questions, { id: crypto.randomUUID(), questionBankId: null, weight: 1, required: true, snapshot: question }] });
+  };
+  const uploadTaskletAudio = async (section: AssessmentDraftSection, file: File) => {
+    const taskletId = section.questions[0]?.snapshot.taskletId;
+    if (!draft.id || !taskletId) { setMessage('Salve o draft e confirme o tasklet antes de enviar o áudio.'); return; }
+    setAudioUploadingFor(section.id); setMessage('');
+    try {
+      const audioPath = await uploadListeningAudio(client, teacherId, draft.id, taskletId, file);
+      setDraft((current) => ({ ...current, sections: current.sections.map((item) => item.id === section.id ? {
+        ...item,
+        questions: item.questions.map((question) => ({ ...question, snapshot: { ...question.snapshot, audioPath } })),
+      } : item) }));
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível enviar o áudio do tasklet.'); }
+    finally { setAudioUploadingFor(null); }
   };
   const saveNow = async () => {
     if (!draft.title.trim()) { setMessage('Informe um título antes de salvar.'); return; }
@@ -106,6 +120,10 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack
       <div className="assessment-section-list">{draft.sections.map((section, index) => <section className="assessment-section-editor" key={section.id}>
         <div className="assessment-section-heading"><strong>Seção {index + 1}</strong><button className="icon-button danger" aria-label="Excluir seção" onClick={() => removeSection(section.id)}><Trash2 size={16} /></button></div>
         <div className="assessment-section-fields"><label>Título<input value={section.title} onChange={(event) => changeSection(section.id, { title: event.target.value })} /></label><label>Skill<select value={section.skill} onChange={(event) => changeSection(section.id, { skill: event.target.value as AssessmentSectionSkill })}><option value="grammar">Grammar</option><option value="vocabulary">Vocabulary</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="writing">Writing</option><option value="spoken_production">Spoken Production</option><option value="spoken_interaction">Spoken Interaction</option><option value="mediation">Mediation</option><option value="language_use">Language Use</option><option value="speaking">Speaking (legado)</option><option value="use_of_english">Use of English (legado)</option></select></label><label>Questões do pool<input type="number" min="1" max={section.questions.length || undefined} value={section.drawCount ?? ''} placeholder="Todas" onChange={(event) => changeSection(section.id, { drawCount: event.target.value ? Number(event.target.value) : null })} /></label>{draft.framework === 'cefr' && <><label>Nível do tasklet<select value={section.cefrLevel ?? ''} onChange={(event) => changeSection(section.id, { cefrLevel: (event.target.value || null) as CefrLevel | null })}><option value="">Selecione</option>{['A1','A2','B1','B2','C1','C2'].map((level) => <option key={level}>{level}</option>)}</select></label><label>Função<select value={section.taskletKind ?? 'primary'} onChange={(event) => changeSection(section.id, { taskletKind: event.target.value as AssessmentDraftSection['taskletKind'] })}><option value="screening">Screening</option><option value="primary">Primary</option><option value="confirmation">Confirmation</option><option value="floor">Floor</option><option value="ceiling">Ceiling</option></select></label><label>Construct<input value={section.construct ?? ''} onChange={(event) => changeSection(section.id, { construct: event.target.value })} placeholder="Ex.: reading inference" /></label></>}<label className="wide">Instruções<input value={section.instructions} onChange={(event) => changeSection(section.id, { instructions: event.target.value })} /></label></div>
+        {section.skill === 'listening' && section.questions.some((question) => question.snapshot.taskletId) && <div className={`assessment-tasklet-audio ${section.questions.every((question) => Boolean(question.snapshot.audioPath)) ? 'ready' : ''}`}>
+          <FileAudio size={20} /><div><strong>{section.questions[0]?.snapshot.taskletId}</strong><span>{section.questions.every((question) => Boolean(question.snapshot.audioPath)) ? 'Áudio associado às quatro questões.' : `Aguardando ${section.questions[0]?.snapshot.taskletId}.mp3`}</span></div>
+          <label className="secondary-button"><UploadCloud size={15} />{audioUploadingFor === section.id ? 'Enviando…' : 'Associar áudio'}<input type="file" accept="audio/*" disabled={audioUploadingFor !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadTaskletAudio(section, file); event.target.value = ''; }} /></label>
+        </div>}
         <div className="assessment-question-list">{section.questions.map((question, questionIndex) => <article key={question.id}><span>{questionIndex + 1}</span><div><strong>{question.snapshot.prompt}</strong><small>{question.snapshot.type.replace(/_/g, ' ')}</small></div><button className="icon-button danger" aria-label="Remover questão" onClick={() => removeQuestion(section.id, question.id)}><Trash2 size={15} /></button></article>)}</div>
         <div className="assessment-question-actions"><label>Adicionar do banco<select defaultValue="" onChange={(event) => { addBankQuestion(section.id, event.target.value); event.target.value = ''; }}><option value="" disabled>Escolha uma questão</option>{bank.filter((question) => (draft.framework !== 'cefr' || !question.skill || question.skill === section.skill || (section.skill === 'language_use' && ['grammar','vocabulary','language_use'].includes(question.skill))) && (bankLevel === 'all' || question.cefr === bankLevel) && (bankStatus === 'all' || question.qualityStatus === bankStatus) && (!bankSearch.trim() || [question.subskill, question.taskType, question.topic, question.genre, question.prompt].some((value) => value?.toLowerCase().includes(bankSearch.trim().toLowerCase())))).map((question) => <option key={question.bankId} value={question.bankId}>{question.cefr ? `${question.cefr} · ` : ''}{question.qualityStatus ? `${question.qualityStatus} · ` : ''}{question.prompt}</option>)}</select></label><ManualQuestionForm assessmentId={draft.id} defaultSkill={section.skill} framework={draft.framework} onUpload={(questionId, file) => {
           if (!draft.id) throw new Error('Salve o draft antes de enviar o áudio.');

@@ -16,6 +16,7 @@ done
 docker cp "$repo_dir/supabase/tests/assessment_bootstrap.sql" "$container_name:/tmp/bootstrap.sql" >/dev/null
 docker cp "$repo_dir/supabase/tests/assessment_smoke.sql" "$container_name:/tmp/smoke.sql" >/dev/null
 docker cp "$repo_dir/supabase/tests/cefr_pilot_bank_smoke.sql" "$container_name:/tmp/pilot-smoke.sql" >/dev/null
+docker cp "$repo_dir/supabase/tests/cefr_a2_b1_placement_smoke.sql" "$container_name:/tmp/a2-b1-smoke.sql" >/dev/null
 docker cp "$repo_dir/supabase/seed.sql" "$container_name:/tmp/pilot-seed.sql" >/dev/null
 migrations=(
   20260903204901_create_assessments_foundation.sql
@@ -27,6 +28,7 @@ migrations=(
   20260904104029_add_cefr_assessment_layer.sql
   20260904110918_add_cefr_pilot_bank.sql
   20260904121534_expand_cefr_pilot_bank_v0_2.sql
+  20260904162620_add_cefr_level_check_presets.sql
 )
 for index in "${!migrations[@]}"; do
   number=$((index + 1))
@@ -42,3 +44,4 @@ docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/pilot-
 docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/pilot-seed.sql >/dev/null
 docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/smoke.sql
 docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/pilot-smoke.sql
+docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/a2-b1-smoke.sql
