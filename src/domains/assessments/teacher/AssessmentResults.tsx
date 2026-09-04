@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ClipboardCheck, LoaderCircle } from 'lucide-react';
 import { finalizeAssessmentReview, getAssessmentResult, listAssessmentAttempts, reviewAssessmentResponse } from '../assessmentService';
 import type { AssessmentAttemptRow, AssessmentRow } from '../database';
 import type { AssessmentResultQuestion, TeacherAssessmentResult } from '../types';
+import { AssessmentIntegrityPanel } from './AssessmentIntegrityPanel';
 
 export function AssessmentResults({ client, assessment, onBack }: { client: SupabaseClient; assessment: AssessmentRow; onBack: () => void }) {
   const [attempts, setAttempts] = useState<AssessmentAttemptRow[]>([]);
@@ -43,6 +44,8 @@ function AssessmentAttemptDetails({ report, onBack, onReview, onFinalize }: {
   const pending = report.questions.filter((question) => question.gradingStatus === 'manual_review' || question.gradingStatus === 'pending').length;
   return <section className="assessment-report"><header className="assessment-dashboard-header"><div><button className="back-button" onClick={onBack}><ArrowLeft size={15} />Tentativas</button><p className="eyebrow">RELATÓRIO DA TENTATIVA</p><h2>{report.attempt.studentName}</h2><p>{report.assessment.title} · versão {report.assessment.version} · {report.attempt.scoringModelVersion}</p></div><div className="assessment-score"><strong>{report.attempt.scaledScore ?? '—'}%</strong><span>{report.attempt.status}</span></div></header>
     <div className="assessment-section-results">{report.sections.map((section) => <article key={section.id}><span>{section.skill}</span><strong>{section.percentage ?? 0}%</strong><small>{section.score}/{section.maxScore} pontos</small></article>)}</div>
+    {report.adaptiveSkills?.length ? <section className="assessment-adaptive-results"><p className="eyebrow">PLACEMENT ADAPTATIVO</p><div>{report.adaptiveSkills.map((skill) => <article key={skill.sectionId}><span>{skill.skill}</span><strong>{skill.cefr}</strong><small>ability {skill.ability} · confiança {Math.round(skill.confidence * 100)}% · {skill.itemsAnswered} itens</small></article>)}</div></section> : null}
+    <AssessmentIntegrityPanel report={report.integrity} />
     <div className="assessment-report-questions">{report.questions.map((question, index) => <QuestionReview key={question.id} index={index} question={question} onReview={onReview} />)}</div>
     {message && <div className="assessment-message" role="alert">{message}</div>}
     <footer className="assessment-review-footer"><span>{pending ? `${pending} resposta(s) aguardando revisão manual.` : report.attempt.reviewedAt ? `Revisão concluída em ${new Date(report.attempt.reviewedAt).toLocaleString('pt-BR')}.` : 'Todas as respostas estão corrigidas.'}</span>{!pending && !report.attempt.reviewedAt && <button className="primary-button" disabled={busy} onClick={() => void (async () => { setBusy(true); setMessage(''); try { await onFinalize(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível concluir a revisão.'); } finally { setBusy(false); } })()}><Check size={16} />{busy ? 'Concluindo…' : 'Concluir revisão'}</button>}</footer>

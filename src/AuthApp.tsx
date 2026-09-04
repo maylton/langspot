@@ -679,7 +679,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     <App
       authenticatedMode
       accountAccess={accountAccess}
-      assessmentContent={can.useAssessments() && supabase ? <AssessmentDashboard client={supabase} teacherId={profile.id} students={students.map((student) => ({ id: student.id, name: student.name }))} bank={questionBank.map((question) => ({ bankId: question.id, id: question.id, type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation }))} /> : undefined}
+      assessmentContent={can.useAssessments() && supabase ? <AssessmentDashboard client={supabase} teacherId={profile.id} students={students.map((student) => ({ id: student.id, name: student.name }))} bank={questionBank.map((question) => ({ bankId: question.id, id: question.id, type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation, cefr: question.level, difficulty: ({ A1: 1.5, A2: 3, B1: 5, B2: 6.5, C1: 8, C2: 9.5 } as const)[question.level] }))} /> : undefined}
       initialStudents={students}
       initialSchedule={schedule}
       initialMaterials={materials}

@@ -12,6 +12,7 @@ const emptyDraft = (): AssessmentDraft => ({
   id: null, title: '', description: '', type: 'custom', assessmentMode: 'fixed', navigationMode: 'free',
   levelMin: null, levelMax: null, timeLimitMinutes: 30, maxAttempts: 1,
   randomizeQuestions: false, randomizeOptions: false, showResults: 'after_teacher_review', sections: [],
+  adaptiveInitialAbility: 5, adaptiveMinItems: 4, adaptiveMaxItems: 10, adaptiveConfidenceThreshold: 0.65,
 });
 
 export function AssessmentDashboard({ client, teacherId, students, bank }: {

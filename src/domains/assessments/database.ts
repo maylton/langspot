@@ -32,6 +32,10 @@ export type AssessmentRow = {
   show_results: AssessmentResultVisibility;
   version: number;
   scoring_model_version: string;
+  adaptive_initial_ability: number;
+  adaptive_min_items: number;
+  adaptive_max_items: number;
+  adaptive_confidence_threshold: number;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -47,6 +51,7 @@ export type AssessmentSectionRow = {
   time_limit_seconds: number | null;
   adaptive: boolean;
   weight: number;
+  draw_count: number | null;
   created_at: string;
   updated_at: string;
 };

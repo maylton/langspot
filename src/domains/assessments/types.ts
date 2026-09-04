@@ -43,6 +43,7 @@ export type AssessmentGradingStatus = 'pending' | 'auto_graded' | 'manual_review
 export type AssessmentEventType =
   | 'assessment_started'
   | 'question_opened'
+  | 'question_closed'
   | 'answer_saved'
   | 'tab_blur'
   | 'tab_focus'
@@ -58,7 +59,7 @@ export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 import type { QuestionDefinition, QuestionType } from '../questions';
 
-export type AssessmentQuestionSnapshot = QuestionDefinition;
+export type AssessmentQuestionSnapshot = QuestionDefinition & { difficulty?: number; cefr?: CefrLevel };
 
 export type AssessmentDraftQuestion = {
   id: string;
@@ -74,6 +75,7 @@ export type AssessmentDraftSection = {
   skill: AssessmentSectionSkill;
   instructions: string;
   weight: number;
+  drawCount: number | null;
   questions: AssessmentDraftQuestion[];
 };
 
@@ -91,6 +93,10 @@ export type AssessmentDraft = {
   randomizeQuestions: boolean;
   randomizeOptions: boolean;
   showResults: AssessmentResultVisibility;
+  adaptiveInitialAbility: number;
+  adaptiveMinItems: number;
+  adaptiveMaxItems: number;
+  adaptiveConfidenceThreshold: number;
   sections: AssessmentDraftSection[];
 };
 
@@ -137,11 +143,15 @@ export type StudentAttemptPayload = {
     title: string;
     description: string;
     navigationMode: AssessmentNavigationMode;
+    assessmentMode: AssessmentMode;
+    adaptiveComplete: boolean;
   };
   sections: StudentAttemptSection[];
   questions: AssessmentPresentedQuestion[];
   answers: Record<string, string>;
 };
+
+export type AdaptiveAdvanceResult = { complete: boolean; nextQuestionId: string | null };
 
 export type AssessmentResultSection = {
   id: string;
@@ -187,6 +197,33 @@ export type TeacherAssessmentResult = {
   assessment: { id: string; title: string; type: AssessmentType; version: number };
   sections: AssessmentResultSection[];
   questions: AssessmentResultQuestion[];
+  integrity: AssessmentIntegrityReport;
+  adaptiveSkills?: AdaptiveSkillResult[];
+};
+
+export type AssessmentIntegrityEvent = {
+  id: string;
+  type: AssessmentEventType;
+  occurredAt: string;
+  metadata: Record<string, unknown>;
+};
+
+export type AssessmentIntegrityReport = {
+  status: AssessmentIntegrityStatus;
+  windowExits: number;
+  timeOutsideMs: number;
+  pasteEvents: number;
+  sessionConflicts: number;
+  events: AssessmentIntegrityEvent[];
+};
+
+export type AdaptiveSkillResult = {
+  sectionId: string;
+  skill: AssessmentSectionSkill;
+  ability: number;
+  cefr: CefrLevel;
+  confidence: number;
+  itemsAnswered: number;
 };
 
 export type StudentAssessmentResult = {
