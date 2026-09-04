@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AssessmentAssignmentRow, AssessmentRow } from './database';
-import type { AssessmentDraft } from './types';
+import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
+import type { AssessmentDraft, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -49,5 +49,25 @@ export async function assignAssessment(client: SupabaseClient, input: {
     due_at: input.dueAt,
     attempt_limit: input.attemptLimit,
   });
+  if (error) throw new Error(error.message);
+}
+
+export async function listAssessmentAttempts(client: SupabaseClient, assessmentId: string): Promise<AssessmentAttemptRow[]> {
+  const { data, error } = await client.from('assessment_attempts').select('*').eq('assessment_id', assessmentId).order('started_at', { ascending: false });
+  return requireData(data as AssessmentAttemptRow[] | null, error);
+}
+
+export async function getAssessmentResult(client: SupabaseClient, attemptId: string): Promise<TeacherAssessmentResult> {
+  const { data, error } = await client.rpc('get_assessment_result', { p_attempt_id: attemptId });
+  return requireData(data as TeacherAssessmentResult | null, error);
+}
+
+export async function reviewAssessmentResponse(client: SupabaseClient, responseId: string, score: number, feedback: string): Promise<void> {
+  const { error } = await client.rpc('review_assessment_response', { p_response_id: responseId, p_score: score, p_feedback: feedback });
+  if (error) throw new Error(error.message);
+}
+
+export async function finalizeAssessmentReview(client: SupabaseClient, attemptId: string): Promise<void> {
+  const { error } = await client.rpc('finalize_assessment_review', { p_attempt_id: attemptId });
   if (error) throw new Error(error.message);
 }

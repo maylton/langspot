@@ -113,6 +113,7 @@ export type StudentAssessmentSummary = {
   attemptLimit: number;
   status: AssessmentAssignmentStatus;
   activeAttemptId: string | null;
+  latestAttemptId: string | null;
 };
 
 export type StudentAttemptSection = {
@@ -140,4 +141,59 @@ export type StudentAttemptPayload = {
   sections: StudentAttemptSection[];
   questions: AssessmentPresentedQuestion[];
   answers: Record<string, string>;
+};
+
+export type AssessmentResultSection = {
+  id: string;
+  title: string;
+  skill?: AssessmentSectionSkill;
+  score: number;
+  maxScore: number;
+  percentage: number | null;
+};
+
+export type AssessmentResultQuestion = {
+  id: string;
+  sectionId?: string;
+  responseId?: string | null;
+  prompt: string;
+  type?: string;
+  options?: string[];
+  correctAnswer?: string | null;
+  explanation?: string | null;
+  answer: string | null;
+  score: number | null;
+  maxScore: number | null;
+  gradingStatus?: AssessmentGradingStatus;
+  teacherFeedback: string;
+  timeSpentMs?: number;
+};
+
+export type TeacherAssessmentResult = {
+  attempt: {
+    id: string;
+    studentId: string;
+    studentName: string;
+    status: AssessmentAttemptStatus;
+    startedAt: string;
+    submittedAt: string | null;
+    rawScore: number | null;
+    scaledScore: number | null;
+    estimatedCefr: CefrLevel | null;
+    integrityStatus: AssessmentIntegrityStatus;
+    reviewedAt: string | null;
+    scoringModelVersion: string;
+  };
+  assessment: { id: string; title: string; type: AssessmentType; version: number };
+  sections: AssessmentResultSection[];
+  questions: AssessmentResultQuestion[];
+};
+
+export type StudentAssessmentResult = {
+  visible: boolean;
+  status: AssessmentAttemptStatus;
+  score?: number | null;
+  estimatedCefr?: CefrLevel | null;
+  sections?: AssessmentResultSection[];
+  questions?: AssessmentResultQuestion[];
 };

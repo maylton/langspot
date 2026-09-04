@@ -6,6 +6,7 @@ import type { AssessmentRow } from '../database';
 import type { AssessmentDraft } from '../types';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
 import { AssessmentEditor, type AssessmentBankQuestion } from './AssessmentEditor';
+import { AssessmentResults } from './AssessmentResults';
 
 const emptyDraft = (): AssessmentDraft => ({
   id: null, title: '', description: '', type: 'custom', assessmentMode: 'fixed', navigationMode: 'free',
@@ -22,6 +23,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [items, setItems] = useState<AssessmentRow[]>([]);
   const [draft, setDraft] = useState<AssessmentDraft | null>(null);
   const [assigning, setAssigning] = useState<AssessmentRow | null>(null);
+  const [resultsFor, setResultsFor] = useState<AssessmentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -51,6 +53,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   };
 
   if (draft) return <AssessmentEditor initialDraft={draft} bank={bank} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} />;
+  if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} onBack={() => setResultsFor(null)} />;
   return <section className="assessment-dashboard">
     <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie provas objetivas, publique versões imutáveis e atribua aos seus alunos.</p></div><button className="primary-button" onClick={() => setDraft(emptyDraft())}><Plus size={17} />Nova avaliação</button></header>
     {message && <div className="assessment-message" role="alert">{message}</div>}
@@ -58,7 +61,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><FileQuestion size={21} /></div>
       <h3>{assessment.title}</h3><p>{assessment.description || 'Sem descrição.'}</p>
       <dl><div><dt>Tipo</dt><dd>{assessment.type}</dd></div><div><dt>Tempo</dt><dd>{assessment.time_limit_minutes ? `${assessment.time_limit_minutes} min` : 'Livre'}</dd></div><div><dt>Versão</dt><dd>{assessment.version}</dd></div></dl>
-      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar draft</button> : assessment.status === 'published' ? <button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button> : null}</div>
+      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar draft</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button><button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button></> : null}</div>
       {assigning?.id === assessment.id && <AssessmentAssignments students={students} busy={busy} onAssign={async (input) => {
         setBusy(true);
         try {

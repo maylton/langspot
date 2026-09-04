@@ -97,6 +97,8 @@ export type AssessmentAttemptRow = {
   device_session_id: string | null;
   randomization_seed: string;
   scoring_model_version: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   created_at: string;
   updated_at: string;
 };

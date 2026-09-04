@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { StudentAssessmentSummary, StudentAttemptPayload } from './types';
+import type { StudentAssessmentResult, StudentAssessmentSummary, StudentAttemptPayload } from './types';
 
 function ensure<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -34,4 +34,9 @@ export async function saveAssessmentResponse(client: SupabaseClient, attemptId: 
 export async function submitAssessmentAttempt(client: SupabaseClient, attemptId: string): Promise<void> {
   const { error } = await client.rpc('submit_assessment_attempt', { p_attempt_id: attemptId });
   if (error) throw new Error(error.message);
+}
+
+export async function getStudentAssessmentResult(client: SupabaseClient, attemptId: string): Promise<StudentAssessmentResult> {
+  const { data, error } = await client.rpc('get_student_assessment_result', { p_attempt_id: attemptId });
+  return ensure(data as StudentAssessmentResult | null, error);
 }
