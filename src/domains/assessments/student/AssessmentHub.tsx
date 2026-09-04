@@ -5,6 +5,7 @@ import { listStudentAssessments, startAssessmentAttempt } from '../attemptServic
 import type { StudentAssessmentSummary } from '../types';
 import { AssessmentRunner } from './AssessmentRunner';
 import { AssessmentResult } from './AssessmentResult';
+import { DeviceCheck } from './DeviceCheck';
 
 function deviceSessionId() {
   const key = 'langspot.assessmentDeviceSession';
@@ -18,6 +19,7 @@ export function AssessmentHub({ client, readOnly = false }: { client: SupabaseCl
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [resultAttemptId, setResultAttemptId] = useState<string | null>(null);
   const [instructions, setInstructions] = useState<StudentAssessmentSummary | null>(null);
+  const [checkingDevices, setCheckingDevices] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const load = useCallback(async () => {
@@ -46,6 +48,6 @@ export function AssessmentHub({ client, readOnly = false }: { client: SupabaseCl
       const expired = item.status === 'expired';
       return <article key={item.assignmentId}><div><span className={`assessment-status ${item.status}`}>{expired ? 'Prazo encerrado' : completed ? 'Enviada' : item.activeAttemptId ? 'Em andamento' : 'Disponível'}</span><h3>{item.title}</h3><p>{item.description || 'Leia as instruções antes de começar.'}</p><small><Clock3 size={14} />{item.dueAt ? `Prazo: ${new Date(item.dueAt).toLocaleString('pt-BR')}` : 'Sem prazo definido'}</small></div>{expired ? <span className="assessment-completed"><Clock3 size={18} />Encerrada</span> : completed && item.latestAttemptId ? <button className="secondary-button" onClick={() => setResultAttemptId(item.latestAttemptId)}><Check size={18} />Ver resultado</button> : completed ? <span className="assessment-completed"><Check size={18} />Concluída</span> : <button className="student-primary" onClick={() => setInstructions(item)}>{item.activeAttemptId ? 'Continuar' : 'Ver instruções'}<Play size={15} /></button>}</article>;
     })}</div> : <div className="assessment-empty"><FileQuestion size={38} /><h3>Nenhuma avaliação disponível</h3><p>Quando seu professor atribuir uma prova, ela aparecerá aqui.</p></div>}
-    {instructions && <div className="modal-backdrop" onMouseDown={() => setInstructions(null)}><section className="modal assessment-instructions" onMouseDown={(event) => event.stopPropagation()}><p className="eyebrow">ANTES DE COMEÇAR</p><h2>{instructions.title}</h2><p>{instructions.description || 'Responda todas as questões com atenção.'}</p><ul><li>As respostas são salvas automaticamente.</li><li>Se a conexão cair, continue: as alterações ficarão pendentes no dispositivo.</li><li>O cronômetro usa o horário definido pelo servidor e continua após fechar a página.</li><li>Após enviar, não será possível alterar as respostas.</li></ul><div className="form-actions"><button className="cancel-button" onClick={() => setInstructions(null)}>Agora não</button><button className="student-primary" onClick={() => void begin()}>{instructions.activeAttemptId ? 'Retomar avaliação' : 'Iniciar avaliação'}</button></div></section></div>}
+    {instructions && <div className="modal-backdrop" onMouseDown={() => { setInstructions(null); setCheckingDevices(false); }}><section className="modal assessment-instructions" onMouseDown={(event) => event.stopPropagation()}>{checkingDevices ? <DeviceCheck needsAudio={Boolean(instructions.requiresAudio)} needsMicrophone={Boolean(instructions.requiresMicrophone)} onCancel={() => setCheckingDevices(false)} onReady={() => void begin()} /> : <><p className="eyebrow">ANTES DE COMEÇAR</p><h2>{instructions.title}</h2><p>{instructions.description || 'Responda todas as questões com atenção.'}</p><ul><li>As respostas são salvas automaticamente.</li><li>Se a conexão cair, continue: as alterações ficarão pendentes no dispositivo.</li><li>O cronômetro usa o horário definido pelo servidor e continua após fechar a página.</li><li>Em placement CEFR, auxílio de IA não é permitido.</li><li>Após enviar, não será possível alterar as respostas.</li></ul><div className="form-actions"><button className="cancel-button" onClick={() => setInstructions(null)}>Agora não</button><button className="student-primary" onClick={() => instructions.requiresAudio || instructions.requiresMicrophone ? setCheckingDevices(true) : void begin()}>{instructions.activeAttemptId ? 'Retomar avaliação' : 'Iniciar avaliação'}</button></div></>}</section></div>}
   </section>;
 }

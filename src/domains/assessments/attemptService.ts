@@ -47,6 +47,7 @@ export async function advanceAdaptiveAttempt(client: SupabaseClient, attemptId: 
 }
 
 export async function getStudentAssessmentResult(client: SupabaseClient, attemptId: string): Promise<StudentAssessmentResult> {
-  const { data, error } = await client.rpc('get_student_assessment_result', { p_attempt_id: attemptId });
-  return ensure(data as StudentAssessmentResult | null, error);
+  const [{ data, error }, profile] = await Promise.all([client.rpc('get_student_assessment_result', { p_attempt_id: attemptId }), client.rpc('get_attempt_cefr_profile', { p_attempt_id: attemptId })]);
+  const result = ensure(data as StudentAssessmentResult | null, error);
+  return { ...result, cefrProfile: result.visible && !profile.error ? profile.data : null } as StudentAssessmentResult;
 }

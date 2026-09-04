@@ -13,9 +13,9 @@ export function validateQuestion(question: QuestionDefinition): QuestionValidati
 
   if (!question.prompt.trim()) errors.push({ code: 'empty_prompt', message: 'Question prompt is required.' });
   if (duplicateOptions(options)) errors.push({ code: 'duplicate_option', message: 'Question options must be unique.' });
-  if (!answer && !['writing', 'speaking'].includes(question.type)) errors.push({ code: 'missing_answer', message: 'A correct answer is required.' });
+  if (!answer && !['writing', 'speaking', 'mediation'].includes(question.type)) errors.push({ code: 'missing_answer', message: 'A correct answer is required.' });
 
-  if ((question.type === 'multiple_choice' || question.type === 'listening') && options.length < 2) {
+  if ((question.type === 'multiple_choice' || question.type === 'multiple_response' || question.type === 'listening' || question.type === 'matching') && options.length < 2) {
     errors.push({ code: 'insufficient_options', message: 'Multiple-choice questions require at least two options.' });
   }
 
@@ -34,6 +34,13 @@ export function validateQuestion(question: QuestionDefinition): QuestionValidati
       && normalizedOptions.every((option, index) => option === normalizedAnswer[index]);
     if (options.length < 2 || !hasSameItems) {
       errors.push({ code: 'invalid_ordering', message: 'Ordering answers must contain each option exactly once.' });
+    }
+  }
+
+  if (question.type === 'matching') {
+    const pairs = splitOrderingAnswer(answer);
+    if (pairs.length < 2 || pairs.some((pair) => !pair.includes('=>'))) {
+      errors.push({ code: 'invalid_ordering', message: 'Matching answers must contain at least two “left => right” pairs.' });
     }
   }
 

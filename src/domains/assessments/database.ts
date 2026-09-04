@@ -3,6 +3,7 @@ import type {
   AssessmentAttemptStatus,
   AssessmentEventType,
   AssessmentGradingStatus,
+  AssessmentFramework,
   AssessmentIntegrityStatus,
   AssessmentMode,
   AssessmentNavigationMode,
@@ -20,6 +21,7 @@ export type AssessmentRow = {
   title: string;
   description: string;
   type: AssessmentType;
+  framework: AssessmentFramework;
   status: AssessmentStatus;
   assessment_mode: AssessmentMode;
   navigation_mode: AssessmentNavigationMode;
@@ -32,6 +34,10 @@ export type AssessmentRow = {
   show_results: AssessmentResultVisibility;
   version: number;
   scoring_model_version: string;
+  form_version: string;
+  decision_rule_version: string;
+  routing_rule_version: string;
+  report_model_version: string;
   adaptive_initial_ability: number;
   adaptive_min_items: number;
   adaptive_max_items: number;

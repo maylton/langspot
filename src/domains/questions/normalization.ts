@@ -24,6 +24,8 @@ export function joinOrderingAnswer(items: string[]): string {
 }
 
 export function normalizeQuestionAnswer(question: QuestionDefinition, value: string): string {
+  if (question.type === 'multiple_response') return splitOrderingAnswer(value).map(normalizeInteractiveAnswer).sort().join('|');
+  if (question.type === 'matching') return splitOrderingAnswer(value).map((pair) => pair.split('=>').map(normalizeInteractiveAnswer).join('=>')).sort().join('|');
   if (question.type !== 'ordering') return normalizeInteractiveAnswer(value);
   return splitOrderingAnswer(value).map(normalizeInteractiveAnswer).join(' ');
 }

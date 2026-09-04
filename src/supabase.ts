@@ -98,11 +98,22 @@ export type DbQuestionBankItem = {
   teacher_id: string;
   level: string;
   category: string;
-  question_type: 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering';
+  question_type: import('./domains/questions').QuestionType;
   prompt: string;
   options: string[];
   answer: string;
   explanation: string | null;
+  skill?: 'reading' | 'listening' | 'writing' | 'spoken_production' | 'spoken_interaction' | 'mediation' | 'language_use' | null;
+  subskill?: string | null;
+  difficulty?: number | null;
+  task_type?: string | null;
+  topic?: string | null;
+  genre?: string | null;
+  operational_descriptor?: string | null;
+  quality_status?: 'draft' | 'reviewed' | 'approved' | 'pilot' | 'needs_revision' | 'retired';
+  restricted?: boolean;
+  usage_count?: number;
+  last_used_at?: string | null;
   created_at: string;
 };
 

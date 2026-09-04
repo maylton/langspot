@@ -3,10 +3,11 @@ import { validateAssessmentDraft } from './validator';
 import type { AssessmentDraft } from './types';
 
 const validDraft = (): AssessmentDraft => ({
-  id: null, title: 'Unit 1', description: '', type: 'unit', assessmentMode: 'fixed', navigationMode: 'free',
+  id: null, title: 'Unit 1', description: '', type: 'unit', framework: 'none', assessmentMode: 'fixed', navigationMode: 'free',
   levelMin: 'A1', levelMax: 'A2', timeLimitMinutes: 30, maxAttempts: 1,
   randomizeQuestions: false, randomizeOptions: false, showResults: 'after_teacher_review',
   adaptiveInitialAbility: 5, adaptiveMinItems: 4, adaptiveMaxItems: 10, adaptiveConfidenceThreshold: 0.65,
+  formVersion: 'GENERIC-1.0', decisionRuleVersion: 'objective-v1', routingRuleVersion: 'none', reportModelVersion: 'standard-report-v1',
   sections: [{ id: 's1', title: 'Grammar', skill: 'grammar', instructions: '', weight: 1, drawCount: null, questions: [
     { id: 'q1', questionBankId: null, weight: 1, required: true, snapshot: { id: 'q1', type: 'multiple_choice', prompt: 'Choose', options: ['A', 'B'], answer: 'A' } },
     { id: 'q2', questionBankId: null, weight: 1, required: true, snapshot: { id: 'q2', type: 'true_false', prompt: 'True?', options: ['True', 'False'], answer: 'True' } },

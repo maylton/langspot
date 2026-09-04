@@ -90,9 +90,9 @@ export type InteractiveAssignmentResult = QuestionSetResult;
 export type TextComment = { id: Id; start: number; end: number; text: string; comment: string; createdAt: string };
 export type Assignment = { id: Id; teacherId?: Id; studentId: Id; materialId?: Id; title: string; instructions: string; dueDate: string; status: AssignmentStatus; submissionText?: string; submittedAt?: string; submissionFileName?: string; submissionFileUrl?: string; feedback?: string; grade?: number; textComments?: TextComment[]; createdAt: string; assignmentType?: 'regular' | 'interactive'; interactiveContent?: InteractiveAssignmentContent | null; interactiveResult?: InteractiveAssignmentResult | null };
 export type AssignmentInput = Pick<Assignment, 'studentId' | 'materialId' | 'title' | 'instructions' | 'dueDate' | 'assignmentType' | 'interactiveContent'>;
-export type QuestionBankLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-export type QuestionBankCategory = 'Grammar';
-export type QuestionBankItem = { id: Id; teacherId?: Id; level: QuestionBankLevel; category: QuestionBankCategory; type: InteractiveQuestionType; prompt: string; options: string[]; answer: string; explanation?: string; createdAt: string };
+export type QuestionBankLevel = 'A1' | 'A1+' | 'A2' | 'A2+' | 'B1' | 'B1+' | 'B2' | 'B2+' | 'C1' | 'C1+' | 'C2';
+export type QuestionBankCategory = 'Grammar' | 'Vocabulary' | 'Reading' | 'Listening' | 'Writing' | 'Speaking' | 'Mediation' | 'Language Use';
+export type QuestionBankItem = { id: Id; teacherId?: Id; level: QuestionBankLevel; category: QuestionBankCategory; type: InteractiveQuestionType; prompt: string; options: string[]; answer: string; explanation?: string; skill?: 'reading' | 'listening' | 'writing' | 'spoken_production' | 'spoken_interaction' | 'mediation' | 'language_use'; subskill?: string; difficulty?: number; taskType?: string; topic?: string; genre?: string; operationalDescriptor?: string; qualityStatus?: 'draft' | 'reviewed' | 'approved' | 'pilot' | 'needs_revision' | 'retired'; restricted?: boolean; usageCount?: number; lastUsedAt?: string; createdAt: string };
 export type QuestionBankInput = Omit<QuestionBankItem, 'id' | 'teacherId' | 'createdAt'>;
 export type PaymentStatus = 'Pendente' | 'Pago' | 'Atrasado';
 export type Payment = { id: Id; studentId: Id; description: string; amount: number; dueDate: string; status: PaymentStatus; paidAt?: string; createdAt: string };
@@ -126,7 +126,7 @@ type View = 'Visão geral' | 'Notificações' | 'Alunos' | 'Aulas' | 'Materiais'
 type AssignmentFormMode = 'regular' | 'interactive';
 
 const skills: Skill[] = ['Speaking', 'Listening', 'Reading', 'Writing', 'Grammar', 'Vocabulary', 'Pronunciation'];
-const questionBankLevels: QuestionBankLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const questionBankLevels: QuestionBankLevel[] = ['A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C1+', 'C2'];
 const defaultSkills = (): Record<Skill, number> => ({ Speaking: 50, Listening: 50, Reading: 50, Writing: 50, Grammar: 50, Vocabulary: 50, Pronunciation: 50 });
 const interactiveResultSummary = (result?: InteractiveAssignmentResult | null) => result ? `${result.score}/${result.total} acertos (${result.percentage}%)` : '';
 
@@ -1280,9 +1280,10 @@ function TextCommentsList({ comments, activeId, onActivate }: { comments?: TextC
 
 function QuestionBankModal({ questions, onClose, onCreate, onDelete }: { questions: QuestionBankItem[]; onClose: () => void; onCreate: (input: QuestionBankInput) => Promise<void> | void; onDelete: (id: Id) => Promise<void> | void }) {
   const [level, setLevel] = useState<QuestionBankLevel>('A1');
+  const [category, setCategory] = useState<QuestionBankCategory>('Grammar');
   const [type, setType] = useState<InteractiveQuestionType>('multiple_choice');
   const [saving, setSaving] = useState(false);
-  const visible = questions.filter((question) => question.level === level && question.category === 'Grammar');
+  const visible = questions.filter((question) => question.level === level && question.category === category);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -1309,22 +1310,24 @@ function QuestionBankModal({ questions, onClose, onCreate, onDelete }: { questio
       return;
     }
     setSaving(true);
-    await onCreate({ level, category: 'Grammar', type, prompt, options, answer, explanation });
+    await onCreate({ level, category, type, prompt, options, answer, explanation, skill: String(form.get('skill') || '') as QuestionBankItem['skill'] || undefined, subskill: String(form.get('subskill') || '').trim() || undefined, difficulty: Number(form.get('difficulty') || 5), taskType: String(form.get('taskType') || '').trim() || undefined, topic: String(form.get('topic') || '').trim() || undefined, genre: String(form.get('genre') || '').trim() || undefined, operationalDescriptor: String(form.get('operationalDescriptor') || '').trim() || undefined, qualityStatus: String(form.get('qualityStatus') || 'draft') as QuestionBankItem['qualityStatus'], restricted: form.get('restricted') === 'on', usageCount: 0 });
     formElement.reset();
     setSaving(false);
   };
   return <Modal title="Banco de questões" onClose={onClose} className="question-bank-shell"><div className="question-bank-modal">
-    <section className="question-bank-create"><div><p className="eyebrow">GRAMMAR</p><h3>Nova questão</h3><p>Cadastre questões reutilizáveis por nível para montar quizzes mais rápido.</p></div><form className="form-grid" onSubmit={submit}>
+    <section className="question-bank-create"><div><p className="eyebrow">{category.toUpperCase()}</p><h3>Nova questão</h3><p>Cadastre itens reutilizáveis com metadados pedagógicos e controle de qualidade.</p></div><form className="form-grid" onSubmit={submit}>
       <label>Nível<select value={level} onChange={(event) => setLevel(event.target.value as QuestionBankLevel)}>{questionBankLevels.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <label>Categoria<select value={category} onChange={(event) => setCategory(event.target.value as QuestionBankCategory)}>{['Grammar','Vocabulary','Reading','Listening','Writing','Speaking','Mediation','Language Use'].map((item) => <option key={item}>{item}</option>)}</select></label>
       <label>Tipo<select value={type} onChange={(event) => setType(event.target.value as InteractiveQuestionType)}><option value="multiple_choice">Múltipla escolha</option><option value="fill_blank">Complete a frase</option><option value="true_false">Verdadeiro ou falso</option><option value="ordering">Ordenar palavras/frases</option></select></label>
       <label className="full-field">Enunciado<input name="prompt" required placeholder={type === 'ordering' ? 'Ex.: Ordene as palavras para formar uma frase.' : 'Ex.: I ____ to Canada.'} /></label>
       {type === 'multiple_choice' && <><div className="interactive-options-grid full-field">{['A', 'B', 'C', 'D'].map((option) => <label key={option}>Alternativa {option}<input name={`option-${option}`} placeholder={option === 'A' ? 'have been' : option === 'B' ? 'has been' : ''} /></label>)}</div><label>Gabarito<select name="answer" defaultValue="A"><option>A</option><option>B</option><option>C</option><option>D</option></select></label></>}
       {type === 'true_false' && <label>Gabarito<select name="answer" defaultValue="Verdadeiro"><option>Verdadeiro</option><option>Falso</option></select></label>}
       {(type === 'fill_blank' || type === 'ordering') && <label className="full-field">{type === 'ordering' ? 'Ordem correta' : 'Resposta correta'}<span>{type === 'ordering' ? 'Separe palavras, trechos ou pontuações por /.' : 'Digite a palavra ou expressão esperada.'}</span><input name="textAnswer" required placeholder={type === 'ordering' ? 'Ex.: If / I / study, / I / will / pass' : 'Ex.: have been'} /></label>}
       <label className="full-field">Explicação <span>(opcional)</span><input name="explanation" placeholder="Ex.: Usamos present perfect para experiências de vida." /></label>
+      <label>Skill<select name="skill" defaultValue="language_use"><option value="reading">Reading</option><option value="listening">Listening</option><option value="writing">Writing</option><option value="spoken_production">Spoken Production</option><option value="spoken_interaction">Spoken Interaction</option><option value="mediation">Mediation</option><option value="language_use">Language Use</option></select></label><label>Subskill<input name="subskill" placeholder="Ex.: inference" /></label><label>Dificuldade<input name="difficulty" type="number" min="1" max="10" defaultValue="5" /></label><label>Task type<input name="taskType" placeholder="Ex.: contextual item" /></label><label>Tópico<input name="topic" /></label><label>Gênero<input name="genre" /></label><label>Status<select name="qualityStatus" defaultValue="draft"><option value="draft">Draft</option><option value="reviewed">Reviewed</option><option value="approved">Approved</option><option value="pilot">Pilot</option><option value="needs_revision">Needs revision</option><option value="retired">Retired</option></select></label><label className="check"><input name="restricted" type="checkbox" />Item restrito</label><label className="full-field">Descritor operacional<input name="operationalDescriptor" /></label>
       <div className="form-actions"><button type="button" className="cancel-button" onClick={onClose}>Fechar</button><button className="primary-button" disabled={saving}>{saving ? <Clock3 size={16} /> : <Plus size={16} />}{saving ? 'Salvando...' : 'Salvar questão'}</button></div>
     </form></section>
-    <section className="question-bank-library"><div className="question-bank-library-heading"><div><p className="eyebrow">{level} · GRAMMAR</p><h3>Questões cadastradas</h3></div><span>{visible.length}</span></div>{visible.length ? <div className="question-bank-items">{visible.map((question) => <article key={question.id}><div><small>{questionTypeLabel(question.type)}</small><strong>{question.prompt}</strong><p>Gabarito: {displayQuestionAnswer(question)}</p></div><button type="button" className="icon-button danger" onClick={() => onDelete(question.id)}><Trash2 size={15} /></button></article>)}</div> : <div className="empty-state small"><FileQuestion size={30} /><h3>Nenhuma questão em {level}</h3><p>Crie a primeira questão Grammar para este nível.</p></div>}</section>
+    <section className="question-bank-library"><div className="question-bank-library-heading"><div><p className="eyebrow">{level} · {category.toUpperCase()}</p><h3>Questões cadastradas</h3></div><span>{visible.length}</span></div>{visible.length ? <div className="question-bank-items">{visible.map((question) => <article key={question.id}><div><small>{questionTypeLabel(question.type)} · {question.skill ?? 'sem skill'} · {question.subskill ?? 'sem subskill'} · {question.qualityStatus ?? 'draft'} · uso {question.usageCount ?? 0}</small><strong>{question.prompt}</strong><p>Gabarito: {displayQuestionAnswer(question)}</p></div><button type="button" className="icon-button danger" onClick={() => onDelete(question.id)}><Trash2 size={15} /></button></article>)}</div> : <div className="empty-state small"><FileQuestion size={30} /><h3>Nenhuma questão em {level}</h3><p>Crie o primeiro item de {category} para este nível.</p></div>}</section>
   </div></Modal>;
 }
 

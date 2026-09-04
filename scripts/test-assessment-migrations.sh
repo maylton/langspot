@@ -22,6 +22,7 @@ migrations=(
   20260904033000_add_assessment_integrity_and_adaptive_placement.sql
   20260904050000_add_assessment_listening_writing_speaking.sql
   20260904060000_integrate_assessment_progress.sql
+  20260904104029_add_cefr_assessment_layer.sql
 )
 for index in "${!migrations[@]}"; do
   number=$((index + 1))

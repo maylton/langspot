@@ -1,4 +1,4 @@
-export type QuestionType = 'multiple_choice' | 'fill_blank' | 'true_false' | 'ordering' | 'listening' | 'writing' | 'speaking';
+export type QuestionType = 'multiple_choice' | 'multiple_response' | 'fill_blank' | 'short_answer' | 'true_false' | 'matching' | 'ordering' | 'listening' | 'writing' | 'speaking' | 'mediation';
 export type QuestionOption = string;
 
 type BaseQuestion = {
@@ -10,23 +10,31 @@ type BaseQuestion = {
 };
 
 export type MultipleChoiceQuestion = BaseQuestion & { type: 'multiple_choice' };
+export type MultipleResponseQuestion = BaseQuestion & { type: 'multiple_response' };
 export type FillBlankQuestion = BaseQuestion & { type: 'fill_blank' };
+export type ShortAnswerQuestion = BaseQuestion & { type: 'short_answer' };
 export type TrueFalseQuestion = BaseQuestion & { type: 'true_false' };
+export type MatchingQuestion = BaseQuestion & { type: 'matching' };
 export type OrderingQuestion = BaseQuestion & { type: 'ordering' };
 export type ListeningQuestion = BaseQuestion & { type: 'listening' };
 export type WritingQuestion = BaseQuestion & { type: 'writing' };
 export type SpeakingQuestion = BaseQuestion & { type: 'speaking' };
+export type MediationQuestion = BaseQuestion & { type: 'mediation' };
 
 export type QuestionDefinition =
   | MultipleChoiceQuestion
+  | MultipleResponseQuestion
   | FillBlankQuestion
+  | ShortAnswerQuestion
   | TrueFalseQuestion
+  | MatchingQuestion
   | OrderingQuestion
   | ListeningQuestion
   | WritingQuestion
-  | SpeakingQuestion;
+  | SpeakingQuestion
+  | MediationQuestion;
 
-export type ObjectiveQuestion = MultipleChoiceQuestion | FillBlankQuestion | TrueFalseQuestion | OrderingQuestion;
+export type ObjectiveQuestion = MultipleChoiceQuestion | MultipleResponseQuestion | FillBlankQuestion | ShortAnswerQuestion | TrueFalseQuestion | MatchingQuestion | OrderingQuestion;
 export type QuestionResult = QuestionGradingResult;
 
 export type QuestionResponse = {

@@ -1,6 +1,7 @@
 export type AssessmentType = 'placement' | 'diagnostic' | 'progress' | 'unit' | 'custom';
 export type AssessmentStatus = 'draft' | 'published' | 'archived';
 export type AssessmentMode = 'fixed' | 'adaptive';
+export type AssessmentFramework = 'none' | 'cefr';
 export type AssessmentSectionSkill =
   | 'grammar'
   | 'vocabulary'
@@ -8,6 +9,10 @@ export type AssessmentSectionSkill =
   | 'listening'
   | 'writing'
   | 'speaking'
+  | 'spoken_production'
+  | 'spoken_interaction'
+  | 'mediation'
+  | 'language_use'
   | 'use_of_english';
 export type AssessmentNavigationMode = 'free' | 'linear';
 export type AssessmentResultVisibility =
@@ -56,16 +61,32 @@ export type AssessmentEventType =
   | 'submitted'
   | 'session_conflict';
 
-export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type CefrBaseLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type CefrLevel = CefrBaseLevel | 'A1+' | 'A2+' | 'B1+' | 'B2+' | 'C1+';
+export type CefrSkill = 'reading' | 'listening' | 'writing' | 'spoken_production' | 'spoken_interaction' | 'mediation' | 'language_use';
+export type CefrConfidence = 'low' | 'moderate' | 'high';
+export type CefrQualityStatus = 'draft' | 'reviewed' | 'approved' | 'pilot' | 'needs_revision' | 'retired';
 
 import type { QuestionDefinition, QuestionType } from '../questions';
 
-export type AssessmentRubricCriterion = { key: string; label: string; maxScore: number };
+export type AssessmentRubricCriterion = { key: string; label: string; maxScore: number; scale?: 'numeric' | 'cefr' };
 export type TranscriptVisibility = 'never' | 'after_submit' | 'always';
 
 export type AssessmentQuestionSnapshot = QuestionDefinition & {
   difficulty?: number;
   cefr?: CefrLevel;
+  skill?: CefrSkill;
+  subskill?: string;
+  descriptorId?: string;
+  operationalDescriptor?: string;
+  taskType?: string;
+  topic?: string;
+  genre?: string;
+  audience?: 'child' | 'teen' | 'adult' | 'general';
+  cognitiveProcesses?: string[];
+  sourceMaterial?: string;
+  qualityStatus?: CefrQualityStatus;
+  isPilot?: boolean;
   audioPath?: string;
   maxPlays?: number;
   autoplay?: boolean;
@@ -92,6 +113,10 @@ export type AssessmentDraftSection = {
   instructions: string;
   weight: number;
   drawCount: number | null;
+  cefrLevel?: CefrLevel | null;
+  construct?: string;
+  taskletKind?: 'screening' | 'primary' | 'confirmation' | 'floor' | 'ceiling';
+  confirmationForSectionId?: string | null;
   questions: AssessmentDraftQuestion[];
 };
 
@@ -100,6 +125,7 @@ export type AssessmentDraft = {
   title: string;
   description: string;
   type: AssessmentType;
+  framework: AssessmentFramework;
   assessmentMode: AssessmentMode;
   navigationMode: AssessmentNavigationMode;
   levelMin: CefrLevel | null;
@@ -113,6 +139,10 @@ export type AssessmentDraft = {
   adaptiveMinItems: number;
   adaptiveMaxItems: number;
   adaptiveConfidenceThreshold: number;
+  formVersion: string;
+  decisionRuleVersion: string;
+  routingRuleVersion: string;
+  reportModelVersion: string;
   sections: AssessmentDraftSection[];
 };
 
@@ -130,6 +160,7 @@ export type AssessmentPresentedQuestion = {
   preparationSeconds?: number;
   recordingSeconds?: number;
   allowReview?: boolean;
+  sourceMaterial?: string;
 };
 
 export type StudentAssessmentSummary = {
@@ -143,6 +174,9 @@ export type StudentAssessmentSummary = {
   status: AssessmentAssignmentStatus;
   activeAttemptId: string | null;
   latestAttemptId: string | null;
+  framework?: AssessmentFramework;
+  requiresAudio?: boolean;
+  requiresMicrophone?: boolean;
 };
 
 export type StudentAttemptSection = {
@@ -221,11 +255,12 @@ export type TeacherAssessmentResult = {
     reviewedAt: string | null;
     scoringModelVersion: string;
   };
-  assessment: { id: string; title: string; type: AssessmentType; version: number };
+  assessment: { id: string; title: string; type: AssessmentType; version: number; framework?: AssessmentFramework };
   sections: AssessmentResultSection[];
   questions: AssessmentResultQuestion[];
   integrity: AssessmentIntegrityReport;
   adaptiveSkills?: AdaptiveSkillResult[];
+  cefrProfile?: CefrProfile | null;
 };
 
 export type AssessmentIntegrityEvent = {
@@ -260,6 +295,25 @@ export type StudentAssessmentResult = {
   estimatedCefr?: CefrLevel | null;
   sections?: AssessmentResultSection[];
   questions?: AssessmentResultQuestion[];
+  cefrProfile?: CefrProfile | null;
+};
+
+export type CefrDimensionResult = { level: CefrLevel; evidence?: string };
+export type CefrSkillResult = { level: CefrLevel; confidence: CefrConfidence; dimensions?: Record<string, CefrDimensionResult>; rawScore?: number; maxScore?: number };
+export type CefrProfile = {
+  overallLevel: CefrLevel | null;
+  recommendedPlacement?: string | null;
+  confidence: CefrConfidence;
+  skills: Partial<Record<CefrSkill, CefrSkillResult>>;
+  strengths: string[];
+  developmentPriorities: string[];
+  flags: string[];
+  manualReviewRequired: boolean;
+  decisionRuleVersion: string;
+  routingRuleVersion: string;
+  reportModelVersion: string;
+  provisionalStandard: true;
+  disclaimer: string;
 };
 
 export type AssessmentProgressPoint = { attemptId: string; assessmentId: string; title: string; type: AssessmentType; version: number; completedAt: string; score: number | null; estimatedCefr: CefrLevel | null; skills: Record<string, number> };

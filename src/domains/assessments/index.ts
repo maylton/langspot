@@ -3,6 +3,7 @@ export * from './database';
 export * from './validator';
 export * from './assessmentService';
 export * from './attemptService';
+export * from './cefr';
 export * from './teacher';
 export * from './student';
 export * from './types';

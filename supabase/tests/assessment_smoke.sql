@@ -61,4 +61,30 @@ select public.get_assessment_progress('20000000-0000-0000-0000-000000000002') as
 select public.assert_test(jsonb_array_length(:'progress'::jsonb->'history')=1 and :'progress'::jsonb->>'currentLevel'='B1','Progress integration failed');
 reset role;
 select public.assert_test(exists(select 1 from public.assessment_response_media where attempt_id=:'attempt_id' and retention_until > now()+interval '179 days'),'Retention metadata missing');
-select 'assessment phases 10-13 smoke test passed' as result;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',false);
+select public.save_assessment_draft($json${"title":"CEFR fixed placement","type":"placement","assessmentMode":"fixed","navigationMode":"linear","showResults":"full_report","sections":[{"title":"B1 Reading","skill":"reading","questions":[{"snapshot":{"id":"c1","type":"multiple_choice","prompt":"Identify the main idea","options":["A","B"],"answer":"A","cefr":"B1","difficulty":5,"skill":"reading","subskill":"gist","taskType":"article","qualityStatus":"approved"}},{"snapshot":{"id":"c2","type":"multiple_response","prompt":"Select both details","options":["A","B","C"],"answer":"A\u001fB","cefr":"B1","difficulty":5,"skill":"reading","subskill":"detail","taskType":"article","qualityStatus":"approved"}},{"snapshot":{"id":"c3","type":"matching","prompt":"Match","options":["one => 1","two => 2"],"answer":"one => 1\u001ftwo => 2","cefr":"B1","difficulty":5,"skill":"reading","subskill":"reference","taskType":"matching","qualityStatus":"approved"}},{"snapshot":{"id":"c4","type":"true_false","prompt":"Infer","options":["True","False"],"answer":"True","cefr":"B1","difficulty":5,"skill":"reading","subskill":"inference","taskType":"article","qualityStatus":"approved"}}]}]}$json$::jsonb) as cefr_assessment_id \gset
+select public.save_assessment_cefr_metadata(:'cefr_assessment_id',$json${"framework":"cefr","formVersion":"CEFR-PLACEMENT-FIXED-1.0","decisionRuleVersion":"cefr-decision-v1","routingRuleVersion":"cefr-routing-v1","reportModelVersion":"cefr-profile-v1","sections":[{"cefrLevel":"B1","construct":"reading comprehension","taskletKind":"primary"}]}$json$::jsonb);
+select public.publish_assessment(:'cefr_assessment_id');
+insert into public.assessment_assignments(assessment_id,teacher_id,student_id,status) values(:'cefr_assessment_id','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','available') returning id as cefr_assignment_id \gset
+select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000002',false);
+select public.start_assessment_attempt(:'cefr_assignment_id','device-two') as cefr_attempt_id \gset
+reset role;
+select min(id::text) filter(where question_snapshot->>'subskill'='gist')::uuid as cefr_q1,min(id::text) filter(where question_snapshot->>'subskill'='detail')::uuid as cefr_q2,min(id::text) filter(where question_snapshot->>'subskill'='reference')::uuid as cefr_q3,min(id::text) filter(where question_snapshot->>'subskill'='inference')::uuid as cefr_q4 from public.assessment_questions where assessment_id=:'cefr_assessment_id' \gset
+set role authenticated;
+select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000002',false);
+select public.save_assessment_response(:'cefr_attempt_id',:'cefr_q1','{"value":"A"}');
+select public.save_assessment_response(:'cefr_attempt_id',:'cefr_q2',jsonb_build_object('value','A'||chr(31)||'B'));
+select public.save_assessment_response(:'cefr_attempt_id',:'cefr_q3',jsonb_build_object('value','two => 2'||chr(31)||'one => 1'));
+select public.save_assessment_response(:'cefr_attempt_id',:'cefr_q4','{"value":"True"}');
+select public.submit_assessment_attempt(:'cefr_attempt_id');
+select public.get_attempt_cefr_profile(:'cefr_attempt_id') as cefr_profile \gset
+select public.assert_test(:'cefr_profile'::jsonb->>'overallLevel'='B1' and :'cefr_profile'::jsonb->>'decisionRuleVersion'='cefr-decision-v1','CEFR profile or rule version missing');
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',false);
+select public.override_assessment_cefr_level(:'cefr_attempt_id','B1+','Consistent teacher evidence from class performance');
+select public.assert_test(public.get_attempt_cefr_profile(:'cefr_attempt_id')->>'overallLevel'='B1+','Audited CEFR override failed');
+reset role;
+select public.assert_test((select count(*)=2 from public.student_cefr_profile_snapshots where attempt_id=:'cefr_attempt_id'),'Immutable CEFR snapshots missing');
+select public.assert_test((select count(*)=1 from public.assessment_cefr_overrides),'CEFR override audit missing');
+select 'assessment CEFR complementary smoke test passed' as result;

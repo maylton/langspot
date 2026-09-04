@@ -575,6 +575,15 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
       options: question.options,
       answer: question.answer,
       explanation: question.explanation ?? null,
+      skill: question.skill ?? null,
+      subskill: question.subskill ?? null,
+      difficulty: question.difficulty ?? null,
+      task_type: question.taskType ?? null,
+      topic: question.topic ?? null,
+      genre: question.genre ?? null,
+      operational_descriptor: question.operationalDescriptor ?? null,
+      quality_status: question.qualityStatus ?? 'draft',
+      restricted: question.restricted ?? false,
     }).select('*').single();
     if (error) throw new Error(error.message);
     return dbQuestionBankToQuestion(data as DbQuestionBankItem);
@@ -681,7 +690,7 @@ function TeacherPortal({ profile, authEmail, onProfileChange, onLogout }: { prof
     <App
       authenticatedMode
       accountAccess={accountAccess}
-      assessmentContent={can.useAssessments() && supabase ? <Suspense fallback={<div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div>}><AssessmentDashboard client={supabase} teacherId={profile.id} students={students.map((student) => ({ id: student.id, name: student.name }))} bank={questionBank.map((question) => ({ bankId: question.id, id: question.id, type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation, cefr: question.level, difficulty: ({ A1: 1.5, A2: 3, B1: 5, B2: 6.5, C1: 8, C2: 9.5 } as const)[question.level] }))} /></Suspense> : undefined}
+      assessmentContent={can.useAssessments() && supabase ? <Suspense fallback={<div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div>}><AssessmentDashboard client={supabase} teacherId={profile.id} students={students.map((student) => ({ id: student.id, name: student.name }))} bank={questionBank.map((question) => ({ bankId: question.id, id: question.id, type: question.type, prompt: question.prompt, options: question.options, answer: question.answer, explanation: question.explanation, cefr: question.level, difficulty: question.difficulty ?? ({ A1: 1.5, 'A1+': 2.25, A2: 3, 'A2+': 4, B1: 5, 'B1+': 5.75, B2: 6.5, 'B2+': 7.25, C1: 8, 'C1+': 8.75, C2: 9.5 } as const)[question.level], skill: question.skill, subskill: question.subskill, taskType: question.taskType, topic: question.topic, genre: question.genre, qualityStatus: question.qualityStatus, restricted: question.restricted }))} /></Suspense> : undefined}
       initialStudents={students}
       initialSchedule={schedule}
       initialMaterials={materials}
@@ -742,7 +751,7 @@ function dbAssignmentToAssignment(row: DbAssignment): Assignment {
 }
 
 function dbQuestionBankToQuestion(row: DbQuestionBankItem): QuestionBankItem {
-  return { id: row.id, teacherId: row.teacher_id, level: row.level as QuestionBankItem['level'], category: row.category as QuestionBankItem['category'], type: row.question_type, prompt: row.prompt, options: row.options ?? [], answer: row.answer, explanation: row.explanation ?? undefined, createdAt: row.created_at };
+  return { id: row.id, teacherId: row.teacher_id, level: row.level as QuestionBankItem['level'], category: row.category as QuestionBankItem['category'], type: row.question_type, prompt: row.prompt, options: row.options ?? [], answer: row.answer, explanation: row.explanation ?? undefined, skill: row.skill ?? undefined, subskill: row.subskill ?? undefined, difficulty: row.difficulty ?? undefined, taskType: row.task_type ?? undefined, topic: row.topic ?? undefined, genre: row.genre ?? undefined, operationalDescriptor: row.operational_descriptor ?? undefined, qualityStatus: row.quality_status ?? 'draft', restricted: row.restricted ?? false, usageCount: row.usage_count ?? 0, lastUsedAt: row.last_used_at ?? undefined, createdAt: row.created_at };
 }
 
 function normalizeSkills(value: unknown): Record<Skill, number> {

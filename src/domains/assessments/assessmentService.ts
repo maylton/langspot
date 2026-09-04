@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
-import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, TeacherAssessmentResult } from './types';
+import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrProfile, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -19,13 +19,22 @@ export async function listAssessmentAssignments(client: SupabaseClient, assessme
 }
 
 export async function loadAssessmentDraft(client: SupabaseClient, assessmentId: string): Promise<AssessmentDraft> {
-  const { data, error } = await client.rpc('get_assessment_draft', { p_assessment_id: assessmentId });
-  return requireData(data as AssessmentDraft | null, error);
+  const [{ data, error }, metadata] = await Promise.all([
+    client.rpc('get_assessment_draft', { p_assessment_id: assessmentId }),
+    client.rpc('get_assessment_cefr_metadata', { p_assessment_id: assessmentId }),
+  ]);
+  const draft = requireData(data as AssessmentDraft | null, error);
+  if (metadata.error || !metadata.data) return { ...draft, framework: 'none', formVersion: 'GENERIC-1.0', decisionRuleVersion: 'objective-v1', routingRuleVersion: 'none', reportModelVersion: 'standard-report-v1' };
+  const cefr = metadata.data as Pick<AssessmentDraft, 'framework' | 'formVersion' | 'decisionRuleVersion' | 'routingRuleVersion' | 'reportModelVersion'> & { sections: Partial<AssessmentDraft['sections'][number]>[] };
+  return { ...draft, ...cefr, sections: draft.sections.map((section, index) => ({ ...section, ...(cefr.sections[index] ?? {}) })) };
 }
 
 export async function saveAssessmentDraft(client: SupabaseClient, draft: AssessmentDraft): Promise<string> {
   const { data, error } = await client.rpc('save_assessment_draft', { p_draft: draft });
-  return requireData(data as string | null, error);
+  const id = requireData(data as string | null, error);
+  const { error: metadataError } = await client.rpc('save_assessment_cefr_metadata', { p_assessment_id: id, p_metadata: draft });
+  if (metadataError) throw new Error(metadataError.message);
+  return id;
 }
 
 export async function publishAssessment(client: SupabaseClient, assessmentId: string): Promise<void> {
@@ -58,8 +67,19 @@ export async function listAssessmentAttempts(client: SupabaseClient, assessmentI
 }
 
 export async function getAssessmentResult(client: SupabaseClient, attemptId: string): Promise<TeacherAssessmentResult> {
-  const { data, error } = await client.rpc('get_assessment_result', { p_attempt_id: attemptId });
-  return requireData(data as TeacherAssessmentResult | null, error);
+  const [{ data, error }, profile] = await Promise.all([client.rpc('get_assessment_result', { p_attempt_id: attemptId }), client.rpc('get_attempt_cefr_profile', { p_attempt_id: attemptId })]);
+  const result = requireData(data as TeacherAssessmentResult | null, error);
+  return { ...result, cefrProfile: profile.error ? null : profile.data as CefrProfile | null };
+}
+
+export async function overrideAssessmentCefrLevel(client: SupabaseClient, attemptId: string, level: CefrLevel, reason: string): Promise<void> {
+  const { error } = await client.rpc('override_assessment_cefr_level', { p_attempt_id: attemptId, p_level: level, p_reason: reason });
+  if (error) throw new Error(error.message);
+}
+
+export async function getCefrItemAnalytics(client: SupabaseClient, assessmentId: string): Promise<{ calibrationStatus: string; minimumCalibrationResponses: number; items: Array<{ questionId: string; prompt: string; skill: string; cefr: CefrLevel; responses: number; facility: number | null; averageTimeMs: number | null; discrimination: number | null; reliabilityStatus: string }> }> {
+  const { data, error } = await client.rpc('get_cefr_item_analytics', { p_assessment_id: assessmentId });
+  return requireData(data as never, error);
 }
 
 export async function reviewAssessmentResponse(client: SupabaseClient, responseId: string, score: number, feedback: string, rubricScores: Record<string, number> = {}): Promise<void> {
