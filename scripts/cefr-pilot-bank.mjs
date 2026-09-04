@@ -176,9 +176,11 @@ const productiveConfig = [
   ['# 10. Mediation Task Bank', '# 11. Revisão vertical A1 → C2', 'mediation', 'Mediation', 'Target'],
 ];
 
-const extractMediationSource = (prompt) => {
-  const boundary = prompt.search(/^(Your English-speaking|Explain the change|Explain to the club organiser|Explain this finding|Brief a manager|Prepare a concise briefing)/m);
-  return boundary > 0 ? prompt.slice(0, boundary).trim() : prompt;
+const splitMediationPrompt = (content) => {
+  const boundary = content.search(/^(Your English-speaking|Explain the change|Explain to the club organiser|Explain this finding|Brief a manager|Prepare a concise briefing)/m);
+  return boundary > 0
+    ? { sourceMaterial: content.slice(0, boundary).trim(), prompt: content.slice(boundary).trim() }
+    : { sourceMaterial: content, prompt: content };
 };
 
 const parseProductive = (markdown) => productiveConfig.flatMap(([start, end, skill, category, targetKey]) => {
@@ -187,16 +189,18 @@ const parseProductive = (markdown) => productiveConfig.flatMap(([start, end, ski
     const matches = [...body.matchAll(/^### ((?:W|SP|SI|M)-(?:A1|A2|B1|B2|C1|C2)-[0-9]{3}) — ([a-z0-9_]+)$/gm)];
     return matches.map((match, index) => {
       const itemBody = body.slice(match.index + match[0].length, matches[index + 1]?.index ?? body.length).split(/^---$/m)[0];
-      const metadataEnd = [...itemBody.matchAll(/^\*\*[^\n]+:\*\* .+$/gm)].at(-1);
+      const metadataEnd = [...itemBody.matchAll(/^\*\*(?:Topic|Audience|Target|Target duration|Suggested duration|Primary evidence):\*\* .+$/gm)].at(-1);
       if (!metadataEnd) throw new Error(`Metadata not found for ${match[1]}`);
-      const prompt = itemBody.slice(metadataEnd.index + metadataEnd[0].length).trim();
+      const content = itemBody.slice(metadataEnd.index + metadataEnd[0].length).trim();
+      const mediation = skill === 'mediation' ? splitMediationPrompt(content) : null;
+      const prompt = mediation?.prompt ?? content;
       const constraints = parseRange(metadataValue(itemBody, targetKey));
       return {
         externalId: match[1], level, skill, category, subskill: match[2], difficulty: null,
         taskType: match[2], questionType: skill === 'writing' ? 'writing' : skill === 'mediation' ? 'mediation' : 'speaking',
         topic: metadataValue(itemBody, 'Topic'), genre: match[2], audience: metadataValue(itemBody, 'Audience'),
         taskletExternalId: null, taskletPosition: null, prompt, options: [], answer: null, answerKey: null,
-        rubric: rubricFor(skill), sourceMaterial: skill === 'mediation' ? extractMediationSource(prompt) : null,
+        rubric: rubricFor(skill), sourceMaterial: mediation?.sourceMaterial ?? null,
         responseConstraints: constraints, primaryEvidence: metadataValue(itemBody, 'Primary evidence'),
       };
     });

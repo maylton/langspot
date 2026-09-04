@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BarChart3, ClipboardList, Edit3, FileQuestion, LoaderCircle, Plus, TrendingUp } from 'lucide-react';
-import { assignAssessment, listTeacherAssessments, loadAssessmentDraft, publishAssessment, saveAssessmentDraft } from '../assessmentService';
+import { assignAssessment, generateAssessmentFromPreset, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, publishAssessment, saveAssessmentDraft } from '../assessmentService';
 import type { AssessmentRow } from '../database';
-import type { AssessmentDraft } from '../types';
+import type { AssessmentDraft, CefrLevelCheckPreset } from '../types';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
 import { AssessmentEditor, type AssessmentBankQuestion } from './AssessmentEditor';
 import { AssessmentResults } from './AssessmentResults';
@@ -42,10 +42,15 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [creationOpen, setCreationOpen] = useState(false);
+  const [presets, setPresets] = useState<CefrLevelCheckPreset[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true); setMessage('');
-    try { setItems(await listTeacherAssessments(client)); }
+    try {
+      const [assessments, levelCheckPresets] = await Promise.all([listTeacherAssessments(client), listCefrLevelCheckPresets(client)]);
+      setItems(assessments); setPresets(levelCheckPresets);
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar as avaliações.'); }
     setLoading(false);
   }, [client]);
@@ -55,6 +60,15 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     setBusy(true); setMessage('');
     try { setDraft(await loadAssessmentDraft(client, assessment.id)); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível abrir o draft.'); }
+    setBusy(false);
+  };
+  const createLevelCheck = async (presetId: string) => {
+    setBusy(true); setMessage('');
+    try {
+      const assessmentId = await generateAssessmentFromPreset(client, presetId);
+      setDraft(await loadAssessmentDraft(client, assessmentId));
+      setCreationOpen(false);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível gerar o Level Check.'); }
     setBusy(false);
   };
   const save = useCallback((value: AssessmentDraft) => saveAssessmentDraft(client, value), [client]);
@@ -72,7 +86,8 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} />;
   if (analyticsFor) return <CefrAnalytics client={client} assessment={analyticsFor} onBack={() => setAnalyticsFor(null)} />;
   return <section className="assessment-dashboard">
-    <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setDraft(emptyDraft())}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setDraft(cefrPlacementDraft())}><Plus size={17} />Placement CEFR</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
+    <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setCreationOpen((value) => !value)}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
+    {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação"><header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header><div className="assessment-creation-primary"><button type="button" onClick={() => setDraft(emptyDraft())}><strong>Blank Assessment</strong><span>Comece com uma estrutura vazia e configure tudo manualmente.</span></button><button type="button" onClick={() => setDraft(cefrPlacementDraft())}><strong>General CEFR Placement</strong><span>Estime a faixa CEFR de um estudante cujo nível ainda é desconhecido.</span></button></div><div className="assessment-level-checks"><div><span>CEFR LEVEL CHECK</span><h4>Confirme a consolidação de um nível</h4></div>{presets.map((preset) => <button type="button" key={preset.id} disabled={busy} onClick={() => void createLevelCheck(preset.id)}><strong>{preset.name}</strong><span>{preset.floorLevel ? `Floor ${preset.floorLevel} · ` : ''}Target {preset.targetLevel}{preset.ceilingLevel ? ` · Ceiling ${preset.ceilingLevel}` : ''}</span><small>{preset.purpose}</small><em>{preset.estimatedDurationMinMinutes}–{preset.estimatedDurationMaxMinutes} min</em></button>)}</div></section>}
     {message && <div className="assessment-message" role="alert">{message}</div>}
     {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><FileQuestion size={21} /></div>

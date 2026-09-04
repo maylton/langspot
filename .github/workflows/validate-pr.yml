@@ -1,0 +1,72 @@
+name: Validate Pull Request
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "feature/cefr-a2-b1-placement-check"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install 2>&1 | tee validation-install.log
+
+      - name: Sync resolved lockfile
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: sync resolved package lock"
+            git push
+          fi
+
+      - name: Unit tests
+        run: npm test 2>&1 | tee validation-unit.log
+
+      - name: Validate CEFR pilot bank
+        run: npm run test:cefr:pilot 2>&1 | tee validation-pilot.log
+
+      - name: Validate CEFR presets
+        run: npm run test:cefr:presets 2>&1 | tee validation-presets.log
+
+      - name: Typecheck
+        run: npm run typecheck 2>&1 | tee validation-typecheck.log
+
+      - name: Production build
+        run: npm run build 2>&1 | tee validation-build.log
+
+      - name: Assessment database smoke tests
+        run: npm run test:assessments:db 2>&1 | tee validation-db.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-logs
+          path: validation-*.log
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Upload resolved lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resolved-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1

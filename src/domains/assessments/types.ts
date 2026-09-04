@@ -74,6 +74,9 @@ export type TranscriptVisibility = 'never' | 'after_submit' | 'always';
 
 export type AssessmentQuestionSnapshot = QuestionDefinition & {
   externalId?: string;
+  answerKey?: 'A' | 'B' | 'C' | 'D';
+  bankVersion?: string;
+  sourceOrigin?: 'teacher' | 'cefr_pilot';
   difficulty?: number;
   cefr?: CefrLevel;
   skill?: CefrSkill;
@@ -92,6 +95,12 @@ export type AssessmentQuestionSnapshot = QuestionDefinition & {
   primaryEvidence?: string;
   responseConstraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string };
   taskletId?: string;
+  taskletTitle?: string;
+  inputLength?: number;
+  estimatedDurationSeconds?: number;
+  estimatedDurationMinSeconds?: number;
+  estimatedDurationMaxSeconds?: number;
+  estimatedDurationLabel?: string;
   audioPath?: string;
   maxPlays?: number;
   autoplay?: boolean;
@@ -149,6 +158,19 @@ export type AssessmentDraft = {
   routingRuleVersion: string;
   reportModelVersion: string;
   sections: AssessmentDraftSection[];
+};
+
+export type CefrLevelCheckPreset = {
+  id: string;
+  name: string;
+  purpose: string;
+  targetLevel: CefrBaseLevel;
+  floorLevel: CefrBaseLevel | null;
+  ceilingLevel: CefrBaseLevel | null;
+  formVersion: string;
+  presetVersion: string;
+  estimatedDurationMinMinutes: number;
+  estimatedDurationMaxMinutes: number;
 };
 
 export type AssessmentPresentedQuestion = {

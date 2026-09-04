@@ -38,6 +38,10 @@ export type AssessmentRow = {
   decision_rule_version: string;
   routing_rule_version: string;
   report_model_version: string;
+  preset_id: string | null;
+  preset_version: string | null;
+  bank_version: string | null;
+  selection_seed: string | null;
   adaptive_initial_ability: number;
   adaptive_min_items: number;
   adaptive_max_items: number;

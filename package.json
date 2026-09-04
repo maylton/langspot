@@ -3,11 +3,16 @@
   "private": true,
   "version": "1.6.2",
   "type": "module",
+  "packageManager": "npm@10.9.4",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:cefr:pilot": "node --test scripts/cefr-pilot-bank.node.mjs",
+    "test:cefr:presets": "vitest run src/domains/assessments/a2B1PlacementPreset.test.ts",
     "cefr:pilot:validate": "node scripts/cefr-pilot-bank.mjs",
     "cefr:pilot:build-seed": "node scripts/cefr-pilot-bank.mjs --output=supabase/seed.sql",
     "test:assessments:db": "bash scripts/test-assessment-migrations.sh",
@@ -29,7 +34,7 @@
     "@capacitor/core": "^8.4.1",
     "@supabase/supabase-js": "^2.108.1",
     "@tauri-apps/api": "^2.5.0",
-    "lucide-react": "^0.468.0",
+    "lucide-react": "1.17.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -40,7 +45,7 @@
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "~5.7.2",
-    "vite": "^6.0.5",
+    "vite": "7.3.6",
     "vitest": "^3.2.7"
   }
 }

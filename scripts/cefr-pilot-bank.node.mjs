@@ -32,6 +32,13 @@ test('keeps productive tasks rubric-scored and without objective answers', () =>
   assert.doesNotMatch(mediation?.sourceMaterial ?? '', /Explain this finding/);
 });
 
+test('separates legacy mediation source material from the learner task', () => {
+  const item = bank.items.find(({ externalId }) => externalId === 'M-B1-001');
+  assert.match(item?.sourceMaterial ?? '', /Comment 1:/u);
+  assert.match(item?.sourceMaterial ?? '', /Comment 2:/u);
+  assert.equal(item?.prompt, 'Explain to the club organiser the two main problems and suggest what information from the comments is most important to act on.');
+});
+
 test('retains listening transcripts and application duration metadata', () => {
   const tasklet = bank.tasklets.find(({ externalId }) => externalId === 'L-C2-002');
   assert.match(tasklet?.inputText ?? '', /silence can be an active part of interaction/iu);
