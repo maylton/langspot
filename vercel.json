@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npx -y npm@10.9.4 install",
+  "buildCommand": "npm run build"
+}
