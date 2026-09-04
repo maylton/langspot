@@ -74,7 +74,17 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack
   };
 
   return <div className="assessment-editor">
-    <div className="assessment-editor-toolbar"><button className="secondary-button" onClick={onBack}><ArrowLeft size={16} />Voltar</button><span className={`assessment-save-state ${saveState}`}>{saveState === 'saving' ? 'Salvando…' : saveState === 'error' ? 'Não salvo' : 'Salvo'}</span><button className="secondary-button" onClick={() => setPreview((value) => !value)}><Eye size={16} />{preview ? 'Editar' : 'Pré-visualizar'}</button><button className="secondary-button" onClick={saveNow}><Save size={16} />Salvar</button><button className="primary-button" onClick={publish}><Send size={16} />Publicar</button></div>
+    <div className="assessment-editor-toolbar">
+      <button type="button" className="secondary-button assessment-toolbar-back" onClick={onBack}><ArrowLeft size={16} />Voltar</button>
+      <div className="assessment-editor-actions">
+        <button type="button" className="secondary-button" onClick={() => setPreview((value) => !value)}><Eye size={16} />{preview ? 'Editar' : 'Pré-visualizar'}</button>
+        <div className="assessment-save-actions">
+          <span className={`assessment-save-state ${saveState}`} role="status" aria-live="polite">{saveState === 'saving' ? 'Salvando…' : saveState === 'error' ? 'Não salvo' : 'Salvo'}</span>
+          <button type="button" className="secondary-button" disabled={saveState === 'saving'} onClick={saveNow}><Save size={16} />Salvar</button>
+        </div>
+        <button type="button" className="primary-button" onClick={publish}><Send size={16} />Publicar</button>
+      </div>
+    </div>
     {message && <div className="assessment-message" role="alert">{message}</div>}
     {preview ? <AssessmentPreview draft={draft} /> : <>
       <section className="assessment-settings-grid">
