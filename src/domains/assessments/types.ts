@@ -55,3 +55,89 @@ export type AssessmentEventType =
   | 'session_conflict';
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+
+import type { QuestionDefinition, QuestionType } from '../questions';
+
+export type AssessmentQuestionSnapshot = QuestionDefinition;
+
+export type AssessmentDraftQuestion = {
+  id: string;
+  questionBankId: string | null;
+  weight: number;
+  required: boolean;
+  snapshot: AssessmentQuestionSnapshot;
+};
+
+export type AssessmentDraftSection = {
+  id: string;
+  title: string;
+  skill: AssessmentSectionSkill;
+  instructions: string;
+  weight: number;
+  questions: AssessmentDraftQuestion[];
+};
+
+export type AssessmentDraft = {
+  id: string | null;
+  title: string;
+  description: string;
+  type: AssessmentType;
+  assessmentMode: AssessmentMode;
+  navigationMode: AssessmentNavigationMode;
+  levelMin: CefrLevel | null;
+  levelMax: CefrLevel | null;
+  timeLimitMinutes: number | null;
+  maxAttempts: number;
+  randomizeQuestions: boolean;
+  randomizeOptions: boolean;
+  showResults: AssessmentResultVisibility;
+  sections: AssessmentDraftSection[];
+};
+
+export type AssessmentPresentedQuestion = {
+  id: string;
+  sectionId: string;
+  type: QuestionType;
+  prompt: string;
+  options: string[];
+  required: boolean;
+};
+
+export type StudentAssessmentSummary = {
+  assignmentId: string;
+  assessmentId: string;
+  title: string;
+  description: string;
+  availableFrom: string | null;
+  dueAt: string | null;
+  attemptLimit: number;
+  status: AssessmentAssignmentStatus;
+  activeAttemptId: string | null;
+};
+
+export type StudentAttemptSection = {
+  id: string;
+  title: string;
+  instructions: string;
+  position: number;
+};
+
+export type StudentAttemptPayload = {
+  attempt: {
+    id: string;
+    assignmentId: string;
+    status: AssessmentAttemptStatus;
+    startedAt: string;
+    expiresAt: string | null;
+    currentQuestionId: string | null;
+  };
+  assessment: {
+    id: string;
+    title: string;
+    description: string;
+    navigationMode: AssessmentNavigationMode;
+  };
+  sections: StudentAttemptSection[];
+  questions: AssessmentPresentedQuestion[];
+  answers: Record<string, string>;
+};
