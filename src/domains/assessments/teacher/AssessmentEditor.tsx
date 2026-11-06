@@ -145,7 +145,9 @@ function ManualQuestionForm({ assessmentId, framework, defaultSkill, onUpload, o
   const [message, setMessage] = useState('');
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    // React clears event.currentTarget once the handler yields (audio upload), so keep the element.
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const prompt = String(form.get('prompt')).trim();
     let options = String(form.get('options') ?? '').split('\n').map((item) => item.trim()).filter(Boolean);
     if (type === 'true_false') options = ['True', 'False'];
@@ -166,7 +168,7 @@ function ManualQuestionForm({ assessmentId, framework, defaultSkill, onUpload, o
         recordingSeconds: type === 'speaking' ? Number(form.get('recordingSeconds') ?? 120) : undefined,
         allowReview: type === 'speaking' ? form.get('allowReview') === 'on' : undefined,
         rubric: type === 'writing' ? WRITING_RUBRIC : type === 'speaking' ? SPEAKING_RUBRIC : type === 'mediation' ? MEDIATION_RUBRIC : undefined });
-      event.currentTarget.reset(); setOpen(false); setMessage('');
+      formElement.reset(); setOpen(false); setMessage('');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível criar a questão.'); }
   };
   if (!open) return <button className="secondary-button" onClick={() => setOpen(true)}><Plus size={15} />Criar questão</button>;
