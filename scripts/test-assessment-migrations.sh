@@ -31,6 +31,7 @@ migrations=(
   20260904121534_expand_cefr_pilot_bank_v0_2.sql
   20260904162620_add_cefr_level_check_presets.sql
   20260904170000_fix_cefr_level_check_listening_and_selection.sql
+  20261106120000_drop_legacy_review_assessment_response.sql
 )
 for index in "${!migrations[@]}"; do
   number=$((index + 1))

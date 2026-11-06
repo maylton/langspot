@@ -87,4 +87,5 @@ select public.assert_test(public.get_attempt_cefr_profile(:'cefr_attempt_id')->>
 reset role;
 select public.assert_test((select count(*)=2 from public.student_cefr_profile_snapshots where attempt_id=:'cefr_attempt_id'),'Immutable CEFR snapshots missing');
 select public.assert_test((select count(*)=1 from public.assessment_cefr_overrides),'CEFR override audit missing');
+select public.assert_test(to_regprocedure('public.review_assessment_response(uuid,numeric,text)') is null,'Legacy review overload bypasses rubric validation');
 select 'assessment CEFR complementary smoke test passed' as result;
