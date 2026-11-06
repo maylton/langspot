@@ -333,6 +333,8 @@ begin
     raise exception 'The student must submit their part of this assessment';
   end if;
   perform private.grade_submitted_assessment_attempt(p_attempt_id);
+  -- The teacher scored every task in person, so a completed live-only attempt is already reviewed.
+  update public.assessment_attempts set reviewed_at=now(),reviewed_by=(select auth.uid()) where id=p_attempt_id and status='completed';
 end; $$;
 
 revoke all on function public.open_live_assessment_session(uuid, uuid) from public, anon;

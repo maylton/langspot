@@ -115,7 +115,7 @@ select (q->>'id') as oral_question from jsonb_array_elements(public.get_live_ass
 select public.score_live_assessment_response(:'oral_attempt',:'oral_question',0.8,'Fluent','{"fluency":4}'::jsonb,'',90);
 select public.complete_live_assessment_session(:'oral_attempt');
 reset role;
-select public.assert_test((select status = 'completed' and raw_score = 0.8 from public.assessment_attempts where id = :'oral_attempt'), 'Live-only attempt must complete when every task is scored');
+select public.assert_test((select status = 'completed' and raw_score = 0.8 and reviewed_at is not null from public.assessment_attempts where id = :'oral_attempt'), 'Live-only attempt must complete as reviewed when every task is scored');
 select public.assert_test((select assignment.status = 'completed' from public.assessment_assignments assignment join public.assessment_attempts attempt on attempt.assessment_assignment_id = assignment.id where attempt.id = :'oral_attempt'), 'Live-only assignment must complete');
 set role authenticated;
 select set_config('request.jwt.claim.sub','80000000-0000-0000-0000-000000000008',false);
