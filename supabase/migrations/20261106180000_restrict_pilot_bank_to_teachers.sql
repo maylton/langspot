@@ -6,6 +6,9 @@
 -- Listening scripts (the transcripts). Only teachers with active access need the bank: students
 -- receive questions through load_assessment_attempt, which never includes answers.
 
+-- Already enabled in production by 20260619140000; repeated so every environment enforces it.
+alter table public.question_bank enable row level security;
+
 drop policy question_bank_system_authenticated_read on public.question_bank;
 create policy question_bank_system_teacher_read
 on public.question_bank for select to authenticated
