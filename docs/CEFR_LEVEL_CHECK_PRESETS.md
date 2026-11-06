@@ -142,3 +142,10 @@ target length or duration.
 2. `update public.assessment_feature_flags set enabled = true where key = 'listening';`
 3. Restore the distribution:
    `update public.cefr_level_check_presets set objective_distribution = objective_distribution || jsonb_build_object('listening', listening_distribution), preset_version = '1.2', form_version = regexp_replace(form_version, '-1\.1$', '-1.2');`
+
+## Pilot Bank v0.4 — authentic Reading texts (2026-11-06)
+
+Each level now has four Reading tasklets: the three LangSpot-authored ones and one authentic text
+(public domain or CC BY), with its ABNT reference, licence and a credit line shown to the student
+under the text. Level Checks pick 2 of 4 target texts and 1 of 4 floor/ceiling texts, so forms vary
+more across seeds. Sources and the inclusion rule: `docs/cefr/AUTHENTIC_TEXT_SOURCES.md`.

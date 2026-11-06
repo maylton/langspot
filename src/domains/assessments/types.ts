@@ -94,6 +94,10 @@ export type AssessmentQuestionSnapshot = QuestionDefinition & {
   audience?: 'child' | 'teen' | 'adult' | 'general' | 'teen_adult';
   cognitiveProcesses?: string[];
   sourceMaterial?: string;
+  /** Attribution required by the licence of an authentic text (shown to the student). */
+  sourceCredit?: string;
+  /** Full ABNT reference of an authentic text (teacher-facing). */
+  sourceReference?: string;
   qualityStatus?: CefrQualityStatus;
   isPilot?: boolean;
   psychometricStatus?: 'uncalibrated' | 'pilot_data_collected' | 'under_analysis' | 'calibrated';
@@ -198,6 +202,7 @@ export type AssessmentPresentedQuestion = {
   recordingSeconds?: number;
   allowReview?: boolean;
   sourceMaterial?: string;
+  sourceCredit?: string;
   responseConstraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string };
 };
 

@@ -332,3 +332,11 @@
   background: #2a2318;
   color: #f1d299;
 }
+
+/* Licence credit of authentic texts, shown under the text (required by CC BY). */
+.assessment-source-credit {
+  display: block;
+  margin: -4px 0 14px;
+  color: #7e899b;
+  font-size: 11px;
+}

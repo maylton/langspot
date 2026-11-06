@@ -4,19 +4,20 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-export const PILOT_VERSION = 'pilot-0.3';
+export const PILOT_VERSION = 'pilot-0.4';
 export const PILOT_STATUS = 'approved_for_pilot';
 export const PSYCHOMETRIC_STATUS = 'uncalibrated';
 // Above this share, choosing the longest option is a usable test-taking strategy.
 export const MAX_KEY_IS_LONGEST_SHARE = 0.35;
 
 const EXPECTED = {
-  total: 300,
-  objective: 234,
+  total: 324,
+  objective: 258,
   productive: 66,
-  tasklets: 36,
-  answerKeys: { A: 59, B: 58, C: 59, D: 58 },
-  bySkill: { reading: 72, listening: 72, language_use: 90, writing: 18, spoken_production: 18, spoken_interaction: 18, mediation: 12 },
+  tasklets: 42,
+  taskletsPerLevel: { reading: 4, listening: 3 },
+  answerKeys: { A: 65, B: 64, C: 65, D: 64 },
+  bySkill: { reading: 96, listening: 72, language_use: 90, writing: 18, spoken_production: 18, spoken_interaction: 18, mediation: 12 },
 };
 
 const RUBRICS = {
@@ -146,6 +147,11 @@ const parseTaskletBank = (markdown, start, end, skill) => {
         estimatedDurationMinSeconds: duration?.min ?? null,
         estimatedDurationMaxSeconds: duration?.max ?? null,
         estimatedDurationLabel: duration?.label ?? null,
+        // Authentic texts (v0.4+): ABNT reference, licence, student-facing credit and adaptation note.
+        sourceReference: metadataValue(taskletBody, 'Source'),
+        sourceLicense: metadataValue(taskletBody, 'License'),
+        sourceCredit: metadataValue(taskletBody, 'Credit'),
+        sourceAdaptation: metadataValue(taskletBody, 'Adaptation'),
       };
       tasklets.push(tasklet);
       items.push(...parseObjectiveItems(taskletBody.slice(itemsStart + '#### Items'.length), keys, {
@@ -294,8 +300,14 @@ export function validatePilotBank(bank) {
     }
   }
   for (const skill of ['reading', 'listening']) for (const level of CEFR_LEVELS) {
+    const expected = EXPECTED.taskletsPerLevel[skill];
     const count = bank.tasklets.filter((tasklet) => tasklet.skill === skill && tasklet.level === level).length;
-    if (count !== 3) errors.push(`${skill}/${level}: expected 3 tasklets, found ${count}.`);
+    if (count !== expected) errors.push(`${skill}/${level}: expected ${expected} tasklets, found ${count}.`);
+  }
+  for (const tasklet of bank.tasklets) {
+    const source = [tasklet.sourceReference, tasklet.sourceLicense, tasklet.sourceCredit, tasklet.sourceAdaptation];
+    if (source.some(Boolean) && !source.every(Boolean)) errors.push(`${tasklet.externalId}: an external source needs reference, licence, credit and adaptation.`);
+    if (tasklet.sourceReference && !/Disponível em: https?:\/\/\S+\. Acesso em: \d{1,2} [a-zç]{3,4}\.? \d{4}\./.test(tasklet.sourceReference)) errors.push(`${tasklet.externalId}: ABNT reference must include "Disponível em" and "Acesso em".`);
   }
   for (const tasklet of bank.tasklets.filter((item) => item.skill === 'listening')) {
     if (!tasklet.estimatedDurationMinSeconds || !tasklet.estimatedDurationMaxSeconds || tasklet.estimatedDurationMinSeconds > tasklet.estimatedDurationMaxSeconds) errors.push(`${tasklet.externalId}: invalid listening duration range.`);
@@ -338,13 +350,13 @@ const sqlLiteral = (value) => value === null || value === undefined ? 'null' : `
 const jsonLiteral = (value) => value === null || value === undefined ? 'null' : `${sqlLiteral(JSON.stringify(value))}::jsonb`;
 
 export function buildSeedSql(bank) {
-  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md. Do not edit pedagogical content here.\n` +
+  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md. Do not edit pedagogical content here.\n` +
 `begin;\nselect private.import_cefr_pilot_bank(\n  ${jsonLiteral(bank.tasklets)},\n  ${jsonLiteral(bank.items)}\n);\nselect private.validate_cefr_pilot_bank('${PILOT_VERSION}');\ncommit;\n`;
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md');
+  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md');
   const outputArg = args.find((arg) => arg.startsWith('--output='));
   const markdown = await readFile(source, 'utf8');
   const bank = parsePilotBank(markdown);
