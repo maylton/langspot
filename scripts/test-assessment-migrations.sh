@@ -49,6 +49,7 @@ before_v0_3=(
 # Phase 2 — Pilot Bank v0.3 and Level Checks without Listening.
 from_v0_3=(
   20261106160000_pilot_bank_v0_3_and_disable_listening.sql
+  20261106170000_add_assessment_section_pacing.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql
@@ -66,7 +67,7 @@ apply_migrations "${from_v0_3[@]}"
 copy supabase/seed.sql pilot-seed.sql
 run pilot-seed.sql >/dev/null
 run pilot-seed.sql >/dev/null
-for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke; do
+for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke section_pacing_smoke; do
   copy "supabase/tests/$test.sql" "$test.sql"
   run "$test.sql"
 done
