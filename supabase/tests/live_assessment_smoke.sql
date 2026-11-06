@@ -37,7 +37,7 @@ select public.save_assessment_draft($json${
       {"weight":4,"required":true,"snapshot":{"id":"si","type":"speaking","prompt":"Agree on two activities with the assessor","options":[],"answer":"","administration":"live","sourceMaterial":"Four activities","rubric":[{"key":"range","label":"Range","maxScore":5},{"key":"interaction","label":"Interaction","maxScore":5}]}}
     ]},
     {"title":"Mediation","skill":"mediation","weight":1,"questions":[
-      {"weight":2,"required":true,"snapshot":{"id":"m","type":"mediation","prompt":"Explain the notice","options":[],"answer":"","administration":"live","rubric":[{"key":"relevance","label":"Relevance","maxScore":5}]}}
+      {"weight":2,"required":true,"snapshot":{"id":"m","type":"mediation","prompt":"Explain the notice","options":[],"answer":"","administration":"live","sourceMaterial":"Homework Club notice","rubric":[{"key":"relevance","label":"Relevance","maxScore":5}]}}
     ]}
   ]}
 $json$::jsonb) as mixed_id \gset
