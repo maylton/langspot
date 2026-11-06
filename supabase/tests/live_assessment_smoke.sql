@@ -116,7 +116,7 @@ select public.score_live_assessment_response(:'oral_attempt',:'oral_question',0.
 select public.complete_live_assessment_session(:'oral_attempt');
 reset role;
 select public.assert_test((select status = 'completed' and raw_score = 0.8 from public.assessment_attempts where id = :'oral_attempt'), 'Live-only attempt must complete when every task is scored');
-select public.assert_test((select status = 'completed' from public.assessment_assignments assignment join public.assessment_attempts attempt on attempt.assessment_assignment_id = assignment.id where attempt.id = :'oral_attempt'), 'Live-only assignment must complete');
+select public.assert_test((select assignment.status = 'completed' from public.assessment_assignments assignment join public.assessment_attempts attempt on attempt.assessment_assignment_id = assignment.id where attempt.id = :'oral_attempt'), 'Live-only assignment must complete');
 set role authenticated;
 select set_config('request.jwt.claim.sub','80000000-0000-0000-0000-000000000008',false);
 select public.assert_test((select "liveOnly" from public.list_student_assessments() where "assessmentId" = :'oral_id'), 'Student list must flag live-only assessments');
