@@ -134,6 +134,8 @@ export type AssessmentDraftSection = {
   construct?: string;
   taskletKind?: 'screening' | 'primary' | 'confirmation' | 'floor' | 'ceiling';
   confirmationForSectionId?: string | null;
+  /** Part time when the assessment is paced (sectionPacing = 'sections'). */
+  timeLimitMinutes?: number | null;
   questions: AssessmentDraftQuestion[];
 };
 
@@ -148,6 +150,8 @@ export type AssessmentDraft = {
   levelMin: CefrLevel | null;
   levelMax: CefrLevel | null;
   timeLimitMinutes: number | null;
+  /** 'sections': the student completes the assessment part by part and may stop between parts. */
+  sectionPacing?: 'none' | 'sections';
   maxAttempts: number;
   randomizeQuestions: boolean;
   randomizeOptions: boolean;
@@ -217,6 +221,11 @@ export type StudentAttemptSection = {
   title: string;
   instructions: string;
   position: number;
+  timeLimitMinutes?: number;
+  startedAt?: string;
+  expiresAt?: string;
+  completedAt?: string;
+  completionReason?: 'student' | 'time_expired' | 'submitted';
 };
 
 export type StudentAttemptPayload = {
@@ -236,6 +245,7 @@ export type StudentAttemptPayload = {
     assessmentMode: AssessmentMode;
     adaptiveComplete: boolean;
     liveQuestionCount?: number;
+    sectionPacing?: boolean;
   };
   sections: StudentAttemptSection[];
   questions: AssessmentPresentedQuestion[];

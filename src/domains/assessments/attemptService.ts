@@ -51,3 +51,16 @@ export async function getStudentAssessmentResult(client: SupabaseClient, attempt
   const result = ensure(data as StudentAssessmentResult | null, error);
   return { ...result, cefrProfile: result.visible && !profile.error ? profile.data : null } as StudentAssessmentResult;
 }
+
+export async function startAssessmentSection(client: SupabaseClient, attemptId: string, sectionId: string): Promise<{ sectionId: string; startedAt: string; expiresAt?: string }> {
+  const { data, error } = await client.rpc('start_assessment_section', { p_attempt_id: attemptId, p_section_id: sectionId });
+  return ensure(data as { sectionId: string; startedAt: string; expiresAt?: string } | null, error);
+}
+
+export async function completeAssessmentSection(client: SupabaseClient, attemptId: string, sectionId: string): Promise<void> {
+  const { error } = await client.rpc('complete_assessment_section', { p_attempt_id: attemptId, p_section_id: sectionId });
+  if (error) throw new Error(error.message);
+}
+
+/** Server errors meaning a queued answer can never be saved, because its part is already closed. */
+export const isClosedPartError = (message: string) => /This part is closed|Start this part before answering/.test(message);
