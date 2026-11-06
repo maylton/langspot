@@ -14,6 +14,13 @@ select public.assert_test((select prompt = 'The new sports centre ___ by the may
 select public.assert_test((select response_constraints->>'label' = '20–35 words' from public.question_bank where external_id = 'W-A1-001'), 'A1 writing length was not adjusted');
 select private.validate_cefr_pilot_bank('pilot-0.3');
 
+set role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002', false);
+select public.assert_test((select count(*) = 0 from public.question_bank where source_origin = 'cefr_pilot'), 'Students must not read the Pilot Bank answer key');
+select public.assert_test((select count(*) = 0 from public.question_bank_tasklets), 'Students must not read Pilot Bank texts or Listening scripts');
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
+select public.assert_test((select count(*) = 300 from public.question_bank where source_origin = 'cefr_pilot'), 'Teachers must keep reading the Pilot Bank');
+reset role;
 select public.assert_test(not (select enabled from public.assessment_feature_flags where key = 'listening'), 'Listening must start disabled');
 select public.assert_test(not exists (select 1 from public.cefr_level_check_presets where objective_distribution ? 'listening'), 'Presets must not request Listening');
 select public.assert_test(not exists (select 1 from public.cefr_level_check_presets where listening_distribution is null or preset_version <> '1.1' or form_version !~ '-1\.1$'), 'Presets must keep their Listening counts and move to version 1.1');
