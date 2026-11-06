@@ -8,8 +8,13 @@ trap cleanup EXIT
 cleanup
 
 docker run --name "$container_name" -e POSTGRES_PASSWORD=postgres -d postgres:17-alpine >/dev/null
-for _ in {1..20}; do
-  docker exec "$container_name" pg_isready -U postgres >/dev/null 2>&1 && break
+# The image starts a temporary server for initialisation and then restarts it, so wait for
+# the init to finish before trusting pg_isready.
+for _ in {1..60}; do
+  if docker logs "$container_name" 2>&1 | grep -q 'PostgreSQL init process complete' \
+    && docker exec "$container_name" pg_isready -U postgres >/dev/null 2>&1; then
+    break
+  fi
   sleep 1
 done
 
