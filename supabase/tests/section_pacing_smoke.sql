@@ -43,7 +43,10 @@ select public.expect_error(format('select public.save_assessment_response(%L,%L,
 select public.expect_error(format('select public.start_assessment_section(%L,%L)', :'paced_attempt', :'part2'), 'Finish the previous parts first');
 
 select public.start_assessment_section(:'paced_attempt', :'part1');
+reset role;
 select public.assert_test((select expires_at between now() + interval '9 minutes' and now() + interval '11 minutes' from public.assessment_attempt_sections where attempt_id = :'paced_attempt' and section_id = :'part1'), 'Part clock must start when the part opens');
+set role authenticated;
+select set_config('request.jwt.claim.sub','80000000-0000-0000-0000-000000000008',false);
 select public.assert_test((public.start_assessment_section(:'paced_attempt', :'part1')->>'startedAt') is not null, 'Reopening an open part must resume it');
 select public.save_assessment_response(:'paced_attempt', :'q1', '{"value":"A"}'::jsonb);
 select public.save_assessment_response(:'paced_attempt', :'q2', '{"value":"A"}'::jsonb);
@@ -54,7 +57,10 @@ select public.expect_error(format('select public.submit_assessment_attempt(%L)',
 
 -- The student stops here and comes back later: part two has no time limit.
 select public.start_assessment_section(:'paced_attempt', :'part2');
+reset role;
 select public.assert_test((select expires_at is null from public.assessment_attempt_sections where attempt_id = :'paced_attempt' and section_id = :'part2'), 'Untimed part must have no clock');
+set role authenticated;
+select set_config('request.jwt.claim.sub','80000000-0000-0000-0000-000000000008',false);
 select public.save_assessment_response(:'paced_attempt', :'qw', '{"value":"My answer"}'::jsonb);
 select public.complete_assessment_section(:'paced_attempt', :'part2');
 
