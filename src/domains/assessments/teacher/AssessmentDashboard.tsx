@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { BarChart3, ClipboardList, Edit3, FileQuestion, LoaderCircle, Plus, TrendingUp } from 'lucide-react';
-import { assignAssessment, generateAssessmentFromPreset, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, publishAssessment, saveAssessmentDraft } from '../assessmentService';
+import { BarChart3, ClipboardList, Edit3, FileQuestion, LoaderCircle, Mic, Plus, TrendingUp } from 'lucide-react';
+import { assignAssessment, generateAssessmentFromPreset, listAssessmentIdsWithLiveTasks, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
 import type { AssessmentRow } from '../database';
 import type { AssessmentDraft, CefrLevelCheckPreset } from '../types';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
@@ -9,6 +9,7 @@ import { AssessmentEditor, type AssessmentBankQuestion } from './AssessmentEdito
 import { AssessmentResults } from './AssessmentResults';
 import { AssessmentProgress } from './AssessmentProgress';
 import { CefrAnalytics } from './CefrAnalytics';
+import { LiveAssessmentSession } from './LiveAssessmentSession';
 
 const emptyDraft = (): AssessmentDraft => ({
   id: null, title: '', description: '', type: 'custom', framework: 'none', assessmentMode: 'fixed', navigationMode: 'free',
@@ -44,12 +45,15 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [message, setMessage] = useState('');
   const [creationOpen, setCreationOpen] = useState(false);
   const [presets, setPresets] = useState<CefrLevelCheckPreset[]>([]);
+  const [liveIds, setLiveIds] = useState<Set<string>>(new Set());
+  const [livePickerFor, setLivePickerFor] = useState<string | null>(null);
+  const [liveSession, setLiveSession] = useState<{ attemptId: string; assessment: AssessmentRow } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setMessage('');
     try {
-      const [assessments, levelCheckPresets] = await Promise.all([listTeacherAssessments(client), listCefrLevelCheckPresets(client)]);
-      setItems(assessments); setPresets(levelCheckPresets);
+      const [assessments, levelCheckPresets, withLiveTasks] = await Promise.all([listTeacherAssessments(client), listCefrLevelCheckPresets(client), listAssessmentIdsWithLiveTasks(client)]);
+      setItems(assessments); setPresets(levelCheckPresets); setLiveIds(withLiveTasks);
     }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar as avaliações.'); }
     setLoading(false);
@@ -81,6 +85,14 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     } finally { setBusy(false); }
   };
 
+  const openLive = async (assessment: AssessmentRow, studentId: string) => {
+    setBusy(true); setMessage('');
+    try { setLiveSession({ attemptId: await openLiveAssessmentSession(client, assessment.id, studentId), assessment }); setLivePickerFor(null); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível abrir a sessão ao vivo.'); }
+    setBusy(false);
+  };
+
+  if (liveSession) return <LiveAssessmentSession client={client} attemptId={liveSession.attemptId} onBack={() => { setLiveSession(null); void load(); }} onOpenResults={() => { setResultsFor(liveSession.assessment); setLiveSession(null); }} />;
   if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} />;
   if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} onBack={() => setResultsFor(null)} />;
   if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} />;
@@ -93,7 +105,13 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><FileQuestion size={21} /></div>
       <h3>{assessment.title}</h3><p>{assessment.description || 'Sem descrição.'}</p>
       <dl><div><dt>Tipo</dt><dd>{assessment.type}</dd></div><div><dt>Tempo</dt><dd>{assessment.time_limit_minutes ? `${assessment.time_limit_minutes} min` : 'Livre'}</dd></div><div><dt>Versão</dt><dd>{assessment.version}</dd></div></dl>
-      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar draft</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button>{assessment.framework === 'cefr' && <button className="secondary-button" onClick={() => setAnalyticsFor(assessment)}><BarChart3 size={15} />Analytics</button>}<button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button></> : null}</div>
+      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar draft</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button>{assessment.framework === 'cefr' && <button className="secondary-button" onClick={() => setAnalyticsFor(assessment)}><BarChart3 size={15} />Analytics</button>}{liveIds.has(assessment.id) && <button className="secondary-button" onClick={() => setLivePickerFor((current) => current === assessment.id ? null : assessment.id)}><Mic size={15} />Aplicar ao vivo</button>}<button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button></> : null}</div>
+      {livePickerFor === assessment.id && <form className="assessment-assign-form live-session-picker" onSubmit={(event) => { event.preventDefault(); const studentId = String(new FormData(event.currentTarget).get('studentId') ?? ''); if (studentId) void openLive(assessment, studentId); }}>
+        <h3>Aplicar ao vivo</h3>
+        <p>Conduza e pontue as tarefas ao vivo durante a aula. Se o aluno ainda não tiver a avaliação, ela é atribuída agora.</p>
+        <label>Aluno<select name="studentId" required defaultValue=""><option value="" disabled>Selecione</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
+        <button className="primary-button" disabled={busy || !students.length}><Mic size={15} />Abrir sessão</button>
+      </form>}
       {assigning?.id === assessment.id && <AssessmentAssignments students={students} busy={busy} onAssign={async (input) => {
         setBusy(true);
         try {
