@@ -83,6 +83,6 @@ select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.3'
 reset role;
 select public.assert_test((select section_pacing = 'sections' and time_limit_minutes is null from public.assessments where id = :'paced_check'), 'Level Checks must be paced');
 select public.assert_test((select bool_and(time_limit_minutes = case cefr_level when 'A2' then 8 when 'B1' then 10 else 12 end) from public.assessment_sections where assessment_id = :'paced_check' and skill = 'reading'), 'Reading parts need level-based times');
-select public.assert_test((select bool_and(time_limit_minutes = (select count(*) from public.assessment_questions question where question.section_id = section.id)) from public.assessment_sections section where assessment_id = :'paced_check' and skill = 'language_use'), 'B1 Language Use gets one minute per item');
+select public.assert_test((select array_agg(cefr_level || ':' || time_limit_minutes order by position) = array['A2:5', 'B1:10', 'B2:8'] from public.assessment_sections where assessment_id = :'paced_check' and skill = 'language_use'), 'Language Use gets 1 min per item up to B1 and 1.5 min from B2');
 select public.assert_test((select time_limit_minutes = 20 from public.assessment_sections where assessment_id = :'paced_check' and skill = 'writing' and cefr_level = 'A2'), 'A2 writing part gets 20 minutes');
 select 'section pacing smoke test passed' as result;
