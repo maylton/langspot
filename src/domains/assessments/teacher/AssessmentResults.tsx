@@ -12,7 +12,7 @@ import { calculateRubricScore } from '../rubric';
 import { CefrProfileReport } from '../CefrProfileReport';
 import { CEFR_LEVELS } from '../cefr';
 
-export function AssessmentResults({ client, assessment, onBack }: { client: SupabaseClient; assessment: AssessmentRow; onBack: () => void }) {
+export function AssessmentResults({ client, assessment, studentNames, onBack }: { client: SupabaseClient; assessment: AssessmentRow; studentNames?: Map<string, string>; onBack: () => void }) {
   const [attempts, setAttempts] = useState<AssessmentAttemptRow[]>([]);
   const [report, setReport] = useState<TeacherAssessmentResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ export function AssessmentResults({ client, assessment, onBack }: { client: Supa
   if (report) return <AssessmentAttemptDetails client={client} report={report} onBack={() => setReport(null)} onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await reloadReport(); }} onFinalize={async () => { await finalizeAssessmentReview(client, report.attempt.id); await reloadReport(); await loadAttempts(); }} />;
   return <section className="assessment-results"><header className="assessment-dashboard-header"><div><button className="back-button" onClick={onBack}><ArrowLeft size={15} />Avaliações</button><p className="eyebrow">RESULTADOS</p><h2>{assessment.title}</h2><p>Tentativas, notas por seção e revisão pedagógica.</p></div></header>
     {message && <div className="assessment-message" role="alert">{message}</div>}
-    {loading ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando resultados…</div> : attempts.length ? <div className="assessment-attempt-list">{attempts.map((attempt) => <button key={attempt.id} onClick={() => void open(attempt.id)}><span><strong>{new Date(attempt.started_at).toLocaleString('pt-BR')}</strong><small>{attempt.status} · {attempt.scaled_score === null ? 'Aguardando nota' : `${attempt.scaled_score}%`}</small></span><ClipboardCheck size={18} /></button>)}</div> : <div className="assessment-empty"><ClipboardCheck size={38} /><h3>Nenhuma tentativa</h3><p>Os envios dos alunos aparecerão aqui.</p></div>}
+    {loading ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando resultados…</div> : attempts.length ? <div className="assessment-attempt-list">{attempts.map((attempt) => <button key={attempt.id} onClick={() => void open(attempt.id)}><span><strong>{studentNames?.get(attempt.student_id) ?? 'Aluno'}</strong><small>{new Date(attempt.started_at).toLocaleString('pt-BR')} · {attempt.status} · {attempt.scaled_score === null ? 'Aguardando nota' : `${attempt.scaled_score}%`}</small></span><ClipboardCheck size={18} /></button>)}</div> : <div className="assessment-empty"><ClipboardCheck size={38} /><h3>Nenhuma tentativa</h3><p>Os envios dos alunos aparecerão aqui.</p></div>}
   </section>;
 }
 
@@ -63,7 +63,7 @@ function AssessmentAttemptDetails({ client, report, onBack, onReview, onFinalize
   </section>;
 }
 
-function QuestionReview({ client, question, index, onReview }: { client: SupabaseClient; question: AssessmentResultQuestion; index: number; onReview: (responseId: string, score: number, feedback: string, rubricScores: Record<string, number>) => Promise<void> }) {
+export function QuestionReview({ client, question, index, onReview }: { client: SupabaseClient; question: AssessmentResultQuestion; index: number; onReview: (responseId: string, score: number, feedback: string, rubricScores: Record<string, number>) => Promise<void> }) {
   const manual = question.gradingStatus === 'manual_review' || question.gradingStatus === 'pending';
   const [busy, setBusy] = useState(false);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -83,7 +83,7 @@ function CefrOverride({ attemptId, currentLevel, onOverride }: { attemptId: stri
   return <form className="assessment-manual-review" onSubmit={(event) => void (async () => { event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setMessage(''); try { await onOverride(String(form.get('level')) as typeof CEFR_LEVELS[number], String(form.get('reason'))); setOpen(false); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível registrar o override.'); } finally { setBusy(false); } })()}><p>Resultado automático: <b>{currentLevel ?? 'sem classificação'}</b></p><label>Nível revisado<select name="level" defaultValue={currentLevel ?? 'B1'}>{CEFR_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label><label>Justificativa<textarea name="reason" minLength={10} required /></label>{message && <p role="alert">{message}</p>}<button className="primary-button" disabled={busy}>Registrar revisão auditável</button></form>;
 }
 
-function TeacherAudioPlayer({ client, path }: { client: SupabaseClient; path: string }) {
+export function TeacherAudioPlayer({ client, path }: { client: SupabaseClient; path: string }) {
   const [url, setUrl] = useState('');
   const [message, setMessage] = useState('');
   useEffect(() => { let active = true; void createAssessmentAudioUrl(client, path).then((value) => { if (active) setUrl(value); }).catch((error) => { if (active) setMessage(error instanceof Error ? error.message : 'Áudio indisponível.'); }); return () => { active = false; }; }, [client, path]);

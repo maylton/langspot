@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
 import type { AssessmentReportNote, PreviousAssessmentForReport } from './report';
-import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, LiveAssessmentSession, TeacherAssessmentResult } from './types';
+import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -179,4 +179,9 @@ export async function getPreviousAssessmentForReport(client: SupabaseClient, att
   const { data, error } = await client.rpc('get_previous_assessment_for_report', { p_attempt_id: attemptId });
   if (error) throw new Error(error.message);
   return (data as PreviousAssessmentForReport | null) ?? null;
+}
+
+export async function listAssessmentReviewQueue(client: SupabaseClient): Promise<ReviewQueue> {
+  const { data, error } = await client.rpc('list_assessment_review_queue');
+  return requireData(data as ReviewQueue | null, error);
 }

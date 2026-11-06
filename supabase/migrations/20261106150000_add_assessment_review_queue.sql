@@ -22,6 +22,11 @@ returns jsonb language sql security definer set search_path = '' stable as $$
             'skill', section.skill,
             'cefr', question.question_snapshot->>'cefr',
             'live', private.assessment_question_is_live(question.question_snapshot),
+            'taskType', question.question_snapshot->>'taskType',
+            'primaryEvidence', question.question_snapshot->>'primaryEvidence',
+            'operationalDescriptor', question.question_snapshot->>'operationalDescriptor',
+            'responseConstraints', question.question_snapshot->'responseConstraints',
+            'sourceMaterial', question.question_snapshot->>'sourceMaterial',
             'submittedAt', attempt.submitted_at
           ) item
         from public.assessment_responses response
