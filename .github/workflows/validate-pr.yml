@@ -10,6 +10,10 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        # Without pipefail, `cmd | tee log` reports tee's exit status and failures pass silently.
+        shell: bash
     permissions:
       contents: write
     steps:
