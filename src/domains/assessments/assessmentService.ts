@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
-import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, TeacherAssessmentResult } from './types';
+import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, LiveAssessmentSession, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -118,5 +118,47 @@ export async function getAssessmentProgress(client: SupabaseClient, studentId: s
 
 export async function confirmAssessmentLevel(client: SupabaseClient, studentId: string, attemptId: string, level: CefrLevel): Promise<void> {
   const { error } = await client.rpc('confirm_assessment_level_update', { p_student_id: studentId, p_attempt_id: attemptId, p_level: level });
+  if (error) throw new Error(error.message);
+}
+
+/** Ids of the teacher's assessments that contain at least one live task. */
+export async function listAssessmentIdsWithLiveTasks(client: SupabaseClient): Promise<Set<string>> {
+  const { data, error } = await client.from('assessment_questions').select('assessment_id').eq('question_snapshot->>administration', 'live');
+  return new Set(requireData(data as { assessment_id: string }[] | null, error).map((row) => row.assessment_id));
+}
+
+export async function openLiveAssessmentSession(client: SupabaseClient, assessmentId: string, studentId: string): Promise<string> {
+  const { data, error } = await client.rpc('open_live_assessment_session', { p_assessment_id: assessmentId, p_student_id: studentId });
+  return requireData(data as string | null, error);
+}
+
+export async function getLiveAssessmentSession(client: SupabaseClient, attemptId: string): Promise<LiveAssessmentSession> {
+  const { data, error } = await client.rpc('get_live_assessment_session', { p_attempt_id: attemptId });
+  return requireData(data as LiveAssessmentSession | null, error);
+}
+
+export async function scoreLiveAssessmentResponse(client: SupabaseClient, input: {
+  attemptId: string;
+  questionId: string;
+  score: number;
+  feedback: string;
+  rubricScores: Record<string, number>;
+  notes: string;
+  durationSeconds: number | null;
+}): Promise<void> {
+  const { error } = await client.rpc('score_live_assessment_response', {
+    p_attempt_id: input.attemptId,
+    p_question_id: input.questionId,
+    p_score: input.score,
+    p_feedback: input.feedback,
+    p_rubric_scores: input.rubricScores,
+    p_notes: input.notes,
+    p_duration_seconds: input.durationSeconds,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function completeLiveAssessmentSession(client: SupabaseClient, attemptId: string): Promise<void> {
+  const { error } = await client.rpc('complete_live_assessment_session', { p_attempt_id: attemptId });
   if (error) throw new Error(error.message);
 }

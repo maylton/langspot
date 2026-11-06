@@ -71,6 +71,8 @@ import type { QuestionDefinition, QuestionType } from '../questions';
 
 export type AssessmentRubricCriterion = { key: string; label: string; maxScore: number; scale?: 'numeric' | 'cefr' };
 export type TranscriptVisibility = 'never' | 'after_submit' | 'always';
+/** `live`: conducted and scored by the teacher during a lesson or call; hidden from the student runner. */
+export type QuestionAdministration = 'student' | 'live';
 
 export type AssessmentQuestionSnapshot = QuestionDefinition & {
   externalId?: string;
@@ -110,6 +112,7 @@ export type AssessmentQuestionSnapshot = QuestionDefinition & {
   recordingSeconds?: number;
   allowReview?: boolean;
   rubric?: AssessmentRubricCriterion[];
+  administration?: QuestionAdministration;
 };
 
 export type AssessmentDraftQuestion = {
@@ -205,6 +208,8 @@ export type StudentAssessmentSummary = {
   framework?: AssessmentFramework;
   requiresAudio?: boolean;
   requiresMicrophone?: boolean;
+  liveQuestionCount?: number;
+  liveOnly?: boolean;
 };
 
 export type StudentAttemptSection = {
@@ -230,6 +235,7 @@ export type StudentAttemptPayload = {
     navigationMode: AssessmentNavigationMode;
     assessmentMode: AssessmentMode;
     adaptiveComplete: boolean;
+    liveQuestionCount?: number;
   };
   sections: StudentAttemptSection[];
   questions: AssessmentPresentedQuestion[];
@@ -346,3 +352,37 @@ export type CefrProfile = {
 
 export type AssessmentProgressPoint = { attemptId: string; assessmentId: string; title: string; type: AssessmentType; version: number; completedAt: string; score: number | null; estimatedCefr: CefrLevel | null; skills: Record<string, number> };
 export type AssessmentProgressReport = { studentId: string; currentLevel: CefrLevel; history: AssessmentProgressPoint[]; levelUpdates: { attemptId: string; previousLevel: CefrLevel; confirmedLevel: CefrLevel; createdAt: string }[] };
+
+export type LiveAssessmentQuestion = {
+  id: string;
+  sectionTitle: string;
+  skill: AssessmentSectionSkill;
+  type: QuestionType;
+  prompt: string;
+  sourceMaterial?: string;
+  taskType?: string;
+  topic?: string;
+  cefr?: CefrLevel;
+  primaryEvidence?: string;
+  operationalDescriptor?: string;
+  estimatedDurationLabel?: string;
+  preparationSeconds?: number;
+  recordingSeconds?: number;
+  responseConstraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string };
+  rubric?: AssessmentRubricCriterion[];
+  maxScore: number;
+  responseId?: string;
+  score?: number | null;
+  gradingStatus?: AssessmentGradingStatus;
+  teacherFeedback?: string;
+  notes?: string;
+  durationSeconds?: number;
+  rubricScores?: Record<string, number>;
+};
+
+export type LiveAssessmentSession = {
+  attempt: { id: string; status: AssessmentAttemptStatus; studentId: string; studentName: string; startedAt: string; submittedAt: string | null; studentStarted: boolean };
+  assessment: { id: string; title: string; framework: AssessmentFramework };
+  studentQuestionCount: number;
+  questions: LiveAssessmentQuestion[];
+};

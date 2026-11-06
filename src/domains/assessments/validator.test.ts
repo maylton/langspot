@@ -48,4 +48,27 @@ describe('validateAssessmentDraft', () => {
     delete draft.sections[0].questions[0].snapshot.audioPath;
     expect(validateAssessmentDraft(draft)).toContainEqual(expect.objectContaining({ path: 'sections.0.questions.0.audioPath' }));
   });
+  it('accepts live speaking and mediation tasks in fixed forms', () => {
+    const draft = validDraft();
+    draft.sections.push({ id: 's2', title: 'Interaction', skill: 'spoken_interaction', instructions: '', weight: 1, drawCount: null, questions: [
+      { id: 'q4', questionBankId: null, weight: 1, required: true, snapshot: { id: 'q4', type: 'speaking', prompt: 'Agree on a plan', options: [], answer: '', administration: 'live', rubric: [{ key: 'interaction', label: 'Interaction', maxScore: 5 }] } },
+    ] });
+    expect(validateAssessmentDraft(draft)).toEqual([]);
+  });
+  it('rejects live objective questions and live tasks in adaptive forms', () => {
+    const draft = validDraft();
+    draft.sections[0].questions[0].snapshot.administration = 'live';
+    expect(validateAssessmentDraft(draft).some((issue) => issue.path.endsWith('administration') && issue.severity === 'error')).toBe(true);
+    const adaptive = validDraft();
+    adaptive.assessmentMode = 'adaptive';
+    adaptive.sections[0].questions.push({ id: 'q5', questionBankId: null, weight: 1, required: true, snapshot: { id: 'q5', type: 'speaking', prompt: 'Talk', options: [], answer: '', administration: 'live', rubric: [{ key: 'fluency', label: 'Fluency', maxScore: 5 }] } });
+    expect(validateAssessmentDraft(adaptive).some((issue) => issue.message.includes('forma fixa'))).toBe(true);
+  });
+  it('suggests live administration for spoken interaction recorded by the student', () => {
+    const draft = validDraft();
+    draft.sections.push({ id: 's2', title: 'Interaction', skill: 'spoken_interaction', instructions: '', weight: 1, drawCount: null, questions: [
+      { id: 'q4', questionBankId: null, weight: 1, required: true, snapshot: { id: 'q4', type: 'speaking', prompt: 'Agree on a plan', options: [], answer: '', rubric: [{ key: 'interaction', label: 'Interaction', maxScore: 5 }] } },
+    ] });
+    expect(validateAssessmentDraft(draft)).toEqual([expect.objectContaining({ severity: 'warning', path: 'sections.1.questions.0.administration' })]);
+  });
 });
