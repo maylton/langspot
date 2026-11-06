@@ -585,3 +585,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+.review-item .assessment-manual-review {
+  grid-template-columns: 1fr;
+}
+
+.review-item .assessment-manual-review > button {
+  justify-self: end;
+  width: auto;
+  margin: 0;
+}
+
+.dark-theme .live-timer .secondary-button,
+.dark-theme .review-live-cta .secondary-button {
+  background: #292345;
+  color: #c8bcff;
+}

@@ -183,7 +183,7 @@ function LiveTask({ client, attemptId, question, locked, onSaved }: {
             : <input type="number" min="0" max={criterion.maxScore} step="0.5" value={rubricScores[criterion.key] ?? 0} onChange={(event) => setRubricScores((current) => ({ ...current, [criterion.key]: Number(event.target.value) }))} aria-label={`${criterion.label} (0–${criterion.maxScore})`} />}
         </fieldset>)}
       </div> : <label>Nota (0–{question.maxScore})<input type="number" min="0" max={question.maxScore} step="0.01" value={manualScore} disabled={locked} onChange={(event) => setManualScore(event.target.value)} /></label>}
-      <label>Anotações do professor <small>(privadas)</small><textarea rows={3} value={notes} disabled={locked} onChange={(event) => setNotes(event.target.value)} placeholder="Ex.: hesitou ao negociar o orçamento; boa retomada de turno." /></label>
+      <label><span>Anotações do professor <small>(privadas)</small></span><textarea rows={3} value={notes} disabled={locked} onChange={(event) => setNotes(event.target.value)} placeholder="Ex.: hesitou ao negociar o orçamento; boa retomada de turno." /></label>
       <label>Feedback para o aluno<textarea rows={2} value={feedback} disabled={locked} onChange={(event) => setFeedback(event.target.value)} /></label>
       {error && <p className="assessment-message" role="alert">{error}</p>}
       <div className="live-scoring-footer">
