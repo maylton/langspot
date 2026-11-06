@@ -4,9 +4,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-export const PILOT_VERSION = 'pilot-0.2';
+export const PILOT_VERSION = 'pilot-0.3';
 export const PILOT_STATUS = 'approved_for_pilot';
 export const PSYCHOMETRIC_STATUS = 'uncalibrated';
+// Above this share, choosing the longest option is a usable test-taking strategy.
+export const MAX_KEY_IS_LONGEST_SHARE = 0.35;
 
 const EXPECTED = {
   total: 300,
@@ -210,8 +212,8 @@ const parseProductive = (markdown) => productiveConfig.flatMap(([start, end, ski
 const expansionProductiveConfig = [
   ['# 24. Additional Writing prompts', '# 25. Additional Spoken Production prompts', 'writing', 'Writing', 'Target length', 'Prompt'],
   ['# 25. Additional Spoken Production prompts', '# 26. Additional Spoken Interaction tasks', 'spoken_production', 'Speaking', 'Target speaking time', 'Prompt'],
-  ['# 26. Additional Spoken Interaction tasks', '# 27. Additional Mediation tasks', 'spoken_interaction', 'Speaking', null, 'Task'],
-  ['# 27. Additional Mediation tasks', '# 28. QA validation of expansion v0.2', 'mediation', 'Mediation', null, 'Task'],
+  ['# 26. Additional Spoken Interaction tasks', '# 27. Additional Mediation tasks', 'spoken_interaction', 'Speaking', 'Suggested duration', 'Task'],
+  ['# 27. Additional Mediation tasks', '# 28. QA validation of expansion v0.2', 'mediation', 'Mediation', 'Suggested duration', 'Task'],
 ];
 
 const parseExpansionProductive = (markdown) => expansionProductiveConfig.flatMap(([start, end, skill, category, targetKey, promptKey]) => {
@@ -222,7 +224,7 @@ const parseExpansionProductive = (markdown) => expansionProductiveConfig.flatMap
       const itemBody = body.slice(match.index + match[0].length, matches[index + 1]?.index ?? body.length).split(/^---$/m)[0].trim();
       const prompt = metadataValue(itemBody, promptKey);
       if (!prompt) throw new Error(`Prompt not found for ${match[1]}`);
-      const sourceMaterial = skill === 'mediation' ? itemBody.slice(0, itemBody.search(/^\*\*Task:\*\*/m)).trim() : null;
+      const sourceMaterial = skill === 'mediation' ? itemBody.slice(0, itemBody.search(/^\*\*Task:\*\*/m)).replace(/^\*\*Suggested duration:\*\* .+$\n?/m, '').trim() : null;
       return {
         externalId: match[1], level, skill, category, subskill: match[2], difficulty: null,
         taskType: match[2], questionType: skill === 'writing' ? 'writing' : skill === 'mediation' ? 'mediation' : 'speaking',
@@ -298,6 +300,27 @@ export function validatePilotBank(bank) {
   for (const tasklet of bank.tasklets.filter((item) => item.skill === 'listening')) {
     if (!tasklet.estimatedDurationMinSeconds || !tasklet.estimatedDurationMaxSeconds || tasklet.estimatedDurationMinSeconds > tasklet.estimatedDurationMaxSeconds) errors.push(`${tasklet.externalId}: invalid listening duration range.`);
   }
+  // v0.3 quality rules (docs/CEFR_CONTENT_AND_BUILDER_REVIEW.md).
+  for (const level of CEFR_LEVELS) {
+    const comprehension = objective.filter((item) => item.level === level && ['reading', 'listening'].includes(item.skill));
+    const keyIsLongest = comprehension.filter((item) => {
+      const lengths = item.options.map((option) => option.length);
+      const keyLength = item.answer.length;
+      return keyLength === Math.max(...lengths) && lengths.filter((length) => length === keyLength).length === 1;
+    }).length;
+    if (comprehension.length && keyIsLongest / comprehension.length > MAX_KEY_IS_LONGEST_SHARE) {
+      errors.push(`${level}: the key is the longest option in ${keyIsLongest}/${comprehension.length} comprehension items (max ${MAX_KEY_IS_LONGEST_SHARE * 100}%).`);
+    }
+  }
+  const languageUseStems = new Map();
+  for (const item of objective.filter(({ skill }) => skill === 'language_use')) {
+    const stem = item.prompt.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (languageUseStems.has(stem)) errors.push(`${item.externalId}: repeats the Language Use stem of ${languageUseStems.get(stem)}.`);
+    languageUseStems.set(stem, item.externalId);
+  }
+  for (const item of productive) {
+    if (!item.responseConstraints) errors.push(`${item.externalId}: productive task requires a target length or duration.`);
+  }
   if (errors.length) throw new Error(errors.join('\n'));
   const promptGroups = new Map();
   for (const item of bank.items) {
@@ -315,13 +338,13 @@ const sqlLiteral = (value) => value === null || value === undefined ? 'null' : `
 const jsonLiteral = (value) => value === null || value === undefined ? 'null' : `${sqlLiteral(JSON.stringify(value))}::jsonb`;
 
 export function buildSeedSql(bank) {
-  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md. Do not edit pedagogical content here.\n` +
+  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md. Do not edit pedagogical content here.\n` +
 `begin;\nselect private.import_cefr_pilot_bank(\n  ${jsonLiteral(bank.tasklets)},\n  ${jsonLiteral(bank.items)}\n);\nselect private.validate_cefr_pilot_bank('${PILOT_VERSION}');\ncommit;\n`;
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md');
+  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md');
   const outputArg = args.find((arg) => arg.startsWith('--output='));
   const markdown = await readFile(source, 'utf8');
   const bank = parsePilotBank(markdown);

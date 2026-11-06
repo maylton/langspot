@@ -13,16 +13,18 @@ for _ in {1..20}; do
   sleep 1
 done
 
-docker cp "$repo_dir/supabase/tests/assessment_bootstrap.sql" "$container_name:/tmp/bootstrap.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/assessment_smoke.sql" "$container_name:/tmp/smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/cefr_pilot_bank_smoke.sql" "$container_name:/tmp/pilot-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/cefr_a2_b1_placement_smoke.sql" "$container_name:/tmp/a2-b1-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/cefr_level_check_followup_smoke.sql" "$container_name:/tmp/level-check-followup-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/live_assessment_smoke.sql" "$container_name:/tmp/live-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/report_notes_smoke.sql" "$container_name:/tmp/report-notes-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/tests/review_queue_smoke.sql" "$container_name:/tmp/review-queue-smoke.sql" >/dev/null
-docker cp "$repo_dir/supabase/seed.sql" "$container_name:/tmp/pilot-seed.sql" >/dev/null
-migrations=(
+copy() { docker cp "$repo_dir/$1" "$container_name:/tmp/$2" >/dev/null; }
+run() { docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f "/tmp/$1" "${@:2}"; }
+apply_migrations() {
+  for migration in "$@"; do
+    copy "supabase/migrations/$migration" "$migration"
+    run "$migration" >/dev/null
+  done
+}
+
+# Phase 1 — schema up to the v0.2 Pilot Bank, with Listening enabled. These smoke tests keep
+# covering the Listening infrastructure (play counters, audio guard) that stays in the system.
+before_v0_3=(
   20260903204901_create_assessments_foundation.sql
   20260903210547_add_assessment_mvp_workflows.sql
   20260904021343_secure_assessment_grading_and_results.sql
@@ -39,22 +41,27 @@ migrations=(
   20261106140000_add_assessment_report_notes.sql
   20261106150000_add_assessment_review_queue.sql
 )
-for index in "${!migrations[@]}"; do
-  number=$((index + 1))
-  docker cp "$repo_dir/supabase/migrations/${migrations[$index]}" "$container_name:/tmp/$number.sql" >/dev/null
+# Phase 2 — Pilot Bank v0.3 and Level Checks without Listening.
+from_v0_3=(
+  20261106160000_pilot_bank_v0_3_and_disable_listening.sql
+)
+
+copy supabase/tests/assessment_bootstrap.sql bootstrap.sql
+run bootstrap.sql >/dev/null
+apply_migrations "${before_v0_3[@]}"
+copy supabase/tests/fixtures/pilot_bank_v0_2_seed.sql pilot-seed-v0_2.sql
+run pilot-seed-v0_2.sql >/dev/null
+run pilot-seed-v0_2.sql >/dev/null
+for test in assessment_smoke cefr_pilot_bank_smoke cefr_a2_b1_placement_smoke cefr_level_check_followup_smoke; do
+  copy "supabase/tests/$test.sql" "$test.sql"
+  run "$test.sql"
 done
 
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/bootstrap.sql >/dev/null
-for index in "${!migrations[@]}"; do
-  number=$((index + 1))
-  docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f "/tmp/$number.sql" >/dev/null
+apply_migrations "${from_v0_3[@]}"
+copy supabase/seed.sql pilot-seed.sql
+run pilot-seed.sql >/dev/null
+run pilot-seed.sql >/dev/null
+for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke; do
+  copy "supabase/tests/$test.sql" "$test.sql"
+  run "$test.sql"
 done
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/pilot-seed.sql >/dev/null
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/pilot-seed.sql >/dev/null
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/smoke.sql
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/pilot-smoke.sql
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/a2-b1-smoke.sql
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/level-check-followup-smoke.sql
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/live-smoke.sql
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/report-notes-smoke.sql
-docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/review-queue-smoke.sql

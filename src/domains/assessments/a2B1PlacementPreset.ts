@@ -1,14 +1,16 @@
 import type { CefrBaseLevel, CefrSkill } from './types';
 
+/** Level Check presets 1.1: Reading + Language Use + productive tasks (Listening disabled; see migration 20261106160000). */
 export const CEFR_LEVEL_CHECK_BLUEPRINTS = [
-  { id: 'cefr-a1-level-check', floor: null, target: 'A1', ceiling: 'A2', objective: 39, productive: 5, formVersion: 'CEFR-A1-CHECK-1.0' },
-  { id: 'cefr-a2-level-check', floor: 'A1', target: 'A2', ceiling: 'B1', objective: 52, productive: 5, formVersion: 'CEFR-A2-CHECK-1.0' },
-  { id: 'cefr-b1-level-check', floor: 'A2', target: 'B1', ceiling: 'B2', objective: 52, productive: 5, formVersion: 'CEFR-B1-CHECK-1.0' },
-  { id: 'cefr-b2-level-check', floor: 'B1', target: 'B2', ceiling: 'C1', objective: 52, productive: 5, formVersion: 'CEFR-B2-CHECK-1.0' },
-  { id: 'cefr-c1-level-check', floor: 'B2', target: 'C1', ceiling: 'C2', objective: 52, productive: 5, formVersion: 'CEFR-C1-CHECK-1.0' },
-  { id: 'cefr-c2-level-check', floor: 'C1', target: 'C2', ceiling: null, objective: 39, productive: 5, formVersion: 'CEFR-C2-CHECK-1.0' },
+  { id: 'cefr-a1-level-check', floor: null, target: 'A1', ceiling: 'A2', objective: 27, productive: 5, formVersion: 'CEFR-A1-CHECK-1.1' },
+  { id: 'cefr-a2-level-check', floor: 'A1', target: 'A2', ceiling: 'B1', objective: 36, productive: 5, formVersion: 'CEFR-A2-CHECK-1.1' },
+  { id: 'cefr-b1-level-check', floor: 'A2', target: 'B1', ceiling: 'B2', objective: 36, productive: 5, formVersion: 'CEFR-B1-CHECK-1.1' },
+  { id: 'cefr-b2-level-check', floor: 'B1', target: 'B2', ceiling: 'C1', objective: 36, productive: 5, formVersion: 'CEFR-B2-CHECK-1.1' },
+  { id: 'cefr-c1-level-check', floor: 'B2', target: 'C1', ceiling: 'C2', objective: 36, productive: 5, formVersion: 'CEFR-C1-CHECK-1.1' },
+  { id: 'cefr-c2-level-check', floor: 'C1', target: 'C2', ceiling: null, objective: 27, productive: 5, formVersion: 'CEFR-C2-CHECK-1.1' },
 ] as const;
 
+/** B1 Pilot Form 1 (preset 1.0, bank pilot-0.2). Kept for the historical form and its Listening audio. */
 export const A2_B1_READING_TASKLETS = ['R-A2-002', 'R-B1-001', 'R-B1-002', 'R-B2-001'] as const;
 export const A2_B1_LISTENING_TASKLETS = ['L-A2-002', 'L-B1-001', 'L-B1-002', 'L-B2-002'] as const;
 export const A2_B1_LANGUAGE_USE_ITEMS = [

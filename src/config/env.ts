@@ -23,6 +23,12 @@ export const APP_MODE: AppMode = (
 export const ASSESSMENTS_ENABLED = import.meta.env.VITE_ASSESSMENTS_ENABLED !== 'false';
 
 /**
+ * Fallback for the Listening module when public.assessment_feature_flags cannot be read.
+ * The database flag is the source of truth and also blocks publishing on the server.
+ */
+export const ASSESSMENT_LISTENING_DEFAULT = import.meta.env.VITE_ASSESSMENTS_LISTENING_ENABLED === 'true';
+
+/**
  * Supabase configuration - required for backend connectivity
  */
 export const SUPABASE = {

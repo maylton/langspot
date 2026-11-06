@@ -112,3 +112,33 @@ Level Checks reuse the CEFR profile engine, then apply preset-aware boundaries:
 - productive skills are never definitively auto-classified.
 
 For the B1 form, the report can therefore distinguish A2, A2+, B1 and B1+, while B2 remains ceiling evidence.
+
+## Version 1.1 — Pilot Bank v0.3, Listening disabled (2026-11-06)
+
+Listening is switched off until the audio for each tasklet has been produced
+(`public.assessment_feature_flags`, key `listening`). While it is off:
+
+- Level Check presets generate **Reading + Language Use + the five productive tasks**. The removed
+  Listening counts are kept in `cefr_level_check_presets.listening_distribution`.
+- Objective items per form: A1 and C2 → 27; A2–C1 → 36. Estimated duration drops by 15–20 minutes.
+- Parts are numbered consecutively (Reading = PART 1, Language Use = PART 2, …).
+- No assessment containing Listening sections or questions can be published (server trigger);
+  the builder hides Listening and the General CEFR Placement blueprint omits it.
+- Forms generated with preset 1.0 / bank `pilot-0.2` keep their snapshots. Drafts of 1.0 can no
+  longer be published; generate the Level Check again to get the 1.1 form.
+
+The bank moves to `pilot-0.3` (`docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md`), built from
+v0.2 by `scripts/cefr-pilot-bank-v0_3-changes.py`. The changes follow
+`docs/CEFR_CONTENT_AND_BUILDER_REVIEW.md`: option lengths rebalanced (the key is no longer usually
+the longest option), the LU-B1-003 double key, duplicated Language Use items, above-level wording
+in A1–B1 stems, Writing lengths for A1/A2/B2, missing durations and duplicated productive tasks.
+`scripts/cefr-pilot-bank.mjs` now rejects a bank where the key is the longest option in more than
+35% of a level's comprehension items, repeated Language Use stems, or productive tasks without a
+target length or duration.
+
+### Re-enabling Listening
+
+1. Upload the audio of every Listening tasklet.
+2. `update public.assessment_feature_flags set enabled = true where key = 'listening';`
+3. Restore the distribution:
+   `update public.cefr_level_check_presets set objective_distribution = objective_distribution || jsonb_build_object('listening', listening_distribution), preset_version = '1.2', form_version = regexp_replace(form_version, '-1\.1$', '-1.2');`
