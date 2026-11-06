@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowLeft, Check, ClipboardCheck, FileText, LoaderCircle } from 'lucide-react';
-import { finalizeAssessmentReview, getAssessmentReportNote, getAssessmentResult, getPreviousAssessmentForReport, listAssessmentAttempts, overrideAssessmentCefrLevel, reviewAssessmentResponse, saveAssessmentReportNote } from '../assessmentService';
+import { finalizeAssessmentReview, getAssessmentIntegritySignals, getAssessmentReportNote, getAssessmentResult, getPreviousAssessmentForReport, listAssessmentAttempts, overrideAssessmentCefrLevel, reviewAssessmentResponse, saveAssessmentReportNote } from '../assessmentService';
 import type { AssessmentReportNote, PreviousAssessmentForReport } from '../report';
 import { StudentReport } from '../StudentReport';
 import type { AssessmentAttemptRow, AssessmentRow } from '../database';
-import type { AssessmentResultQuestion, TeacherAssessmentResult } from '../types';
+import type { AssessmentIntegritySignals, AssessmentResultQuestion, TeacherAssessmentResult } from '../types';
+import { countWords } from '../reviewQueue';
 import { AssessmentIntegrityPanel } from './AssessmentIntegrityPanel';
 import { createAssessmentAudioUrl } from '../mediaService';
 import { calculateRubricScore } from '../rubric';
@@ -49,6 +50,8 @@ function AssessmentAttemptDetails({ client, report, onBack, onReview, onFinalize
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
+  const [signals, setSignals] = useState<AssessmentIntegritySignals | null>(null);
+  useEffect(() => { let active = true; void getAssessmentIntegritySignals(client, report.attempt.id).then((value) => { if (active) setSignals(value); }).catch(() => undefined); return () => { active = false; }; }, [client, report.attempt.id]);
   const pending = report.questions.filter((question) => question.gradingStatus === 'manual_review' || question.gradingStatus === 'pending').length;
   return <section className="assessment-report"><header className="assessment-dashboard-header"><div><button className="back-button" onClick={onBack}><ArrowLeft size={15} />Tentativas</button><p className="eyebrow">RELATÓRIO DA TENTATIVA</p><h2>{report.attempt.studentName}</h2><p>{report.assessment.title} · versão {report.assessment.version} · {report.attempt.scoringModelVersion}</p></div><div className="assessment-score"><strong>{report.cefrProfile?.overallLevel ?? `${report.attempt.scaledScore ?? '—'}%`}</strong><span>{report.attempt.status}</span></div></header>
     <button type="button" className="secondary-button compact assessment-report-toggle" onClick={() => setReportOpen((value) => !value)}><FileText size={15} />{reportOpen ? 'Fechar relatório do aluno' : 'Relatório para o aluno'}</button>
@@ -56,7 +59,7 @@ function AssessmentAttemptDetails({ client, report, onBack, onReview, onFinalize
     {report.cefrProfile && <><CefrProfileReport profile={report.cefrProfile} /><CefrOverride attemptId={report.attempt.id} currentLevel={report.cefrProfile.overallLevel} onOverride={async (level, reason) => { await overrideAssessmentCefrLevel(client, report.attempt.id, level, reason); await onFinalize().catch(() => undefined); }} /></>}
     <div className="assessment-section-results">{report.sections.map((section) => <article key={section.id}><span>{section.skill}</span><strong>{section.percentage ?? 0}%</strong><small>{section.score}/{section.maxScore} pontos</small></article>)}</div>
     {report.adaptiveSkills?.length ? <section className="assessment-adaptive-results"><p className="eyebrow">PLACEMENT ADAPTATIVO</p><div>{report.adaptiveSkills.map((skill) => <article key={skill.sectionId}><span>{skill.skill}</span><strong>{skill.cefr}</strong><small>ability {skill.ability} · confiança {Math.round(skill.confidence * 100)}% · {skill.itemsAnswered} itens</small></article>)}</div></section> : null}
-    <AssessmentIntegrityPanel report={report.integrity} />
+    <AssessmentIntegrityPanel report={report.integrity} signals={signals} />
     <div className="assessment-report-questions">{report.questions.map((question, index) => <QuestionReview client={client} key={question.id} index={index} question={question} onReview={onReview} />)}</div>
     {message && <div className="assessment-message" role="alert">{message}</div>}
     <footer className="assessment-review-footer"><span>{pending ? `${pending} resposta(s) aguardando revisão manual.` : report.attempt.reviewedAt ? `Revisão concluída em ${new Date(report.attempt.reviewedAt).toLocaleString('pt-BR')}.` : 'Todas as respostas estão corrigidas.'}</span>{!pending && !report.attempt.reviewedAt && <button className="primary-button" disabled={busy} onClick={() => void (async () => { setBusy(true); setMessage(''); try { await onFinalize(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível concluir a revisão.'); } finally { setBusy(false); } })()}><Check size={16} />{busy ? 'Concluindo…' : 'Concluir revisão'}</button>}</footer>
@@ -74,7 +77,7 @@ export function QuestionReview({ client, question, index, onReview }: { client: 
     try { await onReview(question.responseId, score, String(form.get('feedback') ?? ''), rubricScores); }
     finally { setBusy(false); }
   };
-  return <article><div className="assessment-question-result-heading"><span>{index + 1}</span><div><h3>{question.prompt}</h3><small>{question.type} · {question.gradingStatus}</small></div><strong>{question.score ?? '—'}/{question.maxScore ?? '—'}</strong></div><div className="assessment-answer-comparison"><p><b>Resposta do aluno</b>{question.answer === 'live' && ['speaking', 'mediation'].includes(question.type ?? '') ? 'Aplicada ao vivo pelo professor' : question.type === 'speaking' ? 'Gravação enviada' : question.answer || 'Em branco'}</p><p><b>Gabarito</b>{question.correctAnswer || 'Correção manual'}</p></div>{question.mediaPath && <TeacherAudioPlayer client={client} path={question.mediaPath} />}{question.transcript && <p className="assessment-transcript"><b>Transcrição</b>{question.transcript}</p>}{question.explanation && <p className="assessment-explanation">{question.explanation}</p>}{manual && question.responseId ? <form className="assessment-manual-review" onSubmit={submit}>{question.rubric?.length ? <div className="assessment-rubric">{question.rubric.map((criterion) => <label key={criterion.key}>{criterion.label}{criterion.scale === 'cefr' ? <select name={`rubric_${criterion.key}`} defaultValue={question.rubricScores?.[criterion.key] ?? ''} required><option value="" disabled>Escolha</option>{CEFR_LEVELS.map((level, levelIndex) => <option key={level} value={levelIndex + 1}>{level}</option>)}</select> : <input name={`rubric_${criterion.key}`} type="number" min="0" max={criterion.maxScore} step="0.5" defaultValue={question.rubricScores?.[criterion.key] ?? 0} required />}</label>)}</div> : <label>Nota<input name="score" type="number" min="0" max={question.maxScore ?? undefined} step="0.01" required /></label>}<label>Feedback<textarea name="feedback" rows={2} defaultValue={question.teacherFeedback} /></label><button className="primary-button" disabled={busy}>{busy ? 'Salvando…' : 'Salvar correção'}</button></form> : question.teacherFeedback && <p className="teacher-feedback"><b>Feedback</b>{question.teacherFeedback}</p>}</article>;
+  return <article><div className="assessment-question-result-heading"><span>{index + 1}</span><div><h3>{question.prompt}</h3><small>{question.type} · {question.gradingStatus}{questionTiming(question)}</small></div><strong>{question.score ?? '—'}/{question.maxScore ?? '—'}</strong></div><div className="assessment-answer-comparison"><p><b>Resposta do aluno</b>{question.answer === 'live' && ['speaking', 'mediation'].includes(question.type ?? '') ? 'Aplicada ao vivo pelo professor' : question.type === 'speaking' ? 'Gravação enviada' : question.answer || 'Em branco'}</p><p><b>Gabarito</b>{question.correctAnswer || 'Correção manual'}</p></div>{question.mediaPath && <TeacherAudioPlayer client={client} path={question.mediaPath} />}{question.transcript && <p className="assessment-transcript"><b>Transcrição</b>{question.transcript}</p>}{question.explanation && <p className="assessment-explanation">{question.explanation}</p>}{manual && question.responseId ? <form className="assessment-manual-review" onSubmit={submit}>{question.rubric?.length ? <div className="assessment-rubric">{question.rubric.map((criterion) => <label key={criterion.key}>{criterion.label}{criterion.scale === 'cefr' ? <select name={`rubric_${criterion.key}`} defaultValue={question.rubricScores?.[criterion.key] ?? ''} required><option value="" disabled>Escolha</option>{CEFR_LEVELS.map((level, levelIndex) => <option key={level} value={levelIndex + 1}>{level}</option>)}</select> : <input name={`rubric_${criterion.key}`} type="number" min="0" max={criterion.maxScore} step="0.5" defaultValue={question.rubricScores?.[criterion.key] ?? 0} required />}</label>)}</div> : <label>Nota<input name="score" type="number" min="0" max={question.maxScore ?? undefined} step="0.01" required /></label>}<label>Feedback<textarea name="feedback" rows={2} defaultValue={question.teacherFeedback} /></label><button className="primary-button" disabled={busy}>{busy ? 'Salvando…' : 'Salvar correção'}</button></form> : question.teacherFeedback && <p className="teacher-feedback"><b>Feedback</b>{question.teacherFeedback}</p>}</article>;
 }
 
 function CefrOverride({ attemptId, currentLevel, onOverride }: { attemptId: string; currentLevel: string | null; onOverride: (level: typeof CEFR_LEVELS[number], reason: string) => Promise<void> }) {
@@ -121,4 +124,14 @@ function TeacherReportPanel({ client, report }: { client: SupabaseClient; report
     </form>
     <StudentReport title={report.assessment.title} studentName={report.attempt.studentName} completedAt={report.attempt.reviewedAt ?? report.attempt.submittedAt} score={report.attempt.scaledScore} estimatedCefr={report.attempt.estimatedCefr} sections={report.sections} cefrProfile={report.cefrProfile} previous={previous} note={{ summary: summary.trim(), nextSteps: nextSteps.trim(), updatedAt: saved?.updatedAt ?? '' }} />
   </section>;
+}
+
+/** Time spent (client-reported) and, for written answers, composing speed. */
+function questionTiming(question: AssessmentResultQuestion): string {
+  if (!question.timeSpentMs) return '';
+  const seconds = Math.round(question.timeSpentMs / 1000);
+  const time = seconds >= 90 ? `${Math.round(seconds / 60)} min` : `${seconds}s`;
+  if (!['writing', 'mediation'].includes(question.type ?? '') || question.answer === 'live') return ` · ${time} na questão`;
+  const words = countWords(question.answer);
+  return ` · ${time} · ${words} palavras · ≈${Math.round(words / Math.max(seconds / 60, 1 / 60))} palavras/min`;
 }

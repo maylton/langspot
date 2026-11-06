@@ -204,3 +204,97 @@
 .assessment-runner-actions .primary-button {
   white-space: nowrap;
 }
+
+/* Level Check menu: each preset with a "new form" action. */
+.assessment-level-checks > .assessment-level-check-option {
+  display: grid;
+  grid-column: auto;
+  gap: 6px;
+  padding-top: 0;
+}
+
+.assessment-level-checks .assessment-new-form {
+  justify-self: start;
+  padding: 6px 10px;
+  border-color: transparent;
+  background: transparent;
+  color: #684be1;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.assessment-level-checks .assessment-new-form:hover {
+  border-color: #c9bcff;
+}
+
+/* Integrity: fullscreen reminder and server-side signals. */
+.assessment-fullscreen-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 10px 14px;
+  border: 1px solid #f0cf97;
+  border-radius: 12px;
+  background: #fff8e9;
+  color: #75521d;
+}
+
+.assessment-server-signals {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.assessment-server-signals h4 {
+  margin: 0;
+}
+
+.assessment-server-signals ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assessment-server-signals li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #f5f7fb;
+  color: #536075;
+  font-size: 12px;
+}
+
+.assessment-server-signals li.flagged {
+  background: #fff1f2;
+  color: #9b2c3a;
+}
+
+.dark-theme .assessment-level-checks .assessment-new-form {
+  background: transparent;
+  color: #c8bcff;
+}
+
+.dark-theme .assessment-fullscreen-banner {
+  border-color: #72552b;
+  background: #2a2318;
+  color: #f1d299;
+}
+
+.dark-theme .assessment-server-signals li {
+  background: #101827;
+  color: #b8c2d1;
+}
+
+.dark-theme .assessment-server-signals li.flagged {
+  background: #3b2028;
+  color: #ffb3bd;
+}

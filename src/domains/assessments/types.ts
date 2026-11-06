@@ -59,7 +59,10 @@ export type AssessmentEventType =
   | 'network_reconnect'
   | 'resumed'
   | 'submitted'
-  | 'session_conflict';
+  | 'session_conflict'
+  | 'copy_detected'
+  | 'drop_detected'
+  | 'bulk_insert_detected';
 
 export type CefrBaseLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type CefrLevel = CefrBaseLevel | 'A1+' | 'A2+' | 'B1+' | 'B2+' | 'C1+';
@@ -421,3 +424,11 @@ export type ReviewQueueItem = {
 
 export type ReviewQueueReadyAttempt = { attemptId: string; assessmentId: string; assessmentTitle: string; studentId: string; studentName: string | null; submittedAt: string | null };
 export type ReviewQueue = { items: ReviewQueueItem[]; readyToFinalize: ReviewQueueReadyAttempt[] };
+
+/** Signals computed on the server from its own timestamps and answers (see get_assessment_integrity_signals). */
+export type AssessmentIntegritySignals = {
+  maxReadingWordsPerMinute: number;
+  rapidParts: { sectionId: string; title: string; words: number; seconds: number; wordsPerMinute: number; source: 'server' | 'client' }[];
+  fastObjectiveAnswers: { count: number; total: number };
+  sharedWrongAnswers: { studentName: string | null; sharedWrong: number; ownWrong: number }[];
+};
