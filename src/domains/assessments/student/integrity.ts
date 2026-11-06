@@ -24,3 +24,11 @@ export function enterAssessmentFullscreen(): void {
   if (!canUseAssessmentFullscreen() || document.fullscreenElement) return;
   void document.documentElement.requestFullscreen().catch(() => undefined);
 }
+
+/** Phones and small touch tablets, including the Android app. */
+export function isPhoneLikeDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const native = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.() ?? false;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  return native || (coarse && Math.min(window.screen.width, window.screen.height) < 768);
+}

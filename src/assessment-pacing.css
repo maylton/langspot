@@ -298,3 +298,37 @@
   background: #3b2028;
   color: #ffb3bd;
 }
+
+/*
+ * The global mobile rule `main { min-height: 100vh }` (styles.css) also hit the assessment's
+ * <main> elements, pushing question navigation and the Previous/Next buttons below the fold.
+ */
+.assessment-runner-shell main.assessment-question-stage,
+.assessment-runner-shell main.assessment-stage-list {
+  min-height: 0;
+}
+
+.assessment-device-advice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid #f0cf97;
+  border-radius: 12px;
+  background: #fff8e9;
+  color: #75521d;
+}
+
+.assessment-device-advice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dark-theme .assessment-device-advice {
+  border-color: #72552b;
+  background: #2a2318;
+  color: #f1d299;
+}
