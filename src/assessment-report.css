@@ -36,7 +36,7 @@
 }
 
 .student-report-overall strong {
-  color: #7655f3;
+  color: #345995;
   font-size: 34px;
   line-height: 1;
 }
@@ -74,7 +74,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #7655f3;
+  background: #345995;
 }
 
 .student-report-skill > strong {
@@ -87,7 +87,7 @@
 }
 
 .student-report-skill > strong small {
-  color: #7655f3;
+  color: #345995;
   font-size: 11px;
 }
 
@@ -104,11 +104,11 @@
 }
 
 .student-report-delta.up {
-  color: #237a4b;
+  color: #237a69;
 }
 
 .student-report-delta.down {
-  color: #b4434f;
+  color: #b44369;
 }
 
 .student-report-delta.flat,
@@ -137,7 +137,7 @@
 }
 
 .student-report-note > div {
-  background: #f4f1ff;
+  background: #f0f5fb;
 }
 
 .student-report h3 {
@@ -192,9 +192,9 @@
   display: grid;
   gap: 12px;
   padding: 18px;
-  border: 1px solid #e4e0f6;
+  border: 1px solid #d7e2f3;
   border-radius: 16px;
-  background: #faf9ff;
+  background: #f9fbfd;
 }
 
 .teacher-report-note p {
@@ -221,7 +221,7 @@
 }
 
 .teacher-report-message {
-  color: #4d3aa8 !important;
+  color: #284675 !important;
 }
 
 .dark-theme .student-report,
@@ -236,7 +236,7 @@
 }
 
 .dark-theme .student-report-note > div {
-  background: #241f3d;
+  background: #1b2434;
 }
 
 .dark-theme .student-report-columns p,
@@ -251,15 +251,15 @@
 
 .dark-theme .student-report-overall strong,
 .dark-theme .student-report-skill > strong small {
-  color: #b3a2ff;
+  color: #7fa1d7;
 }
 
 .dark-theme .student-report-delta.up {
-  color: #7fd6a8;
+  color: #7fd6c5;
 }
 
 .dark-theme .student-report-delta.down {
-  color: #ff9aa5;
+  color: #ff9abc;
 }
 
 @media (max-width: 860px) {
@@ -318,7 +318,7 @@
   }
 
   .printing-student-report .student-report-note > div {
-    background: #f4f1ff !important;
+    background: #f0f5fb !important;
   }
 
   .printing-student-report .student-report p,

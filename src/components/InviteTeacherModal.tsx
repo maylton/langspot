@@ -343,8 +343,8 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
 
           .form-grid input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #325ca0;
+            box-shadow: 0 0 0 3px rgba(50,92,160,0.1);
           }
 
           .auth-message {
@@ -357,15 +357,15 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
           }
 
           .auth-message.error {
-            background: #fee;
-            border: 1px solid #fcc;
-            color: #c33;
+            background: #ffeef4;
+            border: 1px solid #ffccdd;
+            color: #cc3366;
           }
 
           .auth-message.success {
-            background: #efe;
-            border: 1px solid #cfc;
-            color: #393;
+            background: #eefffc;
+            border: 1px solid #ccfff5;
+            color: #339985;
           }
 
           .form-actions {
@@ -397,13 +397,13 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
           }
 
           .primary-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #325ca0 0%, #334a6e 100%);
             color: white;
           }
 
           .primary-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 5px 15px rgba(50,92,160,0.3);
           }
 
           .primary-button:disabled {
@@ -449,8 +449,8 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
           }
 
           .invitation-item:hover:not(.expired) {
-            border-color: #667eea;
-            background: #f5f7ff;
+            border-color: #325ca0;
+            background: #f5f8fc;
           }
 
           .invitation-item.expired {
@@ -482,7 +482,7 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
           }
 
           .invitation-item.expired .invitation-expires {
-            color: #c33;
+            color: #cc3366;
             font-weight: 500;
           }
 
@@ -507,15 +507,15 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
           }
 
           .copy-button:hover {
-            border-color: #667eea;
-            background: #f5f7ff;
-            color: #667eea;
+            border-color: #325ca0;
+            background: #f5f8fc;
+            color: #325ca0;
           }
 
           .delete-button:hover {
-            border-color: #ff5252;
-            background: #ffebee;
-            color: #ff5252;
+            border-color: #ff6052;
+            background: #ffebf2;
+            color: #ff6052;
           }
 
           .spin {
