@@ -1,3 +1,4 @@
+import { confirmAction, showAlert } from './components/dialogs';
 import {
   ArrowLeft,
   Award,
@@ -344,13 +345,13 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
   };
 
   const cancelScheduledLesson = async (id: Id) => {
-    if (settings.confirmCancellations && !window.confirm('Cancelar esta aula?')) return;
+    if (settings.confirmCancellations && !(await confirmAction({ title: 'Cancelar esta aula?', confirmLabel: 'Sim, cancelar', danger: true }))) return;
     try {
       await onCancelScheduledLesson?.(id);
       setSchedule((current) => current.map((lesson) => lesson.id === id ? { ...lesson, status: 'Cancelada' } : lesson));
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Erro desconhecido.';
-      window.alert(`Não foi possível cancelar a aula. ${detail}`);
+      void showAlert(`Não foi possível cancelar a aula. ${detail}`);
     }
   };
 
@@ -385,7 +386,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
 
   const deleteLessonRecord = async () => {
     if (!selected || !lessonRecordToDelete) return;
-    if (!window.confirm('Excluir este registro de aula? Esta ação não pode ser desfeita.')) return;
+    if (!(await confirmAction({ title: 'Excluir este registro de aula?', message: 'Esta ação não pode ser desfeita.', confirmLabel: 'Sim, excluir', danger: true }))) return;
     await onDeleteLessonRecord?.(lessonRecordToDelete.id);
     setSchedule((current) => current.filter((lesson) => lesson.id !== lessonRecordToDelete.id));
     setStudents((current) => current.map((student) => student.id === selected.id ? { ...student, lessons: student.lessons.filter((lesson) => lesson.id !== lessonRecordToDelete.id) } : student));
@@ -407,19 +408,19 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
       const material = onCreateMaterial ? await onCreateMaterial(data) : { ...data, url: data.file ? URL.createObjectURL(data.file) : data.url, fileName: data.file?.name, fileSize: data.file?.size, source: data.file ? ('upload' as const) : ('link' as const), id: crypto.randomUUID(), createdAt: toDateInput(new Date()), assignedStudentIds: [] };
       setMaterials((current) => [material, ...current]);
       setShowMaterialForm(false);
-    } catch (error) { window.alert(`Não foi possível salvar o material. ${error instanceof Error ? error.message : ''}`); }
+    } catch (error) { void showAlert(`Não foi possível salvar o material. ${error instanceof Error ? error.message : ''}`); }
   };
 
   const deleteMaterial = async () => {
     if (!materialToDelete) return;
     try { await onDeleteMaterial?.(materialToDelete.id); setMaterials((current) => current.filter((material) => material.id !== materialToDelete.id)); setMaterialToDelete(null); }
-    catch (error) { window.alert(`Não foi possível excluir o material. ${error instanceof Error ? error.message : ''}`); }
+    catch (error) { void showAlert(`Não foi possível excluir o material. ${error instanceof Error ? error.message : ''}`); }
   };
 
   const assignMaterial = async (studentIds: Id[]) => {
     if (!materialToAssign) return;
     try { await onAssignMaterial?.(materialToAssign.id, studentIds); setMaterials((current) => current.map((m) => m.id === materialToAssign.id ? { ...m, assignedStudentIds: studentIds } : m)); setMaterialToAssign(null); }
-    catch (error) { window.alert(`Não foi possível compartilhar o material. ${error instanceof Error ? error.message : ''}`); }
+    catch (error) { void showAlert(`Não foi possível compartilhar o material. ${error instanceof Error ? error.message : ''}`); }
   };
 
   const newLessonDraft = (): ScheduledLesson => ({ id: '', studentId: students[0]?.id ?? '', date: toDateInput(new Date()), startTime: '14:00', duration: settings.defaultDuration, topic: '', onlineUrl: settings.defaultOnlineUrl, status: 'Agendada', notes: '', homework: '' });
@@ -451,16 +452,16 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
     try {
       const created = onCreateAssignment ? await onCreateAssignment(input) : { ...input, id: crypto.randomUUID(), status: 'Pendente' as AssignmentStatus, createdAt: new Date().toISOString() };
       setAssignments((current) => [created, ...current]); setAssignmentFormMode(null);
-    } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível criar a tarefa.'); }
+    } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível criar a tarefa.'); }
   };
-  const deleteAssignment = async () => { if (!assignmentToDelete) return; try { await onDeleteAssignment?.(assignmentToDelete.id); setAssignments((current) => current.filter((item) => item.id !== assignmentToDelete.id)); setAssignmentToDelete(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a tarefa.'); } };
-  const reviewAssignment = async (feedback: string, grade?: number, textComments: TextComment[] = []) => { if (!assignmentToReview) return; try { await onReviewAssignment?.(assignmentToReview.id, feedback, grade, textComments); setAssignments((current) => current.map((item) => item.id === assignmentToReview.id ? { ...item, feedback, grade, textComments, status: 'Corrigida' } : item)); setAssignmentToReview(null); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar o feedback.'); } };
-  const addQuestionBankItem = async (input: QuestionBankInput) => { try { const created = onCreateQuestionBankItem ? await onCreateQuestionBankItem(input) : { ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() }; setQuestionBank((current) => [created, ...current]); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar a questão.'); } };
-  const deleteQuestionBankItem = async (id: Id) => { if (!window.confirm('Excluir esta questão do banco?')) return; try { await onDeleteQuestionBankItem?.(id); setQuestionBank((current) => current.filter((item) => item.id !== id)); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a questão.'); } };
+  const deleteAssignment = async () => { if (!assignmentToDelete) return; try { await onDeleteAssignment?.(assignmentToDelete.id); setAssignments((current) => current.filter((item) => item.id !== assignmentToDelete.id)); setAssignmentToDelete(null); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível excluir a tarefa.'); } };
+  const reviewAssignment = async (feedback: string, grade?: number, textComments: TextComment[] = []) => { if (!assignmentToReview) return; try { await onReviewAssignment?.(assignmentToReview.id, feedback, grade, textComments); setAssignments((current) => current.map((item) => item.id === assignmentToReview.id ? { ...item, feedback, grade, textComments, status: 'Corrigida' } : item)); setAssignmentToReview(null); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível salvar o feedback.'); } };
+  const addQuestionBankItem = async (input: QuestionBankInput) => { try { const created = onCreateQuestionBankItem ? await onCreateQuestionBankItem(input) : { ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() }; setQuestionBank((current) => [created, ...current]); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível salvar a questão.'); } };
+  const deleteQuestionBankItem = async (id: Id) => { if (!(await confirmAction({ title: 'Excluir esta questão do banco?', confirmLabel: 'Sim, excluir', danger: true }))) return; try { await onDeleteQuestionBankItem?.(id); setQuestionBank((current) => current.filter((item) => item.id !== id)); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível excluir a questão.'); } };
 
-  const createPayment = async (input: PaymentInput) => { try { const payment = onCreatePayment ? await onCreatePayment(input) : { ...input, id: crypto.randomUUID(), status: 'Pendente' as const, createdAt: new Date().toISOString() }; setPayments((current) => [payment, ...current]); setShowPaymentForm(false); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível criar a cobrança.'); } };
-  const updatePaymentStatus = async (id: Id, status: PaymentStatus) => { try { await onUpdatePaymentStatus?.(id, status); setPayments((current) => current.map((item) => item.id === id ? { ...item, status, paidAt: status === 'Pago' ? new Date().toISOString() : undefined } : item)); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível atualizar o pagamento.'); } };
-  const deletePayment = async (id: Id) => { if (!window.confirm('Excluir esta cobrança?')) return; try { await onDeletePayment?.(id); setPayments((current) => current.filter((item) => item.id !== id)); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a cobrança.'); } };
+  const createPayment = async (input: PaymentInput) => { try { const payment = onCreatePayment ? await onCreatePayment(input) : { ...input, id: crypto.randomUUID(), status: 'Pendente' as const, createdAt: new Date().toISOString() }; setPayments((current) => [payment, ...current]); setShowPaymentForm(false); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível criar a cobrança.'); } };
+  const updatePaymentStatus = async (id: Id, status: PaymentStatus) => { try { await onUpdatePaymentStatus?.(id, status); setPayments((current) => current.map((item) => item.id === id ? { ...item, status, paidAt: status === 'Pago' ? new Date().toISOString() : undefined } : item)); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível atualizar o pagamento.'); } };
+  const deletePayment = async (id: Id) => { if (!(await confirmAction({ title: 'Excluir esta cobrança?', confirmLabel: 'Sim, excluir', danger: true }))) return; try { await onDeletePayment?.(id); setPayments((current) => current.filter((item) => item.id !== id)); } catch (error) { void showAlert(error instanceof Error ? error.message : 'Não foi possível excluir a cobrança.'); } };
 
   const saveSettings = (next: PlatformSettings) => { setSettings(next); void onProfileSettingsChange?.(next); };
 
@@ -600,7 +601,7 @@ function SettingsPage({ settings, authenticatedMode, accountAccess, onSave, coun
   const update = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const updateInterface = <K extends 'compactMode' | 'theme'>(key: K, value: PlatformSettings[K]) => { update(key, value); onSave({ ...draft, [key]: value }); };
   const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onSave(draft); setSaved(true); window.setTimeout(() => setSaved(false), 1800); };
-  const reset = () => { if (window.confirm('Restaurar os dados de exemplo? Seus dados atuais serão substituídos.')) onReset(); };
+  const reset = async () => { if (await confirmAction({ title: 'Restaurar os dados de exemplo?', message: 'Seus dados atuais serão substituídos.', confirmLabel: 'Sim, restaurar', danger: true })) onReset(); };
   const selectAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1121,15 +1122,15 @@ function AssignmentModal({ students, materials, questionBank, mode, onClose, onS
   const removeBankQuestion = (id: Id) => setSelectedBankQuestions((current) => current.filter((item) => item.id !== id));
   const removeAiQuestion = (id: Id) => setAiQuestions((current) => current.filter((item) => item.id !== id));
   const buildAutomaticQuiz = () => {
-    if (!bankQuestions.length) { window.alert(`Nenhuma questão Grammar cadastrada para ${bankLevel}.`); return; }
+    if (!bankQuestions.length) { void showAlert(`Nenhuma questão Grammar cadastrada para ${bankLevel}.`); return; }
     const count = Math.max(1, Math.min(autoQuestionCount, bankQuestions.length));
     const shuffled = [...bankQuestions].sort(() => Math.random() - 0.5);
     setSelectedBankQuestions(shuffled.slice(0, count));
   };
   const generateAiQuestions = async () => {
-    if (!supabase) { window.alert('Configure o Supabase para usar a geração com IA.'); return; }
+    if (!supabase) { void showAlert('Configure o Supabase para usar a geração com IA.'); return; }
     const topic = aiTopic.trim();
-    if (!topic) { window.alert('Informe um tema para a IA gerar as questões.'); return; }
+    if (!topic) { void showAlert('Informe um tema para a IA gerar as questões.'); return; }
     setAiBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-quiz', { body: { topic, level: bankLevel, count: aiQuestionCount, category: 'Grammar' } });
@@ -1138,7 +1139,7 @@ function AssignmentModal({ students, materials, questionBank, mode, onClose, onS
       if (!questions.length) throw new Error('A IA não retornou questões válidas.');
       setAiQuestions((current) => [...current, ...questions]);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Não foi possível gerar questões com IA.');
+      void showAlert(error instanceof Error ? error.message : 'Não foi possível gerar questões com IA.');
     } finally {
       setAiBusy(false);
     }
@@ -1147,7 +1148,7 @@ function AssignmentModal({ students, materials, questionBank, mode, onClose, onS
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const interactiveContent = assignmentType === 'interactive' ? buildInteractiveContent(form, questionCount, selectedBankQuestions, aiQuestions) : null;
-    if (assignmentType === 'interactive' && !(interactiveContent?.questions.length)) { window.alert('Adicione pelo menos uma pergunta com enunciado e gabarito.'); return; }
+    if (assignmentType === 'interactive' && !(interactiveContent?.questions.length)) { void showAlert('Adicione pelo menos uma pergunta com enunciado e gabarito.'); return; }
     onSave({ studentId: String(form.get('studentId')), materialId: String(form.get('materialId') || '') || undefined, title: String(form.get('title')), instructions: String(form.get('instructions')), dueDate: String(form.get('dueDate')), assignmentType, interactiveContent });
   };
   return <Modal title={mode === 'interactive' ? 'Novo quiz' : 'Nova tarefa'} onClose={onClose}><form className="form-grid" onSubmit={submit}>
@@ -1307,7 +1308,7 @@ function QuestionBankModal({ questions, onClose, onCreate, onDelete }: { questio
           ? formatOrderingAnswer(options)
           : String(form.get('textAnswer') || '').trim();
     if (!prompt || !answer || (type === 'multiple_choice' && options.length < 2) || (type === 'ordering' && options.length < 2)) {
-      window.alert('Preencha o enunciado, o gabarito e as alternativas necessárias.');
+      void showAlert('Preencha o enunciado, o gabarito e as alternativas necessárias.');
       return;
     }
     setSaving(true);

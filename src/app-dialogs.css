@@ -1,0 +1,20 @@
+/* In-app confirm / alert / type-to-confirm dialogs (src/components/dialogs.tsx). */
+.app-dialog-backdrop{z-index:400}
+.app-dialog{width:min(440px,100%);display:grid;gap:10px;padding:24px}
+.app-dialog-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#e8eef8;color:#2b4a7d}
+.app-dialog.danger .app-dialog-icon{background:#fff1f6;color:#c23866}
+.app-dialog h2{margin:4px 0 0;font-size:18px;line-height:1.35;overflow-wrap:anywhere}
+.app-dialog-message{margin:0;color:#596579;line-height:1.5;white-space:pre-line}
+.app-dialog-type{display:grid;gap:7px;color:#536075;font-size:12px;font-weight:700}
+.app-dialog-type input{width:100%;border:1px solid #dfe4ec;border-radius:11px;padding:11px 12px;background:#fafbfc;color:#172033;font:inherit;letter-spacing:.06em}
+.app-dialog-type input:focus{outline:none;border-color:#c23866;box-shadow:0 0 0 3px #ffe3ec}
+.app-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
+.app-dialog-actions>button{min-height:40px;padding:0 16px;border-radius:12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:none;margin:0;width:auto}
+.app-dialog-danger{border:0;background:#c23866;color:#fff}
+.app-dialog-danger:hover:not(:disabled){background:#a92e57}
+.app-dialog-actions>button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.dark-theme .app-dialog-icon{background:#1b273b;color:#aac0e4}
+.dark-theme .app-dialog.danger .app-dialog-icon{background:#3a222a;color:#ffb8d0}
+.dark-theme .app-dialog-message{color:#b8c2d3}
+.dark-theme .app-dialog-type input{background:#101827;border-color:#344155;color:#edf1f8}
+@media(max-width:620px){.app-dialog-actions{flex-direction:column-reverse}.app-dialog-actions>button{width:100%}}
