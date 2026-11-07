@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, Eye, FileAudio, Mic, Plus, Save, Send, Trash2, UploadCloud, UserRound } from 'lucide-react';
+import { ArrowLeft, Eye, FileAudio, Mic, Plus, Save, Send, Sparkles, Trash2, UploadCloud, UserRound } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { joinOrderingAnswer, type QuestionType } from '../../questions';
 import { canAdministerLive, isLiveQuestion, validateAssessmentDraft } from '../validator';
@@ -11,7 +11,7 @@ export type AssessmentBankQuestion = Omit<AssessmentQuestionSnapshot, 'type'> & 
 
 const newSection = (): AssessmentDraftSection => ({ id: crypto.randomUUID(), title: 'Nova seção', skill: 'grammar', instructions: '', weight: 1, drawCount: null, cefrLevel: null, construct: '', taskletKind: 'primary', confirmationForSectionId: null, questions: [] });
 
-export function AssessmentEditor({ client, teacherId, initialDraft, bank, listeningEnabled = true, onBack, onSave, onPublish }: {
+export function AssessmentEditor({ client, teacherId, initialDraft, bank, listeningEnabled = true, onBack, onSave, onPublish, onUseReadyMade }: {
   client: SupabaseClient;
   /** When false the Listening module is hidden (server-side flag `listening`). */
   listeningEnabled?: boolean;
@@ -21,6 +21,8 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
   onBack: () => void;
   onSave: (draft: AssessmentDraft) => Promise<string>;
   onPublish: (draft: AssessmentDraft) => Promise<void>;
+  /** Leaves the editor and opens the ready-made level tests. Shown while the draft has no questions. */
+  onUseReadyMade?: () => void;
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [preview, setPreview] = useState(false);
@@ -107,6 +109,7 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
       </div>
     </div>
     {message && <div className="assessment-message" role="alert">{message}</div>}
+    {onUseReadyMade && draft.sections.every((section) => !section.questions.length) && <aside className="assessment-ready-made-hint"><Sparkles size={18} /><div><strong>Esta prova ainda não tem questões.</strong><span>Para verificar o nível de um aluno, use uma prova pronta: ela vem completa, com questões revisadas de cada habilidade.</span></div><button type="button" className="secondary-button compact" onClick={onUseReadyMade}>Ver provas prontas</button></aside>}
     {!listeningEnabled && draft.sections.some((section) => section.skill === 'listening' || section.questions.some((question) => question.snapshot.type === 'listening' || question.snapshot.skill === 'listening')) && <div className="assessment-message" role="status">Listening está desativado no momento. Remova as seções e questões de Listening para publicar esta avaliação, ou gere o Level Check de novo pelo menu “Nova avaliação”.</div>}
     {preview ? <AssessmentPreview draft={draft} /> : <>
       <section className="assessment-settings-grid">

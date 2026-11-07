@@ -59,6 +59,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [queueOpen, setQueueOpen] = useState(false);
   const [listeningEnabled, setListeningEnabled] = useState(ASSESSMENT_LISTENING_DEFAULT);
   const [pendingReviews, setPendingReviews] = useState(0);
+  const [generating, setGenerating] = useState(false);
   const [deleting, setDeleting] = useState<{ assessment: AssessmentRow; impact: AssessmentDeletionImpact | null; loading: boolean; busy: boolean } | null>(null);
 
   const load = useCallback(async () => {
@@ -81,13 +82,13 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     setBusy(false);
   };
   const createLevelCheck = async (presetId: string, selectionSeed?: string) => {
-    setBusy(true); setMessage('');
+    setBusy(true); setGenerating(true); setMessage('');
     try {
       const assessmentId = await generateAssessmentFromPreset(client, presetId, undefined, selectionSeed);
       setDraft(await loadAssessmentDraft(client, assessmentId));
       setCreationOpen(false);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível gerar o Level Check.'); }
-    setBusy(false);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível montar a prova pronta.'); }
+    setBusy(false); setGenerating(false);
   };
   const save = useCallback((value: AssessmentDraft) => saveAssessmentDraft(client, value), [client]);
   const publish = async (value: AssessmentDraft) => {
@@ -130,16 +131,38 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
 
   if (liveSession) return <LiveAssessmentSession client={client} attemptId={liveSession.attemptId} onBack={() => { setLiveSession(null); void load(); }} onOpenResults={() => { setResultsFor(liveSession.assessment); setLiveSession(null); }} />;
   if (queueOpen) return <ReviewQueue client={client} onBack={() => { setQueueOpen(false); void load(); }} onOpenLive={(item) => { const assessment = items.find((entry) => entry.id === item.assessmentId); if (assessment) { setQueueOpen(false); setLiveSession({ attemptId: item.attemptId, assessment }); } }} />;
-  if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} listeningEnabled={listeningEnabled} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} />;
+  if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} listeningEnabled={listeningEnabled} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} onUseReadyMade={() => { setDraft(null); setCreationOpen(true); void load(); }} />;
   if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} studentNames={new Map(students.map((student) => [student.id, student.name]))} onBack={() => setResultsFor(null)} />;
   if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} />;
   if (analyticsFor) return <CefrAnalytics client={client} assessment={analyticsFor} onBack={() => setAnalyticsFor(null)} />;
   return <section className="assessment-dashboard">
     <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setCreationOpen((value) => !value)}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setQueueOpen(true)}><Inbox size={17} />Fila de correção{pendingReviews ? <span className="review-queue-badge">{pendingReviews}</span> : null}</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
-    {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação"><header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header><div className="assessment-creation-primary"><button type="button" onClick={() => setDraft(emptyDraft())}><strong>Blank Assessment</strong><span>Comece com uma estrutura vazia e configure tudo manualmente.</span></button><button type="button" onClick={() => setDraft(cefrPlacementDraft(listeningEnabled))}><strong>General CEFR Placement</strong><span>Estime a faixa CEFR de um estudante cujo nível ainda é desconhecido.</span></button></div><div className="assessment-level-checks"><div><span>CEFR LEVEL CHECK</span><h4>Confirme a consolidação de um nível</h4>{!listeningEnabled && <small>Listening está desativado enquanto os áudios são produzidos: os Level Checks usam Reading, Language Use e as tarefas produtivas.</small>}</div>{presets.map((preset) => <div className="assessment-level-check-option" key={preset.id}><button type="button" disabled={busy} onClick={() => void createLevelCheck(preset.id)}><strong>{preset.name}</strong><span>{preset.floorLevel ? `Floor ${preset.floorLevel} · ` : ''}Target {preset.targetLevel}{preset.ceilingLevel ? ` · Ceiling ${preset.ceilingLevel}` : ''}</span><small>{preset.purpose}</small><em>{preset.estimatedDurationMinMinutes}–{preset.estimatedDurationMaxMinutes} min</em></button><button type="button" className="assessment-new-form" disabled={busy} title="Gera outra seleção de itens com a mesma estrutura, para outra turma ou reaplicação" onClick={() => void createLevelCheck(preset.id, newFormSeed())}>Gerar nova forma</button></div>)}</div></section>}
+    {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação" ref={(node) => node?.scrollIntoView({ block: 'nearest' })}>
+      <header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header>
+      <div className="assessment-level-checks">
+        <div className="assessment-creation-group"><span>PROVA PRONTA · RECOMENDADO</span><h4>Verificar se o aluno está em um nível</h4><small>Escolha o nível. A prova completa (Reading, Language Use, Writing, Speaking e Mediação) é montada automaticamente com questões revisadas do banco CEFR. Depois é só revisar, publicar e atribuir ao aluno.{!listeningEnabled && ' Por enquanto as provas não têm Listening (os áudios ainda estão sendo produzidos).'}</small></div>
+        {presets.length ? presets.map((preset) => <div className="assessment-level-check-option" key={preset.id}>
+          <button type="button" disabled={busy} onClick={() => void createLevelCheck(preset.id)} aria-label={`Criar prova pronta de nível ${preset.targetLevel}`}>
+            <b className="assessment-level-badge">{preset.targetLevel}</b>
+            <strong>Prova de nível {preset.targetLevel}</strong>
+            <small>{preset.purpose}</small>
+            <span>{[preset.floorLevel, preset.ceilingLevel].filter(Boolean).length ? `Inclui questões de ${[preset.floorLevel, preset.ceilingLevel].filter(Boolean).join(' e ')} para confirmar a faixa.` : ''}</span>
+            <em>{preset.estimatedDurationMinMinutes}–{preset.estimatedDurationMaxMinutes} min</em>
+          </button>
+          <button type="button" className="assessment-new-form" disabled={busy} title="Monta outra seleção de questões com a mesma estrutura, para outro aluno ou para reaplicar a prova" onClick={() => void createLevelCheck(preset.id, newFormSeed())}>Gerar outra versão</button>
+        </div>) : <p className="assessment-creation-empty">As provas prontas não carregaram. Feche e abra este menu de novo; se continuar, recarregue a página.</p>}
+      </div>
+      <div className="assessment-creation-manual">
+        <div className="assessment-creation-group"><span>MONTAR DO ZERO</span><small>Para quem quer escolher cada seção e questão manualmente.</small></div>
+        <div className="assessment-creation-primary">
+          <button type="button" onClick={() => setDraft(emptyDraft())}><strong>Prova em branco</strong><span>Crie as seções e adicione questões do banco ou suas próprias.</span></button>
+          <button type="button" onClick={() => setDraft(cefrPlacementDraft(listeningEnabled))}><strong>Nivelamento CEFR (estrutura vazia)</strong><span>Seções de A1 a C2 já criadas, sem questões: você escolhe cada item. Para aluno sem nível conhecido.</span></button>
+        </div>
+      </div>
+    </section>}
     {message && <div className="assessment-message" role="alert">{message}</div>}
     {deleting && <DeleteAssessmentDialog title={deleting.assessment.title} impact={deleting.impact} loadingImpact={deleting.loading} busy={deleting.busy} onConfirm={() => void confirmDelete()} onCancel={() => setDeleting(null)} />}
-    {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
+    {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />{generating ? 'Montando a prova pronta…' : 'Carregando avaliações…'}</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Rascunho' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><button type="button" className="icon-button danger assessment-delete-button" title="Excluir avaliação" aria-label={`Excluir ${assessment.title}`} onClick={() => void askDelete(assessment)}><Trash2 size={15} /></button></div>
       <h3>{assessment.title}</h3><p>{assessment.description || 'Sem descrição.'}</p>
       <dl><div><dt>Tipo</dt><dd>{assessment.type}</dd></div><div><dt>Tempo</dt><dd>{assessment.time_limit_minutes ? `${assessment.time_limit_minutes} min` : 'Livre'}</dd></div><div><dt>Versão</dt><dd>{assessment.version}</dd></div></dl>
