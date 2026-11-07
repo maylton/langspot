@@ -50,6 +50,7 @@ before_v0_3=(
 from_v0_3=(
   20261106160000_pilot_bank_v0_3_and_disable_listening.sql
   20261106170000_add_assessment_section_pacing.sql
+  20261106180000_restrict_pilot_bank_to_teachers.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql
