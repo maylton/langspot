@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-export const PILOT_VERSION = 'pilot-0.5';
+export const PILOT_VERSION = 'pilot-0.6';
 export const PILOT_STATUS = 'approved_for_pilot';
 export const PSYCHOMETRIC_STATUS = 'uncalibrated';
 // Above this share, choosing the longest option is a usable test-taking strategy.
@@ -337,6 +337,17 @@ export function validatePilotBank(bank) {
       }
     }
   }
+  // v0.6 rule: the key must not give itself away by length in Language Use either.
+  for (const level of CEFR_LEVELS) {
+    const languageUse = objective.filter((item) => item.level === level && item.skill === 'language_use');
+    const keyIsLongest = languageUse.filter((item) => {
+      const lengths = item.options.map((option) => option.length);
+      return item.answer.length === Math.max(...lengths) && lengths.filter((length) => length === item.answer.length).length === 1;
+    }).length;
+    if (languageUse.length && keyIsLongest / languageUse.length > MAX_KEY_IS_LONGEST_SHARE) {
+      errors.push(`${level}: the key is the longest option in ${keyIsLongest}/${languageUse.length} Language Use items (max ${MAX_KEY_IS_LONGEST_SHARE * 100}%).`);
+    }
+  }
   const languageUseStems = new Map();
   for (const item of objective.filter(({ skill }) => skill === 'language_use')) {
     const stem = item.prompt.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -363,13 +374,13 @@ const sqlLiteral = (value) => value === null || value === undefined ? 'null' : `
 const jsonLiteral = (value) => value === null || value === undefined ? 'null' : `${sqlLiteral(JSON.stringify(value))}::jsonb`;
 
 export function buildSeedSql(bank) {
-  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md. Do not edit pedagogical content here.\n` +
+  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md. Do not edit pedagogical content here.\n` +
 `begin;\nselect private.import_cefr_pilot_bank(\n  ${jsonLiteral(bank.tasklets)},\n  ${jsonLiteral(bank.items)}\n);\nselect private.validate_cefr_pilot_bank('${PILOT_VERSION}');\ncommit;\n`;
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md');
+  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md');
   const outputArg = args.find((arg) => arg.startsWith('--output='));
   const markdown = await readFile(source, 'utf8');
   const bank = parsePilotBank(markdown);

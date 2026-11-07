@@ -1,4 +1,4 @@
-# Guia de elaboração de itens de compreensão (Reading e Listening)
+# Guia de elaboração de itens de múltipla escolha (Reading, Listening e Language Use)
 
 Vale para o Pilot Bank a partir da versão 0.5 e para qualquer item novo de múltipla escolha baseado
 em texto. As regras marcadas com ✔ são verificadas automaticamente por `scripts/cefr-pilot-bank.mjs`.
@@ -77,6 +77,44 @@ Exemplos do próprio banco (v0.5):
   partir da v0.4.
 - **Listening** (desativado no momento) ainda não foi revisado. Aplique este guia antes de reativá-lo.
 
+## Language Use (gramática e vocabulário)
+
+### Como as provas de referência medem
+
+| Prova | Formato | O que diferencia as opções |
+|---|---|---|
+| Cambridge B1 Preliminary / B2 First (Use of English) | Textos com lacunas: múltipla escolha, lacuna aberta, formação de palavras e reescrita com palavra-chave | As quatro opções são da mesma classe e quase sinônimas; só uma cabe por **colocação, regência ou padrão gramatical** (*It is **believed to** be* × *regarded as*) |
+| Linguaskill (Cambridge) | Frases com lacuna (3–4 opções) e textos com lacuna, de múltipla escolha ou abertos | Opções reais, plausíveis, uma única correta |
+| Aptis (British Council) | 25 frases de gramática (3 opções) e 25 de vocabulário: sinônimo, sentido no contexto, definição e colocação | Pontos gramaticais tirados do *British Council/EAQUALS Core Inventory* por nível |
+
+O nosso formato (frase com lacuna, 4 opções) corresponde às "gapped sentences" do Linguaskill e à parte de
+gramática do Aptis. O nível de cada estrutura e de cada palavra deve ser conferido no *English Grammar
+Profile* e no *English Vocabulary Profile* (Cambridge), que registram em que nível CEFR os aprendizes passam
+a usar cada item.
+
+### Regras
+
+- ✔ **Tamanho não pode indicar a resposta**, como em Reading: no máximo 35% por nível.
+- **Só formas reais.** Toda opção é uma palavra, forma ou frase que existe em inglês e está errada **só
+  naquele contexto**. Invenções como *create up*, *increases up*, *whose it*, *did we have seen* são
+  eliminadas sem conhecer a estrutura testada.
+- **Distratores vindos de erros reais.** Os melhores distratores são os erros que os alunos cometem. Para
+  falantes de português: *lose the bus*, *make a photo*, *take a conclusion*, *is believed that*, *it can
+  rain later*, *rise* × *raise*, *succeed to*.
+- **Mesma classe e mesma função.** Em vocabulário, as quatro opções são da mesma classe (quatro adjetivos,
+  quatro verbos). Em gramática, todas preenchem a mesma posição sintática.
+- **Um único gabarito, no inglês britânico e no americano.** Elimine a opção que algum desses usos aceita
+  (*take a decision* é britânico; *I didn't finish it yet* é americano; *criticism diluted by praise* é
+  correto). Na dúvida, troque a opção.
+- **Itens funcionais** (respostas em diálogo): os distratores são respostas coerentes e gramaticais para a
+  função errada. Exemplo: *Do you mind if I open the window?* → *Yes, please do.* (sim = "me incomoda").
+  Respostas absurdas ou com erro gramatical não servem.
+- **Itens de registro:** as quatro frases são gramaticais e de tom parecido. A diferença está em um ou dois
+  traços (imperativo sem atenuação, quantificador informal, certeza excessiva), nunca em caricaturas como
+  *like*, *totally* ou *terrible*.
+
+A v0.6 revisou 46 dos 90 itens de Language Use com essas regras. Os demais já as seguiam.
+
 ## Referências
 
 - CAMBRIDGE ASSESSMENT ENGLISH. *B2 First: handbook for teachers*. Cambridge: UCLES. Disponível em:
@@ -85,6 +123,17 @@ Exemplos do próprio banco (v0.5):
   https://www.cambridgeenglish.org/Images/168150-b1-preliminary-teachers-handbook.pdf. Acesso em: 7 nov. 2026.
 - HALADYNA, T. M.; DOWNING, S. M.; RODRIGUEZ, M. C. A review of multiple-choice item-writing guidelines
   for classroom assessment. *Applied Measurement in Education*, v. 15, n. 3, p. 309-333, 2002.
+- BRITISH COUNCIL. *Aptis grammar and vocabulary test*. Disponível em:
+  https://www.britishcouncil.org/exam/aptis/practice-materials/grammar-vocabulary. Acesso em: 7 nov. 2026.
+- CAMBRIDGE ASSESSMENT ENGLISH. *Linguaskill: exam format and task types*. Disponível em:
+  https://www.cambridgeenglish.org/exams-and-tests/linguaskill/information-about-the-exam/exam-formats-and-task-types/.
+  Acesso em: 7 nov. 2026.
+- O'KEEFFE, A.; MARK, G. The English Grammar Profile of learner competence: methodology and key findings.
+  *International Journal of Corpus Linguistics*, v. 22, n. 4, p. 457-489, 2017.
+- CAPEL, A. The English Vocabulary Profile. In: HARRISON, J.; BARKER, F. (ed.). *English Profile in
+  practice*. Cambridge: Cambridge University Press, 2015.
+- NORTH, B.; ORTEGA, A.; SHEEHAN, S. *British Council – EAQUALS Core Inventory for General English*.
+  London: British Council, 2010.
 - EUROPEAN BOARD OF MEDICAL ASSESSORS. *Guidelines for writing multiple-choice questions*. 2017.
   Disponível em: https://www.ebma.eu/wp-content/uploads/2019/02/EBMA-guidelines-for-item-writing-version-2017_3.pdf.
   Acesso em: 7 nov. 2026.

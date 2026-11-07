@@ -76,7 +76,7 @@ export async function listCefrLevelCheckPresets(client: SupabaseClient): Promise
   }));
 }
 
-export const CURRENT_PILOT_BANK_VERSION = 'pilot-0.5';
+export const CURRENT_PILOT_BANK_VERSION = 'pilot-0.6';
 
 export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = CURRENT_PILOT_BANK_VERSION, selectionSeed = 'pilot-form-1'): Promise<string> {
   const { data, error } = await client.rpc('generate_assessment_from_preset', { p_preset_id: presetId, p_bank_version: bankVersion, p_selection_seed: selectionSeed });
