@@ -386,3 +386,28 @@ export type LiveAssessmentSession = {
   studentQuestionCount: number;
   questions: LiveAssessmentQuestion[];
 };
+
+export type ReviewQueueItem = {
+  responseId: string;
+  attemptId: string;
+  attemptStatus: AssessmentAttemptStatus;
+  assessmentId: string;
+  assessmentTitle: string;
+  studentId: string;
+  studentName: string | null;
+  questionId: string;
+  prompt: string;
+  type: QuestionType;
+  skill: AssessmentSectionSkill;
+  cefr: CefrLevel | null;
+  live: boolean;
+  taskType: string | null;
+  primaryEvidence: string | null;
+  operationalDescriptor: string | null;
+  responseConstraints: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string } | null;
+  sourceMaterial: string | null;
+  submittedAt: string | null;
+};
+
+export type ReviewQueueReadyAttempt = { attemptId: string; assessmentId: string; assessmentTitle: string; studentId: string; studentName: string | null; submittedAt: string | null };
+export type ReviewQueue = { items: ReviewQueueItem[]; readyToFinalize: ReviewQueueReadyAttempt[] };

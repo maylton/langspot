@@ -20,6 +20,7 @@ docker cp "$repo_dir/supabase/tests/cefr_a2_b1_placement_smoke.sql" "$container_
 docker cp "$repo_dir/supabase/tests/cefr_level_check_followup_smoke.sql" "$container_name:/tmp/level-check-followup-smoke.sql" >/dev/null
 docker cp "$repo_dir/supabase/tests/live_assessment_smoke.sql" "$container_name:/tmp/live-smoke.sql" >/dev/null
 docker cp "$repo_dir/supabase/tests/report_notes_smoke.sql" "$container_name:/tmp/report-notes-smoke.sql" >/dev/null
+docker cp "$repo_dir/supabase/tests/review_queue_smoke.sql" "$container_name:/tmp/review-queue-smoke.sql" >/dev/null
 docker cp "$repo_dir/supabase/seed.sql" "$container_name:/tmp/pilot-seed.sql" >/dev/null
 migrations=(
   20260903204901_create_assessments_foundation.sql
@@ -36,6 +37,7 @@ migrations=(
   20261106120000_drop_legacy_review_assessment_response.sql
   20261106130000_add_live_assessment_administration.sql
   20261106140000_add_assessment_report_notes.sql
+  20261106150000_add_assessment_review_queue.sql
 )
 for index in "${!migrations[@]}"; do
   number=$((index + 1))
@@ -55,3 +57,4 @@ docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/a2-b1-
 docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/level-check-followup-smoke.sql
 docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/live-smoke.sql
 docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/report-notes-smoke.sql
+docker exec "$container_name" psql -v ON_ERROR_STOP=1 -U postgres -f /tmp/review-queue-smoke.sql
