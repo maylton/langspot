@@ -209,7 +209,7 @@ export function InviteAcceptance({
           align-items: center;
           justify-content: center;
           padding: 1rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #325ca0 0%, #334a6e 100%);
         }
 
         .invite-card {
@@ -239,12 +239,12 @@ export function InviteAcceptance({
         }
 
         .invite-error {
-          background: #fee;
-          border: 1px solid #fcc;
+          background: #ffeef4;
+          border: 1px solid #ffccdd;
           border-radius: 8px;
           padding: 0.75rem 1rem;
           margin-bottom: 1.5rem;
-          color: #c33;
+          color: #cc3366;
           font-size: 0.9rem;
           display: flex;
           align-items: center;
@@ -274,8 +274,8 @@ export function InviteAcceptance({
 
         .form-section input:focus {
           outline: none;
-          border-color: #667eea;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+          border-color: #325ca0;
+          box-shadow: 0 0 0 3px rgba(50,92,160,0.1);
         }
 
         .invite-password-field {
@@ -304,8 +304,8 @@ export function InviteAcceptance({
         }
 
         .invite-password-field button:hover {
-          background: rgba(102, 126, 234, 0.1);
-          color: #667eea;
+          background: rgba(50,92,160,0.1);
+          color: #325ca0;
         }
 
         .input-disabled {
@@ -322,7 +322,7 @@ export function InviteAcceptance({
         .submit-button {
           width: 100%;
           padding: 0.75rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #325ca0 0%, #334a6e 100%);
           color: white;
           border: none;
           border-radius: 6px;
@@ -338,7 +338,7 @@ export function InviteAcceptance({
 
         .submit-button:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+          box-shadow: 0 10px 20px rgba(50,92,160,0.3);
         }
 
         .submit-button:disabled {
@@ -360,7 +360,7 @@ export function InviteAcceptance({
         }
 
         .invite-footer a {
-          color: #667eea;
+          color: #325ca0;
           text-decoration: none;
           font-weight: 600;
         }
@@ -375,7 +375,7 @@ export function InviteAcceptance({
           align-items: center;
           justify-content: center;
           padding: 1rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #325ca0 0%, #334a6e 100%);
         }
 
         .success-content {
@@ -394,10 +394,10 @@ export function InviteAcceptance({
           justify-content: center;
           width: 80px;
           height: 80px;
-          background: #e8f5e9;
+          background: #e8f5f2;
           border-radius: 50%;
           margin: 0 auto 1.5rem;
-          color: #4caf50;
+          color: #4caf9b;
         }
 
         .success-content h2 {
@@ -422,7 +422,7 @@ export function InviteAcceptance({
           margin-top: 2rem;
           display: flex;
           justify-content: center;
-          color: #667eea;
+          color: #325ca0;
         }
 
         .spin {

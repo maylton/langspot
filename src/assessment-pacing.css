@@ -4,9 +4,9 @@
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid #e4e0f6;
+  border: 1px solid #d7e2f3;
   border-radius: 12px;
-  background: #faf9ff;
+  background: #f9fbfd;
 }
 
 .assessment-pacing-option p {
@@ -65,17 +65,17 @@
 }
 
 .assessment-stage.done .assessment-stage-icon {
-  color: #23885a;
+  color: #238874;
 }
 
 .assessment-stage.open,
 .assessment-stage.available {
-  border-color: #c9bcff;
+  border-color: #afc4e6;
 }
 
 .assessment-stage.open .assessment-stage-icon,
 .assessment-stage.available .assessment-stage-icon {
-  color: #7655f3;
+  color: #345995;
 }
 
 .assessment-stage.locked {
@@ -87,8 +87,8 @@
   margin: 0 auto;
   padding: 10px 14px;
   border-radius: 10px;
-  background: #edf9f3;
-  color: #27694d;
+  background: #edf9f7;
+  color: #27695c;
 }
 
 .assessment-stage-confirm {
@@ -100,10 +100,10 @@
   margin: 0 auto;
   width: min(900px, 100%);
   padding: 14px 16px;
-  border: 1px solid #f0cf97;
+  border: 1px solid #f0dd97;
   border-radius: 12px;
-  background: #fff8e9;
-  color: #75521d;
+  background: #fffae9;
+  color: #75621d;
 }
 
 .assessment-stage-confirm p {
@@ -116,7 +116,7 @@
 }
 
 .assessment-clock-warning {
-  color: #b4434f;
+  color: #b44369;
   font-weight: 800;
 }
 
@@ -134,10 +134,10 @@
 .assessment-confirmation-code {
   justify-self: center;
   padding: 10px 22px;
-  border: 1px dashed #9a7cff;
+  border: 1px dashed #4173c3;
   border-radius: 12px;
-  background: #f4f1ff;
-  color: #4d3aa8;
+  background: #f0f5fb;
+  color: #284675;
   font-size: 32px;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
@@ -175,20 +175,20 @@
 }
 
 .dark-theme .assessment-stage-notice {
-  background: #172a23;
-  color: #aee5ca;
+  background: #172a26;
+  color: #aee5da;
 }
 
 .dark-theme .assessment-stage-confirm {
-  border-color: #72552b;
-  background: #2a2318;
-  color: #f1d299;
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
 }
 
 .dark-theme .assessment-confirmation-code {
-  border-color: #8d75ed;
-  background: #241f3d;
-  color: #d3c9ff;
+  border-color: #3766b0;
+  background: #1b2434;
+  color: #c4d5f0;
 }
 
 @media (max-width: 560px) {
@@ -218,13 +218,13 @@
   padding: 6px 10px;
   border-color: transparent;
   background: transparent;
-  color: #684be1;
+  color: #2b4a7d;
   font-size: 11px;
   font-weight: 700;
 }
 
 .assessment-level-checks .assessment-new-form:hover {
-  border-color: #c9bcff;
+  border-color: #afc4e6;
 }
 
 /* Integrity: fullscreen reminder and server-side signals. */
@@ -237,10 +237,10 @@
   width: min(900px, 100%);
   margin: 0 auto;
   padding: 10px 14px;
-  border: 1px solid #f0cf97;
+  border: 1px solid #f0dd97;
   border-radius: 12px;
-  background: #fff8e9;
-  color: #75521d;
+  background: #fffae9;
+  color: #75621d;
 }
 
 .assessment-server-signals {
@@ -274,19 +274,19 @@
 }
 
 .assessment-server-signals li.flagged {
-  background: #fff1f2;
-  color: #9b2c3a;
+  background: #fff1f6;
+  color: #9b2c51;
 }
 
 .dark-theme .assessment-level-checks .assessment-new-form {
   background: transparent;
-  color: #c8bcff;
+  color: #afc4e6;
 }
 
 .dark-theme .assessment-fullscreen-banner {
-  border-color: #72552b;
-  background: #2a2318;
-  color: #f1d299;
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
 }
 
 .dark-theme .assessment-server-signals li {
@@ -295,8 +295,8 @@
 }
 
 .dark-theme .assessment-server-signals li.flagged {
-  background: #3b2028;
-  color: #ffb3bd;
+  background: #3b2029;
+  color: #ffb3cc;
 }
 
 /*
@@ -315,10 +315,10 @@
   align-items: start;
   margin: 10px 0 4px;
   padding: 12px 14px;
-  border: 1px solid #f0cf97;
+  border: 1px solid #f0dd97;
   border-radius: 12px;
-  background: #fff8e9;
-  color: #75521d;
+  background: #fffae9;
+  color: #75621d;
 }
 
 .assessment-device-advice p {
@@ -328,9 +328,9 @@
 }
 
 .dark-theme .assessment-device-advice {
-  border-color: #72552b;
-  background: #2a2318;
-  color: #f1d299;
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
 }
 
 /* Licence credit of authentic texts, shown under the text (required by CC BY). */

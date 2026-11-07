@@ -16,18 +16,18 @@
 }
 
 .assessment-live-toggle.live {
-  border-color: #c9bcff;
-  background: #eeeaff;
-  color: #5b43c8;
+  border-color: #afc4e6;
+  background: #e8eef8;
+  color: #2a4d84;
 }
 
 .assessment-live-notice {
   margin: 8px 0 0;
   padding: 9px 12px;
-  border-left: 3px solid #7655f3;
+  border-left: 3px solid #345995;
   border-radius: 8px;
-  background: #f4f1ff;
-  color: #4d3aa8;
+  background: #f0f5fb;
+  color: #284675;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -45,7 +45,7 @@
 }
 
 .live-session-progress strong {
-  color: #7655f3;
+  color: #345995;
   font-size: 28px;
   line-height: 1;
 }
@@ -84,12 +84,12 @@
 }
 
 .live-session-tasks button.active {
-  border-color: #9a7cff;
-  box-shadow: 0 0 0 3px #eeeaff;
+  border-color: #4173c3;
+  box-shadow: 0 0 0 3px #e8eef8;
 }
 
 .live-session-tasks .done {
-  color: #23885a;
+  color: #238874;
 }
 
 .live-session-tasks strong,
@@ -139,8 +139,8 @@
 }
 
 .live-task-meta span.done {
-  background: #e6f7ee;
-  color: #237a4b;
+  background: #e6f7f4;
+  color: #237a69;
 }
 
 .live-task-prompt {
@@ -200,9 +200,9 @@
   justify-content: space-between;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid #e4e0f6;
+  border: 1px solid #d7e2f3;
   border-radius: 14px;
-  background: #faf9ff;
+  background: #f9fbfd;
 }
 
 .live-timer-clock {
@@ -226,11 +226,11 @@
 }
 
 .live-timer-clock.preparing strong {
-  color: #b5781a;
+  color: #b5931a;
 }
 
 .live-timer-clock.speaking strong {
-  color: #7655f3;
+  color: #345995;
 }
 
 .live-timer-clock small {
@@ -316,8 +316,8 @@
 }
 
 .live-level-picker button.selected {
-  border-color: #7655f3;
-  background: #7655f3;
+  border-color: #345995;
+  background: #345995;
   color: #fff;
 }
 
@@ -347,9 +347,9 @@
 
 .dark-theme .assessment-live-toggle.live,
 .dark-theme .assessment-live-notice {
-  border-color: #5a4aa0;
-  background: #241f3d;
-  color: #d3c9ff;
+  border-color: #33496e;
+  background: #1b2434;
+  color: #c4d5f0;
 }
 
 .dark-theme .live-session-tasks button,
@@ -361,8 +361,8 @@
 }
 
 .dark-theme .live-session-tasks button.active {
-  border-color: #8d75ed;
-  box-shadow: 0 0 0 3px #292345;
+  border-color: #3766b0;
+  box-shadow: 0 0 0 3px #1e293b;
 }
 
 .dark-theme .live-task-prompt,
@@ -370,7 +370,7 @@
 .dark-theme .live-rubric legend,
 .dark-theme .live-task-source p,
 .dark-theme .live-task-evidence dd {
-  color: #f3f6fb;
+  color: #eff3fa;
 }
 
 .dark-theme .live-task-meta span,
@@ -382,17 +382,17 @@
 }
 
 .dark-theme .live-timer {
-  border-color: #3a3462;
-  background: #1a1830;
+  border-color: #2b3a52;
+  background: #151c29;
 }
 
 .dark-theme .live-timer-clock.speaking strong {
-  color: #b3a2ff;
+  color: #7fa1d7;
 }
 
 .dark-theme .live-level-picker button.selected {
-  border-color: #8d75ed;
-  background: #7655f3;
+  border-color: #3766b0;
+  background: #345995;
   color: #fff;
 }
 
@@ -433,7 +433,7 @@
   min-width: 20px;
   padding: 2px 6px;
   border-radius: 999px;
-  background: #7655f3;
+  background: #345995;
   color: #fff;
   font-size: 11px;
   line-height: 1.3;
@@ -443,9 +443,9 @@
   display: grid;
   gap: 8px;
   padding: 16px 18px;
-  border: 1px solid #a9ddc4;
+  border: 1px solid #a9ddd3;
   border-radius: 14px;
-  background: #edf9f3;
+  background: #edf9f7;
 }
 
 .review-queue-ready h3,
@@ -454,7 +454,7 @@
 }
 
 .review-queue-ready p {
-  color: #27694d;
+  color: #27695c;
   font-size: 12px;
 }
 
@@ -465,7 +465,7 @@
   justify-content: space-between;
   gap: 10px;
   padding-top: 8px;
-  border-top: 1px solid #c9ead9;
+  border-top: 1px solid #c9eae3;
 }
 
 .review-queue-ready strong,
@@ -513,7 +513,7 @@
   height: 9px;
   margin: 4px 3px 0;
   border-radius: 50%;
-  background: #f0a63a;
+  background: #f0c93a;
 }
 
 .review-queue-none {
@@ -523,11 +523,11 @@
 }
 
 .review-words {
-  color: #237a4b;
+  color: #237a69;
 }
 
 .review-words.off {
-  color: #b4434f;
+  color: #b44369;
 }
 
 .review-live-cta {
@@ -538,12 +538,12 @@
   gap: 12px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: #f4f1ff;
+  background: #f0f5fb;
 }
 
 .review-live-cta p {
   margin: 0;
-  color: #4d3aa8;
+  color: #284675;
 }
 
 .review-item .assessment-report-questions > article {
@@ -553,17 +553,17 @@
 }
 
 .dark-theme .review-queue-ready {
-  border-color: #2f7255;
-  background: #172a23;
+  border-color: #2f7265;
+  background: #172a26;
 }
 
 .dark-theme .review-queue-ready p,
 .dark-theme .review-queue-ready small {
-  color: #aee5ca;
+  color: #aee5da;
 }
 
 .dark-theme .review-queue-ready > div {
-  border-color: #2f7255;
+  border-color: #2f7265;
 }
 
 .dark-theme .review-queue-filters select {
@@ -573,11 +573,11 @@
 }
 
 .dark-theme .review-live-cta {
-  background: #241f3d;
+  background: #1b2434;
 }
 
 .dark-theme .review-live-cta p {
-  color: #d3c9ff;
+  color: #c4d5f0;
 }
 
 @media (max-width: 860px) {
@@ -598,6 +598,6 @@
 
 .dark-theme .live-timer .secondary-button,
 .dark-theme .review-live-cta .secondary-button {
-  background: #292345;
-  color: #c8bcff;
+  background: #1e293b;
+  color: #afc4e6;
 }
