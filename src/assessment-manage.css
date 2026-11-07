@@ -88,3 +88,33 @@
 .dark-theme .assessment-ready-made-hint strong{color:#e6e0ff}
 .dark-theme .assessment-ready-made-hint span{color:#b3abe0}
 @media(max-width:620px){.assessment-ready-made-hint{flex-wrap:wrap}.assessment-ready-made-hint>button{width:100%}}
+
+/* Teacher preview: the assessment as the student sees it. */
+.assessment-preview>header{display:grid;gap:6px}
+.assessment-preview>header h2,.assessment-preview>header p{margin:0}
+.assessment-preview>header>small{color:#8994a6;font-size:11px}
+.assessment-preview-key-toggle{display:inline-flex;align-items:center;gap:8px;justify-self:start;margin-top:6px;padding:8px 12px;border-radius:10px;background:#f4f1ff;color:#4a3aa8;font-size:12px;font-weight:700;cursor:pointer}
+.assessment-preview-key-toggle input{accent-color:#7655f3}
+.assessment-preview article h3{margin:0 0 6px}
+.assessment-preview-teacher-only{display:flex;align-items:center;gap:6px;margin:0 0 6px;color:#8994a6;font-size:11px}
+.assessment-preview article ol.assessment-preview-questions{display:grid;gap:14px;padding:0;margin:14px 0 0;list-style:none}
+.assessment-preview article li.assessment-preview-group{display:grid;gap:12px;padding:0;background:none;border-radius:0}
+.assessment-preview-text{display:grid;gap:6px}
+.assessment-preview-text .assessment-source-material{margin:0}
+.assessment-preview-question{display:grid;gap:10px;padding:16px 18px;border:1px solid #e4e8ef;border-radius:14px;background:#fff}
+.assessment-preview-question>small{color:#7655f3;font-size:11px;font-weight:800}
+.assessment-preview-question h4{margin:0;font-size:15px;line-height:1.45}
+.assessment-preview-question .assessment-response-target{margin:0;color:#596579;font-size:12px}
+.assessment-preview article ol.assessment-preview-options{display:grid;gap:7px;padding:0;margin:0;list-style:none}
+.assessment-preview article ol.assessment-preview-options li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e6ed;border-radius:11px;background:#fff}
+.assessment-preview-options b{width:24px;height:24px;flex:0 0 auto;display:grid;place-items:center;border-radius:7px;background:#f1f3f7;color:#596579;font-size:11px}
+.assessment-preview-options span{flex:1}
+.assessment-preview article ol.assessment-preview-options li.correct{border-color:#9ed9bd;background:#eaf8f1;color:#1d6b4b}
+.assessment-preview-options li.correct b{background:#237a58;color:#fff}
+.assessment-preview-answer-box{display:flex;align-items:center;gap:8px;padding:14px;border:1px dashed #d6dbe4;border-radius:11px;color:#8994a6;font-size:12px}
+.assessment-preview-answer-box strong{color:#1d6b4b}
+.dark-theme .assessment-preview-question,.dark-theme .assessment-preview article ol.assessment-preview-options li{background:#101827;border-color:#2a3547}
+.dark-theme .assessment-preview-options b{background:#202b3e;color:#b5c0d0}
+.dark-theme .assessment-preview article ol.assessment-preview-options li.correct{background:#173328;border-color:#2c6a4f;color:#a8e6c8}
+.dark-theme .assessment-preview-key-toggle{background:#251f45;color:#c7b9ff}
+.dark-theme .assessment-preview-answer-box{border-color:#344155}
