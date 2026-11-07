@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isPermissionPromptActive, releaseMicrophone } from './microphone';
 import { richText } from '../richText';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, Clock3, Cloud, CloudOff, LoaderCircle, Lock, Play } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, Clock3, Cloud, CloudOff, LoaderCircle, Lock, Maximize2, Play } from 'lucide-react';
 import { advanceAdaptiveAttempt, completeAssessmentSection, isClosedPartError, loadAssessmentAttempt, recordAssessmentEvent, saveAssessmentResponse, startAssessmentSection, submitAssessmentAttempt } from '../attemptService';
 import type { StudentAttemptPayload } from '../types';
 import { enqueueAssessmentWrite, listAssessmentWrites, removeAssessmentWrite, type PendingAssessmentWrite } from './offlineQueue';
 import { allStagesDone, buildStages, currentStage, formatClock, nextStage, secondsLeft, studentSectionTitle, type Stage } from './pacing';
 import { QuestionRenderer } from './QuestionRenderer';
 import { SubmitConfirmation } from './SubmitConfirmation';
-import { bulkInsertion, canUseAssessmentFullscreen, enterAssessmentFullscreen } from './integrity';
+import { bulkInsertion, canUseAssessmentFullscreen, requestAssessmentFullscreen } from './integrity';
 
 type SaveState = 'saved' | 'saving' | 'offline';
 
@@ -31,7 +32,12 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
   const wasFullscreen = useRef(false);
   const closingStage = useRef(false);
   const fieldLengths = useRef(new WeakMap<EventTarget, number>());
-  const [fullscreenLost, setFullscreenLost] = useState(false);
+  // Desktop: the assessment is only shown in fullscreen; the student turns it on with a button.
+  const needsFullscreen = useMemo(() => canUseAssessmentFullscreen(), []);
+  const [fullscreenOn, setFullscreenOn] = useState(() => typeof document !== 'undefined' && Boolean(document.fullscreenElement));
+  const [hadFullscreen, setHadFullscreen] = useState(false);
+  const [fullscreenRefused, setFullscreenRefused] = useState(false);
+  const [withoutFullscreen, setWithoutFullscreen] = useState(false);
 
   const flush = useCallback(async () => {
     if (!navigator.onLine) { setSaveState('offline'); return false; }
@@ -79,15 +85,17 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
   }, [flush, reload]);
 
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  // The shared microphone stream lives as long as the attempt is open.
+  useEffect(() => () => releaseMicrophone(), []);
 
   useEffect(() => {
     const audit = (type: Parameters<typeof recordAssessmentEvent>[2], metadata: Record<string, unknown> = {}) => void recordAssessmentEvent(client, attemptId, type, null, metadata).catch(() => undefined);
-    const leave = () => { if (outsideStartedAt.current === null) { outsideStartedAt.current = Date.now(); audit('tab_blur'); } void flush(); };
+    const leave = () => { if (isPermissionPromptActive()) return; if (outsideStartedAt.current === null) { outsideStartedAt.current = Date.now(); audit('tab_blur'); } void flush(); };
     const returnToAssessment = () => { if (outsideStartedAt.current !== null) { audit('tab_focus', { durationMs: Date.now() - outsideStartedAt.current }); outsideStartedAt.current = null; } };
     const online = () => { audit('network_reconnect'); void flush(); };
     const offline = () => { setSaveState('offline'); audit('network_disconnect'); };
     const visibility = () => { if (document.visibilityState === 'hidden') leave(); else returnToAssessment(); };
-    const fullscreen = () => { if (wasFullscreen.current && !document.fullscreenElement) { audit('fullscreen_exit'); setFullscreenLost(true); } if (document.fullscreenElement) setFullscreenLost(false); wasFullscreen.current = Boolean(document.fullscreenElement); };
+    const fullscreen = () => { if (wasFullscreen.current && !document.fullscreenElement && !isPermissionPromptActive()) audit('fullscreen_exit'); setFullscreenOn(Boolean(document.fullscreenElement)); if (document.fullscreenElement) setHadFullscreen(true); wasFullscreen.current = Boolean(document.fullscreenElement); };
     wasFullscreen.current = Boolean(document.fullscreenElement);
     window.addEventListener('online', online); window.addEventListener('offline', offline); document.addEventListener('visibilitychange', visibility);
     window.addEventListener('blur', leave); window.addEventListener('focus', returnToAssessment); document.addEventListener('fullscreenchange', fullscreen);
@@ -182,6 +190,20 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
   const answered = useMemo(() => visibleQuestions.filter((item) => Boolean(answers[item.id])).length, [answers, visibleQuestions]);
   const unansweredTotal = payload ? payload.questions.filter((item) => !answers[item.id]).length : 0;
 
+  const enterFullscreen = async () => { setFullscreenRefused(false); if (!(await requestAssessmentFullscreen())) setFullscreenRefused(true); };
+  const continueWithoutFullscreen = () => { setWithoutFullscreen(true); void recordAssessmentEvent(client, attemptId, 'fullscreen_exit', null, { reason: 'fullscreen_unavailable' }).catch(() => undefined); };
+  const fullscreenGate = needsFullscreen && !fullscreenOn && !withoutFullscreen
+    ? <div className="assessment-fullscreen-gate" role="dialog" aria-modal="true" aria-labelledby="fullscreen-gate-title">
+      <section>
+        <span className="assessment-fullscreen-gate-icon"><Maximize2 size={22} /></span>
+        <h2 id="fullscreen-gate-title">{hadFullscreen ? 'Volte para a tela cheia para continuar' : 'Ative a tela cheia para começar'}</h2>
+        <p>{hadFullscreen ? 'A prova saiu da tela cheia. Suas respostas estão salvas. Saídas da tela cheia ficam registradas para o professor.' : 'A prova é feita em tela cheia. Sair da tela cheia, trocar de aba ou de janela fica registrado para o professor.'}</p>
+        <button type="button" className="student-primary" onClick={() => void enterFullscreen()}><Maximize2 size={16} />Entrar em tela cheia</button>
+        {fullscreenRefused && <div className="assessment-fullscreen-refused" role="alert"><p>Não foi possível ativar a tela cheia neste dispositivo.</p><button type="button" className="secondary-button compact" onClick={continueWithoutFullscreen}>Continuar sem tela cheia</button></div>}
+      </section>
+    </div>
+    : null;
+
   if (message && !payload) return <div className="assessment-runner-shell"><div className="assessment-runner-error"><p>{message}</p><button className="secondary-button" onClick={onExit}>Voltar</button></div></div>;
   if (payload && !payload.questions.length && payload.assessment.liveQuestionCount) return <div className="assessment-runner-shell"><div className="assessment-runner-error"><p>Esta avaliação é feita ao vivo com seu professor. Não há nada para responder aqui.</p><button className="secondary-button" onClick={onExit}>Voltar</button></div></div>;
   if (!payload) return <div className="assessment-runner-shell"><LoaderCircle className="spin" size={28} />Carregando prova…</div>;
@@ -195,6 +217,7 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
     const next = nextStage(stages);
     const done = allStagesDone(stages);
     return <div className="assessment-runner-shell">
+      {fullscreenGate}
       <div className="assessment-runner-top"><div><span>AVALIAÇÃO EM ETAPAS</span><h1>{payload.assessment.title}</h1></div><div className="assessment-runner-status">{saveIndicator}</div></div>
       <div className="assessment-runner-progress"><span>{stages.filter((stage) => stage.status === 'done').length} de {stages.length} etapa(s) concluída(s)</span><i><b style={{ width: `${stages.length ? (stages.filter((stage) => stage.status === 'done').length / stages.length) * 100 : 0}%` }} /></i></div>
       {liveNotice}
@@ -237,7 +260,7 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
       fieldLengths.current.set(event.target, length);
       if (inserted !== null) record('bulk_insert_detected', { length: inserted, inputType: (event.nativeEvent as InputEvent).inputType ?? 'unknown' });
     }}>
-    {fullscreenLost && canUseAssessmentFullscreen() && <div className="assessment-fullscreen-banner" role="status">Você saiu da tela cheia. Isso fica registrado para o professor.<button type="button" className="secondary-button compact" onClick={enterAssessmentFullscreen}>Voltar à tela cheia</button></div>}
+    {fullscreenGate}
     <div className="assessment-runner-top"><div><span>{adaptive ? 'PLACEMENT ADAPTATIVO' : paced ? `ETAPA ${activeStage?.number} DE ${stages.length}` : 'AVALIAÇÃO EM ANDAMENTO'}</span><h1>{payload.assessment.title}</h1></div><div className="assessment-runner-status"><span className={remaining !== null && remaining <= 60 ? 'assessment-clock-warning' : ''}><Clock3 size={16} />{formatClock(remaining)}</span>{saveIndicator}</div></div>
     <div className="assessment-runner-progress"><span>{adaptive ? `${answered} questão(ões) concluída(s) · percurso ajustado pelo servidor` : `${answered} de ${visibleQuestions.length} respondidas${paced ? ' nesta etapa' : ''}`}</span><i><b style={{ width: adaptive ? `${Math.min(95, answered * 10)}%` : `${visibleQuestions.length ? (answered / visibleQuestions.length) * 100 : 0}%` }} /></i></div>
     {!paced && liveNotice}

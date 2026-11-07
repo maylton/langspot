@@ -19,10 +19,11 @@ export function canUseAssessmentFullscreen(): boolean {
   return !native && window.matchMedia('(pointer: fine)').matches;
 }
 
-/** Must run inside the click handler that starts the assessment (browsers require a user gesture). */
-export function enterAssessmentFullscreen(): void {
-  if (!canUseAssessmentFullscreen() || document.fullscreenElement) return;
-  void document.documentElement.requestFullscreen().catch(() => undefined);
+/** Must run inside a click handler (browsers require a user gesture). Resolves false when refused. */
+export async function requestAssessmentFullscreen(): Promise<boolean> {
+  if (!canUseAssessmentFullscreen()) return false;
+  if (document.fullscreenElement) return true;
+  try { await document.documentElement.requestFullscreen(); return true; } catch { return false; }
 }
 
 /** Phones and small touch tablets, including the Android app. */

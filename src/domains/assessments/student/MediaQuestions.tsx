@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { acquireMicrophone } from './microphone';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Mic, Pause, Play, Square, UploadCloud } from 'lucide-react';
 import { beginListeningPlay, createAssessmentAudioUrl, getSpeakingUploadTarget, registerSpeakingRecording, uploadSpeakingRecording } from '../mediaService';
@@ -44,7 +45,8 @@ export function SpeakingQuestion({ client, attemptId, question, value, onChange 
   const startedAt = useRef(0);
   const recordedDuration = useRef(0);
 
-  const releaseMicrophone = useCallback(() => { stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; }, []);
+  // The stream is shared for the whole attempt (see microphone.ts); only drop our reference.
+  const releaseMicrophone = useCallback(() => { stream.current = null; }, []);
   const stop = useCallback(() => { if (recorder.current?.state === 'recording') recorder.current.stop(); }, []);
   useEffect(() => () => { stop(); releaseMicrophone(); if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl, releaseMicrophone, stop]);
   useEffect(() => {
@@ -59,7 +61,7 @@ export function SpeakingQuestion({ client, attemptId, question, value, onChange 
     setMessage('');
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') throw new Error('A gravação de áudio não é suportada neste dispositivo.');
-      stream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.current = await acquireMicrophone();
       const format = supportedRecordingType(); chunks.current = [];
       recorder.current = new MediaRecorder(stream.current, format.mime ? { mimeType: format.mime } : undefined);
       recorder.current.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
@@ -85,7 +87,7 @@ export function SpeakingQuestion({ client, attemptId, question, value, onChange 
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível enviar a gravação.'); setPhase('review'); }
   };
   return <div className="assessment-media-question assessment-speaking">
-    {phase === 'idle' && <><button type="button" className="secondary-button" onClick={prepare}><Mic size={17} />Iniciar preparação</button><span>O microfone só será solicitado ao começar a gravação.</span></>}
+    {phase === 'idle' && <><button type="button" className="secondary-button" onClick={prepare}><Mic size={17} />Iniciar preparação</button><span>O microfone liberado na verificação de equipamento será usado na gravação.</span></>}
     {phase === 'preparing' && <><strong>Preparação: {remaining}s</strong><button type="button" className="primary-button" onClick={() => void start()}><Mic size={17} />Gravar agora</button></>}
     {phase === 'ready' && <><strong>Preparação concluída.</strong><button type="button" className="primary-button" onClick={() => void start()}><Mic size={17} />Começar gravação</button></>}
     {phase === 'recording' && <><strong>Gravando · {remaining}s</strong><button type="button" className="danger-button" onClick={stop}><Square size={16} />Parar</button></>}
