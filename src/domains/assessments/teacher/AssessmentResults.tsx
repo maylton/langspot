@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ArrowLeft, Check, ClipboardCheck, LoaderCircle } from 'lucide-react';
-import { finalizeAssessmentReview, getAssessmentResult, listAssessmentAttempts, overrideAssessmentCefrLevel, reviewAssessmentResponse } from '../assessmentService';
+import { ArrowLeft, Check, ClipboardCheck, FileText, LoaderCircle } from 'lucide-react';
+import { finalizeAssessmentReview, getAssessmentReportNote, getAssessmentResult, getPreviousAssessmentForReport, listAssessmentAttempts, overrideAssessmentCefrLevel, reviewAssessmentResponse, saveAssessmentReportNote } from '../assessmentService';
+import type { AssessmentReportNote, PreviousAssessmentForReport } from '../report';
+import { StudentReport } from '../StudentReport';
 import type { AssessmentAttemptRow, AssessmentRow } from '../database';
 import type { AssessmentResultQuestion, TeacherAssessmentResult } from '../types';
 import { AssessmentIntegrityPanel } from './AssessmentIntegrityPanel';
@@ -46,8 +48,11 @@ function AssessmentAttemptDetails({ client, report, onBack, onReview, onFinalize
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
   const pending = report.questions.filter((question) => question.gradingStatus === 'manual_review' || question.gradingStatus === 'pending').length;
   return <section className="assessment-report"><header className="assessment-dashboard-header"><div><button className="back-button" onClick={onBack}><ArrowLeft size={15} />Tentativas</button><p className="eyebrow">RELATÓRIO DA TENTATIVA</p><h2>{report.attempt.studentName}</h2><p>{report.assessment.title} · versão {report.assessment.version} · {report.attempt.scoringModelVersion}</p></div><div className="assessment-score"><strong>{report.cefrProfile?.overallLevel ?? `${report.attempt.scaledScore ?? '—'}%`}</strong><span>{report.attempt.status}</span></div></header>
+    <button type="button" className="secondary-button compact assessment-report-toggle" onClick={() => setReportOpen((value) => !value)}><FileText size={15} />{reportOpen ? 'Fechar relatório do aluno' : 'Relatório para o aluno'}</button>
+    {reportOpen && <TeacherReportPanel client={client} report={report} />}
     {report.cefrProfile && <><CefrProfileReport profile={report.cefrProfile} /><CefrOverride attemptId={report.attempt.id} currentLevel={report.cefrProfile.overallLevel} onOverride={async (level, reason) => { await overrideAssessmentCefrLevel(client, report.attempt.id, level, reason); await onFinalize().catch(() => undefined); }} /></>}
     <div className="assessment-section-results">{report.sections.map((section) => <article key={section.id}><span>{section.skill}</span><strong>{section.percentage ?? 0}%</strong><small>{section.score}/{section.maxScore} pontos</small></article>)}</div>
     {report.adaptiveSkills?.length ? <section className="assessment-adaptive-results"><p className="eyebrow">PLACEMENT ADAPTATIVO</p><div>{report.adaptiveSkills.map((skill) => <article key={skill.sectionId}><span>{skill.skill}</span><strong>{skill.cefr}</strong><small>ability {skill.ability} · confiança {Math.round(skill.confidence * 100)}% · {skill.itemsAnswered} itens</small></article>)}</div></section> : null}
@@ -83,4 +88,37 @@ function TeacherAudioPlayer({ client, path }: { client: SupabaseClient; path: st
   const [message, setMessage] = useState('');
   useEffect(() => { let active = true; void createAssessmentAudioUrl(client, path).then((value) => { if (active) setUrl(value); }).catch((error) => { if (active) setMessage(error instanceof Error ? error.message : 'Áudio indisponível.'); }); return () => { active = false; }; }, [client, path]);
   return url ? <audio aria-label="Gravação do aluno" className="assessment-teacher-audio" src={url} controls preload="metadata" /> : <small>{message || 'Carregando áudio…'}</small>;
+}
+
+function TeacherReportPanel({ client, report }: { client: SupabaseClient; report: TeacherAssessmentResult }) {
+  const attemptId = report.attempt.id;
+  const [summary, setSummary] = useState('');
+  const [nextSteps, setNextSteps] = useState('');
+  const [saved, setSaved] = useState<AssessmentReportNote | null>(null);
+  const [previous, setPrevious] = useState<PreviousAssessmentForReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    let active = true;
+    void getAssessmentReportNote(client, attemptId).then((note) => { if (!active) return; setSaved(note); setSummary(note?.summary ?? ''); setNextSteps(note?.nextSteps ?? ''); }).catch((error) => { if (active) setMessage(error instanceof Error ? error.message : 'Não foi possível carregar o comentário.'); });
+    void getPreviousAssessmentForReport(client, attemptId).then((value) => { if (active) setPrevious(value); }).catch(() => undefined);
+    return () => { active = false; };
+  }, [attemptId, client]);
+  const dirty = summary.trim() !== (saved?.summary ?? '') || nextSteps.trim() !== (saved?.nextSteps ?? '');
+  const save = async () => {
+    setBusy(true); setMessage('');
+    try { await saveAssessmentReportNote(client, attemptId, summary, nextSteps); setSaved(await getAssessmentReportNote(client, attemptId)); setMessage('Comentário salvo. O aluno verá quando o resultado estiver liberado.'); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível salvar o comentário.'); }
+    finally { setBusy(false); }
+  };
+  return <section className="teacher-report-panel">
+    <form className="teacher-report-note" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+      <div><p className="eyebrow">RELATÓRIO PARA O ALUNO</p><p>Escreva um comentário geral e os próximos passos. Eles aparecem no relatório do aluno e no PDF.</p></div>
+      <label>Comentário do professor<textarea rows={3} maxLength={4000} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Ex.: Você evoluiu muito na interação oral desde a última avaliação." /></label>
+      <label>Próximos passos<textarea rows={3} maxLength={4000} value={nextSteps} onChange={(event) => setNextSteps(event.target.value)} placeholder="Ex.: Revisar conectivos; gravar um resumo de 2 minutos por semana." /></label>
+      {message && <p role="status" className="teacher-report-message">{message}</p>}
+      <button className="primary-button" disabled={busy || !dirty}>{busy ? 'Salvando…' : 'Salvar comentário'}</button>
+    </form>
+    <StudentReport title={report.assessment.title} studentName={report.attempt.studentName} completedAt={report.attempt.reviewedAt ?? report.attempt.submittedAt} score={report.attempt.scaledScore} estimatedCefr={report.attempt.estimatedCefr} sections={report.sections} cefrProfile={report.cefrProfile} previous={previous} note={{ summary: summary.trim(), nextSteps: nextSteps.trim(), updatedAt: saved?.updatedAt ?? '' }} />
+  </section>;
 }

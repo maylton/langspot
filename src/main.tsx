@@ -5,6 +5,7 @@ import ErrorBoundary from './ErrorBoundary';
 import './styles.css';
 import './assessment-preset.css';
 import './live-assessment.css';
+import './assessment-report.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><ErrorBoundary><AuthApp /></ErrorBoundary></StrictMode>,

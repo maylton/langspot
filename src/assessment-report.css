@@ -1,0 +1,334 @@
+/* Student assessment report (screen + PDF via print). */
+
+.student-report {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid #e4e8ef;
+  border-radius: 18px;
+  background: #fff;
+  color: #172033;
+}
+
+.student-report-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.student-report-header h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.student-report-header p:not(.eyebrow) {
+  margin: 0;
+  color: #6e7a8f;
+}
+
+.student-report-overall {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  text-align: right;
+}
+
+.student-report-overall strong {
+  color: #7655f3;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.student-report-overall span {
+  color: #6e7a8f;
+  font-size: 12px;
+}
+
+.student-report-skills {
+  display: grid;
+  gap: 10px;
+}
+
+.student-report-skill {
+  display: grid;
+  grid-template-columns: minmax(110px, 160px) minmax(80px, 1fr) 84px 84px;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-report-skill > span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-report-skill > i {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edf0f5;
+}
+
+.student-report-skill > i b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #7655f3;
+}
+
+.student-report-skill > strong {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.student-report-skill > strong small {
+  color: #7655f3;
+  font-size: 11px;
+}
+
+.student-report-delta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.student-report-delta.up {
+  color: #237a4b;
+}
+
+.student-report-delta.down {
+  color: #b4434f;
+}
+
+.student-report-delta.flat,
+.student-report-delta.none {
+  color: #8b95a7;
+}
+
+.student-report-previous {
+  margin: -8px 0 0;
+  color: #8b95a7;
+  font-size: 12px;
+}
+
+.student-report-columns,
+.student-report-note {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.student-report-columns > div,
+.student-report-note > div {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f7f8fb;
+}
+
+.student-report-note > div {
+  background: #f4f1ff;
+}
+
+.student-report h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.student-report ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.student-report-columns p,
+.student-report-note p {
+  margin: 0;
+  color: #536075;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.student-report-disclaimer {
+  margin: 0;
+  color: #8b95a7;
+  font-size: 11px;
+}
+
+.student-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.assessment-student-result {
+  display: grid;
+  gap: 16px;
+}
+
+.assessment-report-toggle {
+  justify-self: start;
+}
+
+.teacher-report-panel {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.teacher-report-note {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #e4e0f6;
+  border-radius: 16px;
+  background: #faf9ff;
+}
+
+.teacher-report-note p {
+  margin: 0;
+  color: #6e7a8f;
+  font-size: 12px;
+}
+
+.teacher-report-note label {
+  display: grid;
+  gap: 6px;
+  color: #536075;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.teacher-report-note textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  background: #fff;
+  color: #172033;
+}
+
+.teacher-report-message {
+  color: #4d3aa8 !important;
+}
+
+.dark-theme .student-report,
+.dark-theme .teacher-report-note {
+  border-color: #29364b;
+  background: #151e2d;
+  color: #edf1f8;
+}
+
+.dark-theme .student-report-columns > div {
+  background: #101827;
+}
+
+.dark-theme .student-report-note > div {
+  background: #241f3d;
+}
+
+.dark-theme .student-report-columns p,
+.dark-theme .student-report-note p,
+.dark-theme .teacher-report-note label {
+  color: #b8c2d1;
+}
+
+.dark-theme .student-report-skill > i {
+  background: #293247;
+}
+
+.dark-theme .student-report-overall strong,
+.dark-theme .student-report-skill > strong small {
+  color: #b3a2ff;
+}
+
+.dark-theme .student-report-delta.up {
+  color: #7fd6a8;
+}
+
+.dark-theme .student-report-delta.down {
+  color: #ff9aa5;
+}
+
+@media (max-width: 860px) {
+  .teacher-report-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .student-report {
+    padding: 16px;
+  }
+
+  .student-report-skill {
+    grid-template-columns: 1fr auto;
+    gap: 4px 10px;
+  }
+
+  .student-report-skill > i {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .student-report-skill > .student-report-delta {
+    grid-column: 2;
+  }
+}
+
+/* Print only the report, always in light colours. */
+@media print {
+  .printing-student-report body * {
+    visibility: hidden;
+  }
+
+  .printing-student-report .student-report,
+  .printing-student-report .student-report * {
+    visibility: visible;
+  }
+
+  .printing-student-report .student-report {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: 0;
+    background: #fff !important;
+    color: #172033 !important;
+  }
+
+  .printing-student-report .student-report-actions {
+    display: none;
+  }
+
+  .printing-student-report .student-report-columns > div {
+    background: #f7f8fb !important;
+  }
+
+  .printing-student-report .student-report-note > div {
+    background: #f4f1ff !important;
+  }
+
+  .printing-student-report .student-report p,
+  .printing-student-report .student-report li,
+  .printing-student-report .student-report span {
+    color: #333c4e !important;
+  }
+
+  .printing-student-report .student-report-skill > i b {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

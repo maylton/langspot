@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
+import type { AssessmentReportNote, PreviousAssessmentForReport } from './report';
 import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, LiveAssessmentSession, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
@@ -161,4 +162,21 @@ export async function scoreLiveAssessmentResponse(client: SupabaseClient, input:
 export async function completeLiveAssessmentSession(client: SupabaseClient, attemptId: string): Promise<void> {
   const { error } = await client.rpc('complete_live_assessment_session', { p_attempt_id: attemptId });
   if (error) throw new Error(error.message);
+}
+
+export async function getAssessmentReportNote(client: SupabaseClient, attemptId: string): Promise<AssessmentReportNote | null> {
+  const { data, error } = await client.rpc('get_assessment_report_note', { p_attempt_id: attemptId });
+  if (error) throw new Error(error.message);
+  return (data as AssessmentReportNote | null) ?? null;
+}
+
+export async function saveAssessmentReportNote(client: SupabaseClient, attemptId: string, summary: string, nextSteps: string): Promise<void> {
+  const { error } = await client.rpc('save_assessment_report_note', { p_attempt_id: attemptId, p_summary: summary, p_next_steps: nextSteps });
+  if (error) throw new Error(error.message);
+}
+
+export async function getPreviousAssessmentForReport(client: SupabaseClient, attemptId: string): Promise<PreviousAssessmentForReport | null> {
+  const { data, error } = await client.rpc('get_previous_assessment_for_report', { p_attempt_id: attemptId });
+  if (error) throw new Error(error.message);
+  return (data as PreviousAssessmentForReport | null) ?? null;
 }
