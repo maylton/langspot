@@ -57,7 +57,9 @@ export async function listCefrLevelCheckPresets(client: SupabaseClient): Promise
   }));
 }
 
-export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = 'pilot-0.2', selectionSeed = 'pilot-form-1'): Promise<string> {
+export const CURRENT_PILOT_BANK_VERSION = 'pilot-0.3';
+
+export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = CURRENT_PILOT_BANK_VERSION, selectionSeed = 'pilot-form-1'): Promise<string> {
   const { data, error } = await client.rpc('generate_assessment_from_preset', { p_preset_id: presetId, p_bank_version: bankVersion, p_selection_seed: selectionSeed });
   return requireData(data as string | null, error);
 }
@@ -184,4 +186,14 @@ export async function getPreviousAssessmentForReport(client: SupabaseClient, att
 export async function listAssessmentReviewQueue(client: SupabaseClient): Promise<ReviewQueue> {
   const { data, error } = await client.rpc('list_assessment_review_queue');
   return requireData(data as ReviewQueue | null, error);
+}
+
+export type AssessmentFeatureFlags = { listening: boolean };
+
+/** Reads the server-side module switches; falls back to the build default if unavailable. */
+export async function getAssessmentFeatureFlags(client: SupabaseClient, fallback: AssessmentFeatureFlags): Promise<AssessmentFeatureFlags> {
+  const { data, error } = await client.from('assessment_feature_flags').select('key,enabled');
+  if (error || !data) return fallback;
+  const listening = (data as { key: string; enabled: boolean }[]).find((row) => row.key === 'listening');
+  return { listening: listening ? listening.enabled : fallback.listening };
 }

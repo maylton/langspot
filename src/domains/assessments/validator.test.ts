@@ -71,4 +71,13 @@ describe('validateAssessmentDraft', () => {
     ] });
     expect(validateAssessmentDraft(draft)).toEqual([expect.objectContaining({ severity: 'warning', path: 'sections.1.questions.0.administration' })]);
   });
+  it('blocks Listening while the module is disabled', () => {
+    const draft = validDraft();
+    draft.sections.push({ id: 's3', title: 'Listening', skill: 'listening', instructions: '', weight: 1, drawCount: null, questions: [
+      { id: 'q6', questionBankId: null, weight: 1, required: true, snapshot: { id: 'q6', type: 'listening', prompt: 'Listen', options: ['A', 'B'], answer: 'A', audioPath: 'a.webm', maxPlays: 2 } },
+    ] });
+    expect(validateAssessmentDraft(draft).filter((issue) => issue.severity === 'error')).toEqual([]);
+    const errors = validateAssessmentDraft(draft, { listeningEnabled: false }).filter((issue) => issue.severity === 'error');
+    expect(errors.map((issue) => issue.path)).toEqual(['sections.1.skill', 'sections.1.questions.0.type']);
+  });
 });

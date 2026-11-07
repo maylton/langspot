@@ -12,9 +12,10 @@ import {
 describe('CEFR A2-B1 placement preset', () => {
   it('defines all six boundary-aware Level Check blueprints', () => {
     expect(CEFR_LEVEL_CHECK_BLUEPRINTS.map(({ target }) => target)).toEqual(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
-    expect(CEFR_LEVEL_CHECK_BLUEPRINTS.filter(({ target }) => ['A1', 'C2'].includes(target)).every(({ objective }) => objective === 39)).toBe(true);
-    expect(CEFR_LEVEL_CHECK_BLUEPRINTS.filter(({ target }) => !['A1', 'C2'].includes(target)).every(({ objective }) => objective === 52)).toBe(true);
+    expect(CEFR_LEVEL_CHECK_BLUEPRINTS.filter(({ target }) => ['A1', 'C2'].includes(target)).every(({ objective }) => objective === 27)).toBe(true);
+    expect(CEFR_LEVEL_CHECK_BLUEPRINTS.filter(({ target }) => !['A1', 'C2'].includes(target)).every(({ objective }) => objective === 36)).toBe(true);
     expect(new Set(CEFR_LEVEL_CHECK_BLUEPRINTS.map(({ formVersion }) => formVersion)).size).toBe(6);
+    expect(CEFR_LEVEL_CHECK_BLUEPRINTS.every(({ formVersion }) => formVersion.endsWith('-1.1'))).toBe(true);
   });
   it('has the exact requested objective and productive composition', () => {
     expect(A2_B1_READING_TASKLETS).toHaveLength(4);
