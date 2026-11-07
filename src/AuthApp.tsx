@@ -51,8 +51,8 @@ function isSchemaCacheMiss(error: { code?: string; message?: string } | null) {
   return error?.code === 'PGRST205' || Boolean(error?.message?.includes('schema cache'));
 }
 
-const teacherNotificationTargets = ['Visão geral', 'Notificações', 'Alunos', 'Aulas', 'Materiais', 'Tarefas', 'Quiz', 'Financeiro', 'Progresso', 'Relatórios', 'Configurações'] as const;
-const studentNotificationTargets = ['Visão geral', 'Aulas', 'Progresso', 'Materiais', 'Tarefas', 'Quiz', 'Flashcards', 'Metas', 'Conquistas', 'Diário', 'Perfil', 'Notificações'] as const;
+const teacherNotificationTargets = ['Visão geral', 'Notificações', 'Alunos', 'Aulas', 'Materiais', 'Tarefas', 'Quiz', 'Avaliações', 'Financeiro', 'Progresso', 'Relatórios', 'Configurações'] as const;
+const studentNotificationTargets = ['Visão geral', 'Aulas', 'Progresso', 'Materiais', 'Tarefas', 'Quiz', 'Avaliações', 'Flashcards', 'Metas', 'Conquistas', 'Diário', 'Perfil', 'Notificações'] as const;
 
 function mapDbNotificationToTeacher(row: DbNotification): AppNotification {
   const target = teacherNotificationTargets.includes(row.target as typeof teacherNotificationTargets[number]) ? row.target : 'Visão geral';
@@ -1209,7 +1209,7 @@ function CancellationRequestsModal({ requests, onClose, onResolve }: { requests:
 
 function StudentNotificationsPage({ notifications, onOpen, onMarkAll }: { notifications: StudentNotification[]; onOpen: (notification: StudentNotification) => void; onMarkAll: () => void }) {
   const unread = notifications.filter((item) => !item.readAt).length;
-  const iconFor = (kind: StudentNotification['kind']) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'quiz' ? FileQuestion : kind === 'mission' ? Target : kind === 'cancellation' ? Ban : Bell;
+  const iconFor = (kind: StudentNotification['kind']) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'quiz' ? FileQuestion : kind === 'assessment' ? GraduationCap : kind === 'mission' ? Target : kind === 'cancellation' ? Ban : Bell;
   return <section className="student-page student-notifications-page">
     <div className="student-panel notifications-panel">
       <div className="panel-heading notifications-heading"><div><p className="eyebrow">CENTRAL</p><h3>Notificações</h3><p>Lembretes de aula, missões diárias, tarefas e feedbacks aparecem aqui.</p></div>{unread > 0 && <button className="secondary-button compact" onClick={onMarkAll}><Check size={16} />Marcar todas como lidas</button>}</div>
