@@ -48,6 +48,20 @@ export async function publishAssessment(client: SupabaseClient, assessmentId: st
   if (error) throw new Error(error.message);
 }
 
+export interface AssessmentDeletionImpact { assignments: number; inProgressStudents: number; submittedStudents: number }
+
+/** What deleting an assessment would remove; used by the confirmation dialog. */
+export async function getAssessmentDeletionImpact(client: SupabaseClient, assessmentId: string): Promise<AssessmentDeletionImpact> {
+  const { data, error } = await client.rpc('get_assessment_deletion_impact', { p_assessment_id: assessmentId });
+  return requireData(data as AssessmentDeletionImpact | null, error);
+}
+
+/** Permanently deletes an assessment with its assignments, attempts and results. */
+export async function deleteAssessment(client: SupabaseClient, assessmentId: string): Promise<void> {
+  const { error } = await client.rpc('delete_assessment', { p_assessment_id: assessmentId });
+  if (error) throw new Error(error.message);
+}
+
 export async function listCefrLevelCheckPresets(client: SupabaseClient): Promise<CefrLevelCheckPreset[]> {
   const { data, error } = await client.from('cefr_level_check_presets').select('*').eq('active', true).order('target_level');
   const rows = requireData(data, error) as Array<Record<string, string | number | null>>;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { BarChart3, ClipboardList, Edit3, FileQuestion, Inbox, LoaderCircle, Mic, Plus, TrendingUp } from 'lucide-react';
-import { assignAssessment, generateAssessmentFromPreset, getAssessmentFeatureFlags, listAssessmentIdsWithLiveTasks, listAssessmentReviewQueue, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
+import { BarChart3, ClipboardList, Edit3, FileQuestion, Inbox, LoaderCircle, Mic, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { assignAssessment, deleteAssessment, generateAssessmentFromPreset, getAssessmentDeletionImpact, getAssessmentFeatureFlags, listAssessmentIdsWithLiveTasks, listAssessmentReviewQueue, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
 import type { AssessmentRow } from '../database';
 import type { AssessmentDraft, CefrLevelCheckPreset } from '../types';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
@@ -12,6 +12,8 @@ import { CefrAnalytics } from './CefrAnalytics';
 import { LiveAssessmentSession } from './LiveAssessmentSession';
 import { ASSESSMENT_LISTENING_DEFAULT } from '../../../config/env';
 import { ReviewQueue } from './ReviewQueue';
+import { DeleteAssessmentDialog } from './DeleteAssessmentDialog';
+import type { AssessmentDeletionImpact } from '../assessmentService';
 
 const emptyDraft = (): AssessmentDraft => ({
   id: null, title: '', description: '', type: 'custom', framework: 'none', assessmentMode: 'fixed', navigationMode: 'free',
@@ -57,6 +59,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [queueOpen, setQueueOpen] = useState(false);
   const [listeningEnabled, setListeningEnabled] = useState(ASSESSMENT_LISTENING_DEFAULT);
   const [pendingReviews, setPendingReviews] = useState(0);
+  const [deleting, setDeleting] = useState<{ assessment: AssessmentRow; impact: AssessmentDeletionImpact | null; loading: boolean; busy: boolean } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setMessage('');
@@ -96,6 +99,28 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     } finally { setBusy(false); }
   };
 
+  const askDelete = async (assessment: AssessmentRow) => {
+    setMessage(''); setDeleting({ assessment, impact: null, loading: true, busy: false });
+    try {
+      const impact = await getAssessmentDeletionImpact(client, assessment.id);
+      setDeleting((current) => current?.assessment.id === assessment.id ? { ...current, impact, loading: false } : current);
+    } catch (error) {
+      setDeleting(null);
+      setMessage(error instanceof Error ? error.message : 'Não foi possível verificar a avaliação.');
+    }
+  };
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const { assessment } = deleting;
+    setDeleting({ ...deleting, busy: true });
+    try {
+      await deleteAssessment(client, assessment.id);
+      setItems((current) => current.filter((item) => item.id !== assessment.id));
+      setMessage(`“${assessment.title}” foi excluída.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível excluir a avaliação.'); }
+    setDeleting(null);
+  };
+
   const openLive = async (assessment: AssessmentRow, studentId: string) => {
     setBusy(true); setMessage('');
     try { setLiveSession({ attemptId: await openLiveAssessmentSession(client, assessment.id, studentId), assessment }); setLivePickerFor(null); }
@@ -113,11 +138,12 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setCreationOpen((value) => !value)}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setQueueOpen(true)}><Inbox size={17} />Fila de correção{pendingReviews ? <span className="review-queue-badge">{pendingReviews}</span> : null}</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
     {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação"><header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header><div className="assessment-creation-primary"><button type="button" onClick={() => setDraft(emptyDraft())}><strong>Blank Assessment</strong><span>Comece com uma estrutura vazia e configure tudo manualmente.</span></button><button type="button" onClick={() => setDraft(cefrPlacementDraft(listeningEnabled))}><strong>General CEFR Placement</strong><span>Estime a faixa CEFR de um estudante cujo nível ainda é desconhecido.</span></button></div><div className="assessment-level-checks"><div><span>CEFR LEVEL CHECK</span><h4>Confirme a consolidação de um nível</h4>{!listeningEnabled && <small>Listening está desativado enquanto os áudios são produzidos: os Level Checks usam Reading, Language Use e as tarefas produtivas.</small>}</div>{presets.map((preset) => <div className="assessment-level-check-option" key={preset.id}><button type="button" disabled={busy} onClick={() => void createLevelCheck(preset.id)}><strong>{preset.name}</strong><span>{preset.floorLevel ? `Floor ${preset.floorLevel} · ` : ''}Target {preset.targetLevel}{preset.ceilingLevel ? ` · Ceiling ${preset.ceilingLevel}` : ''}</span><small>{preset.purpose}</small><em>{preset.estimatedDurationMinMinutes}–{preset.estimatedDurationMaxMinutes} min</em></button>)<button type="button" className="assessment-new-form" disabled={busy} title="Gera outra seleção de itens com a mesma estrutura, para outra turma ou reaplicação" onClick={() => void createLevelCheck(preset.id, newFormSeed())}>Gerar nova forma</button></div>)}</div></section>}
     {message && <div className="assessment-message" role="alert">{message}</div>}
+    {deleting && <DeleteAssessmentDialog title={deleting.assessment.title} impact={deleting.impact} loadingImpact={deleting.loading} busy={deleting.busy} onConfirm={() => void confirmDelete()} onCancel={() => setDeleting(null)} />}
     {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><FileQuestion size={21} /></div>
       <h3>{assessment.title}</h3><p>{assessment.description || 'Sem descrição.'}</p>
       <dl><div><dt>Tipo</dt><dd>{assessment.type}</dd></div><div><dt>Tempo</dt><dd>{assessment.time_limit_minutes ? `${assessment.time_limit_minutes} min` : 'Livre'}</dd></div><div><dt>Versão</dt><dd>{assessment.version}</dd></div></dl>
-      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar draft</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button>{assessment.framework === 'cefr' && <button className="secondary-button" onClick={() => setAnalyticsFor(assessment)}><BarChart3 size={15} />Analytics</button>}{liveIds.has(assessment.id) && <button className="secondary-button" onClick={() => setLivePickerFor((current) => current === assessment.id ? null : assessment.id)}><Mic size={15} />Aplicar ao vivo</button>}<button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button></> : null}</div>
+      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar draft</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button>{assessment.framework === 'cefr' && <button className="secondary-button" onClick={() => setAnalyticsFor(assessment)}><BarChart3 size={15} />Analytics</button>}{liveIds.has(assessment.id) && <button className="secondary-button" onClick={() => setLivePickerFor((current) => current === assessment.id ? null : assessment.id)}><Mic size={15} />Aplicar ao vivo</button>}<button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button></> : null}<button type="button" className="assessment-delete-button" title="Excluir avaliação" aria-label={`Excluir ${assessment.title}`} onClick={() => void askDelete(assessment)}><Trash2 size={15} />Excluir</button></div>
       {livePickerFor === assessment.id && <form className="assessment-assign-form live-session-picker" onSubmit={(event) => { event.preventDefault(); const studentId = String(new FormData(event.currentTarget).get('studentId') ?? ''); if (studentId) void openLive(assessment, studentId); }}>
         <h3>Aplicar ao vivo</h3>
         <p>Conduza e pontue as tarefas ao vivo durante a aula. Se o aluno ainda não tiver a avaliação, ela é atribuída agora.</p>

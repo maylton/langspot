@@ -70,7 +70,7 @@ apply_migrations "${from_v0_3[@]}"
 copy supabase/seed.sql pilot-seed.sql
 run pilot-seed.sql >/dev/null
 run pilot-seed.sql >/dev/null
-for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke section_pacing_smoke integrity_v2_smoke; do
+for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke section_pacing_smoke integrity_v2_smoke assessment_deletion_smoke; do
   copy "supabase/tests/$test.sql" "$test.sql"
   run "$test.sql"
 done
