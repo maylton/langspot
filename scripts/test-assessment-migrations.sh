@@ -53,6 +53,7 @@ from_v0_3=(
   20261106180000_restrict_pilot_bank_to_teachers.sql
   20261106190000_assessment_integrity_v2.sql
   20261106200000_pilot_bank_v0_4_authentic_texts.sql
+  20261106210000_add_assessment_deletion.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql
