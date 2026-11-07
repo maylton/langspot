@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Ban, Bell, CalendarDays, Check, ChevronRight, CircleDollarSign, ClipboardList, FileQuestion, Target, type LucideIcon } from 'lucide-react';
+import { Ban, Bell, CalendarDays, Check, ChevronRight, CircleDollarSign, ClipboardList, FileQuestion, GraduationCap, Target, type LucideIcon } from 'lucide-react';
 
 export type BellNotification = {
   id: string;
@@ -12,7 +12,7 @@ export type BellNotification = {
 };
 
 const icons: Record<string, LucideIcon> = {
-  lesson: CalendarDays, assignment: ClipboardList, quiz: FileQuestion, payment: CircleDollarSign,
+  lesson: CalendarDays, assignment: ClipboardList, quiz: FileQuestion, assessment: GraduationCap, payment: CircleDollarSign,
   mission: Target, cancellation: Ban, system: Bell,
 };
 const PREVIEW_LIMIT = 6;

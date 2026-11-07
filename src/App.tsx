@@ -123,7 +123,7 @@ export type Student = {
 export type StudentCreateInput = { name: string; email: string; whatsappPhone?: string; age?: string; level: string; goal: string; notes: string; status: 'Ativo' | 'Pausado'; firstLessonDate?: string; firstLessonTime?: string; firstLessonDuration?: number; firstLessonTopic?: string; firstLessonOnlineUrl?: string };
 type StudentAccountResult = { temporaryPassword: string; studentId?: Id };
 
-type NotificationKind = 'lesson' | 'assignment' | 'quiz' | 'payment' | 'cancellation' | 'mission' | 'system';
+type NotificationKind = 'lesson' | 'assignment' | 'quiz' | 'assessment' | 'payment' | 'cancellation' | 'mission' | 'system';
 export type AppNotification = { id: string; kind: NotificationKind; title: string; description: string; date: string; target: View; urgent?: boolean; readAt?: string | null };
 type View = 'Visão geral' | 'Notificações' | 'Alunos' | 'Aulas' | 'Materiais' | 'Tarefas' | 'Quiz' | 'Avaliações' | 'Financeiro' | 'Progresso' | 'Relatórios' | 'Configurações';
 type AssignmentFormMode = 'regular' | 'interactive';
@@ -560,7 +560,7 @@ function App({ onLogout, onInviteStudent, onInviteTeacher, onManageTeachers, onC
 
 function NotificationsPage({ notifications, readIds, onOpen, onMarkAll }: { notifications: AppNotification[]; readIds: string[]; onOpen: (notification: AppNotification) => void; onMarkAll: () => void }) {
   const unread = notifications.filter((item) => !readIds.includes(item.id)).length;
-  const iconFor = (kind: NotificationKind) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'quiz' ? FileQuestion : kind === 'payment' ? CircleDollarSign : kind === 'mission' ? Target : kind === 'system' ? Bell : Ban;
+  const iconFor = (kind: NotificationKind) => kind === 'lesson' ? CalendarDays : kind === 'assignment' ? ClipboardList : kind === 'quiz' ? FileQuestion : kind === 'assessment' ? GraduationCap : kind === 'payment' ? CircleDollarSign : kind === 'mission' ? Target : kind === 'system' ? Bell : Ban;
   return <section className="notifications-page">
     <div className="panel notifications-panel">
       <div className="panel-heading notifications-heading"><div><p className="eyebrow">CENTRAL</p><h3>Notificações</h3><p>Acompanhe o que precisa da sua atenção agora.</p></div>{unread > 0 && <button className="secondary-button compact" onClick={onMarkAll}><Check size={16} />Marcar todas como lidas</button>}</div>

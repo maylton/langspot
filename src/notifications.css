@@ -42,3 +42,5 @@
   .topbar-actions .notification-bell{width:100%}
   .topbar-actions .notification-popover{position:absolute;left:0;right:0;top:calc(100% + 8px);width:auto}
 }
+.notification-icon.assessment{background:#e3f8f2;color:#027a62}
+.dark-theme .notification-icon.assessment{background:#123a32;color:#7fe3c9}
