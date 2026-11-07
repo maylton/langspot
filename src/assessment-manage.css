@@ -128,3 +128,14 @@
 
 /* Task text from the Pilot Bank keeps its line breaks (bullet lists, numbered notes). */
 .assessment-rich-text{white-space:pre-line}
+
+/* Fullscreen gate: the assessment is only shown in fullscreen on desktop. */
+.assessment-fullscreen-gate{position:fixed;inset:0;z-index:260;display:grid;place-items:center;padding:24px;background:#14223a}
+.assessment-fullscreen-gate>section{width:min(460px,100%);display:grid;justify-items:center;gap:12px;padding:30px 28px;border-radius:20px;background:#fff;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.assessment-fullscreen-gate h2{margin:0;font-size:20px;color:#172033}
+.assessment-fullscreen-gate p{margin:0;color:#596579;line-height:1.5}
+.assessment-fullscreen-gate-icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#e8eef8;color:#2b4a7d}
+.assessment-fullscreen-refused{display:grid;gap:8px;justify-items:center;margin-top:6px;padding:12px;border-radius:12px;background:#fff8e6;color:#7a5410}
+.dark-theme .assessment-fullscreen-gate>section{background:#151e2d}
+.dark-theme .assessment-fullscreen-gate h2{color:#edf1f8}
+.dark-theme .assessment-fullscreen-gate p{color:#b8c2d3}
