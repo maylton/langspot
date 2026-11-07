@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { confirmByTyping } from './dialogs';
 import { Check, LoaderCircle, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -65,8 +66,8 @@ export default function AdminTeachersModal({ onClose }: { onClose: () => void })
   };
 
   const deleteTeacher = async (teacher: ManagedTeacher) => {
-    const confirmation = window.prompt(`Esta ação excluirá permanentemente ${teacher.full_name}, seus alunos e todos os dados vinculados.\n\nDigite EXCLUIR para confirmar.`);
-    if (confirmation !== 'EXCLUIR') return;
+    const confirmed = await confirmByTyping({ title: `Excluir ${teacher.full_name}?`, message: 'Esta ação excluirá permanentemente o professor, seus alunos e todos os dados vinculados.', expected: 'EXCLUIR', confirmLabel: 'Excluir permanentemente' });
+    if (!confirmed) return;
     setBusyId(teacher.id);
     setMessage('');
     try {

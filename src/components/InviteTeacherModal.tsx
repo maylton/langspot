@@ -1,4 +1,5 @@
 import { FormEvent, useState, useEffect } from 'react';
+import { confirmAction } from './dialogs';
 import { Copy, Check, LoaderCircle, X } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -122,7 +123,7 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
   };
 
   const deleteInvitation = async (id: string) => {
-    if (!confirm('Tem certeza? Este convite não poderá mais ser usado.')) return;
+    if (!(await confirmAction({ title: 'Cancelar este convite?', message: 'O link enviado deixará de funcionar.', confirmLabel: 'Sim, cancelar convite', danger: true }))) return;
     if (demoMode) {
       const next = invitations.filter((invitation) => invitation.id !== id);
       setInvitations(next);

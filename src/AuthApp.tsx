@@ -1,4 +1,5 @@
 import { FormEvent, Suspense, lazy, type ComponentProps, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { confirmAction } from './components/dialogs';
 import { ArrowLeft, ArrowRight, Award, Ban, Bell, BookOpen, Brain, CalendarDays, Check, ChevronRight, ClipboardList, Clock3, Edit3, ExternalLink, Eye, EyeOff, FileQuestion, FileText, Flag, Flame, GraduationCap, ImagePlus, Layers3, LayoutDashboard, LoaderCircle, LockKeyhole, LogOut, Moon, MoreHorizontal, NotebookPen, Plus, RotateCcw, Snowflake, Sparkles, Sun, Target, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import App, { AppNotification, Assignment, AssignmentInput, AttendanceStatus, InteractiveAssignmentContent, InteractiveAssignmentResult, LessonRecordInput, Material, MaterialInput, MAX_UPLOAD_SIZE, Payment, PaymentInput, PaymentStatus, PlatformSettings, QuestionBankInput, QuestionBankItem, ScheduledLesson, ScheduledLessonInput, Skill, STUDENT_SUBMISSION_ACCEPT, Student, StudentCreateInput, TextComment, isMaterialUploadFile, isStudentSubmissionFile, materialTypeFromFile } from './App';
 import { CancellationRequest, DbAssignment, DbLesson, DbMaterial, DbNotification, DbQuestionBankItem, Flashcard, FlashcardDeck, FlashcardReview, isSupabaseConfigured, LearningGoal, LearningJournalEntry, Profile, StreakFreeze, StudentRecord, StudyActivity, TeacherSubscription, supabase } from './supabase';
@@ -1626,7 +1627,7 @@ function StudentGoals({ profile, goals, onGoalsChange, onChanged, readOnly = fal
 
   const deleteGoal = async (goalId: string) => {
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
-    if (!supabase || !window.confirm('Excluir esta meta?')) return;
+    if (!supabase || !(await confirmAction({ title: 'Excluir esta meta?', confirmLabel: 'Sim, excluir', danger: true }))) return;
     const previousGoals = goals;
     onGoalsChange((current) => current.filter((goal) => goal.id !== goalId));
     const { error } = await supabase.from('learning_goals').delete().eq('id', goalId).eq('student_id', profile.id);
@@ -1705,7 +1706,7 @@ function StudentJournal({ profile, entries, lessons, onEntriesChange, onChanged,
 
   const deleteEntry = async (entryId: string) => {
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
-    if (!supabase || !window.confirm('Excluir este registro do diário?')) return;
+    if (!supabase || !(await confirmAction({ title: 'Excluir este registro do diário?', confirmLabel: 'Sim, excluir', danger: true }))) return;
     const previousEntries = entries;
     onEntriesChange((current) => current.filter((entry) => entry.id !== entryId));
     const { error } = await supabase.from('learning_journal_entries').delete().eq('id', entryId).eq('student_id', profile.id);
@@ -1811,7 +1812,7 @@ function StudentFlashcards({ profile, onActivity, readOnly = false }: { profile:
 
   const deleteDeck = async (deckId: string) => {
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
-    if (!supabase || !window.confirm('Excluir este baralho e todos os cartões?')) return;
+    if (!supabase || !(await confirmAction({ title: 'Excluir este baralho e todos os cartões?', confirmLabel: 'Sim, excluir', danger: true }))) return;
     const { error } = await supabase.from('flashcard_decks').delete().eq('id', deckId);
     if (error) setMessage(error.message);
     else { setSelectedDeckId(null); await loadFlashcards(); }
@@ -1843,7 +1844,7 @@ function StudentFlashcards({ profile, onActivity, readOnly = false }: { profile:
 
   const deleteCard = async (cardId: string) => {
     if (readOnly) { setMessage('Modo de visualização: alterações estão desativadas.'); return; }
-    if (!supabase || !window.confirm('Excluir este cartão?')) return;
+    if (!supabase || !(await confirmAction({ title: 'Excluir este cartão?', confirmLabel: 'Sim, excluir', danger: true }))) return;
     const { error } = await supabase.from('flashcards').delete().eq('id', cardId);
     if (error) setMessage(error.message); else await loadFlashcards();
   };
