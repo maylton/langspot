@@ -10,7 +10,9 @@ export function AssessmentAssignments({ students, busy, onAssign }: {
   const [message, setMessage] = useState('');
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    // React clears event.currentTarget once the handler yields, so keep the element.
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setMessage('');
     try {
       await onAssign({
@@ -19,7 +21,7 @@ export function AssessmentAssignments({ students, busy, onAssign }: {
         dueAt: String(form.get('dueAt') || '') || null,
         attemptLimit: Number(form.get('attemptLimit') || 1),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       setMessage('Avaliação atribuída com sucesso.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível atribuir a avaliação.'); }
   };

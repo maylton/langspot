@@ -81,7 +81,7 @@ update public.assessment_questions question
 set question_snapshot = jsonb_set(
   question.question_snapshot,
   '{audioPath}',
-  to_jsonb(('test/' || question.question_snapshot->>'taskletId' || '.mp3')::text),
+  to_jsonb('test/' || (question.question_snapshot->>'taskletId') || '.mp3'),
   true
 )
 where question.assessment_id = :'placement_id'
