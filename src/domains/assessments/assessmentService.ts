@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
 import type { AssessmentReportNote, PreviousAssessmentForReport } from './report';
-import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
+import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, AssessmentIntegritySignals, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -201,4 +201,9 @@ export async function getAssessmentFeatureFlags(client: SupabaseClient, fallback
   if (error || !data) return fallback;
   const listening = (data as { key: string; enabled: boolean }[]).find((row) => row.key === 'listening');
   return { listening: listening ? listening.enabled : fallback.listening };
+}
+
+export async function getAssessmentIntegritySignals(client: SupabaseClient, attemptId: string): Promise<AssessmentIntegritySignals> {
+  const { data, error } = await client.rpc('get_assessment_integrity_signals', { p_attempt_id: attemptId });
+  return requireData(data as AssessmentIntegritySignals | null, error);
 }

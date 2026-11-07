@@ -21,6 +21,9 @@ const emptyDraft = (): AssessmentDraft => ({
   formVersion: 'GENERIC-1.0', decisionRuleVersion: 'objective-v1', routingRuleVersion: 'none', reportModelVersion: 'standard-report-v1',
 });
 
+/** Distinct, readable seed for an additional Level Check form. */
+const newFormSeed = () => `forma-${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+
 const cefrPlacementDraft = (listeningEnabled: boolean): AssessmentDraft => {
   const blueprint = [
     { skill: 'reading' as const, target: 4, construct: 'Reading: gist, detail, reference, purpose, inference, attitude and structure' },
@@ -74,10 +77,10 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível abrir o draft.'); }
     setBusy(false);
   };
-  const createLevelCheck = async (presetId: string) => {
+  const createLevelCheck = async (presetId: string, selectionSeed?: string) => {
     setBusy(true); setMessage('');
     try {
-      const assessmentId = await generateAssessmentFromPreset(client, presetId);
+      const assessmentId = await generateAssessmentFromPreset(client, presetId, undefined, selectionSeed);
       setDraft(await loadAssessmentDraft(client, assessmentId));
       setCreationOpen(false);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível gerar o Level Check.'); }
@@ -108,7 +111,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   if (analyticsFor) return <CefrAnalytics client={client} assessment={analyticsFor} onBack={() => setAnalyticsFor(null)} />;
   return <section className="assessment-dashboard">
     <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setCreationOpen((value) => !value)}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setQueueOpen(true)}><Inbox size={17} />Fila de correção{pendingReviews ? <span className="review-queue-badge">{pendingReviews}</span> : null}</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
-    {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação"><header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header><div className="assessment-creation-primary"><button type="button" onClick={() => setDraft(emptyDraft())}><strong>Blank Assessment</strong><span>Comece com uma estrutura vazia e configure tudo manualmente.</span></button><button type="button" onClick={() => setDraft(cefrPlacementDraft(listeningEnabled))}><strong>General CEFR Placement</strong><span>Estime a faixa CEFR de um estudante cujo nível ainda é desconhecido.</span></button></div><div className="assessment-level-checks"><div><span>CEFR LEVEL CHECK</span><h4>Confirme a consolidação de um nível</h4>{!listeningEnabled && <small>Listening está desativado enquanto os áudios são produzidos: os Level Checks usam Reading, Language Use e as tarefas produtivas.</small>}</div>{presets.map((preset) => <button type="button" key={preset.id} disabled={busy} onClick={() => void createLevelCheck(preset.id)}><strong>{preset.name}</strong><span>{preset.floorLevel ? `Floor ${preset.floorLevel} · ` : ''}Target {preset.targetLevel}{preset.ceilingLevel ? ` · Ceiling ${preset.ceilingLevel}` : ''}</span><small>{preset.purpose}</small><em>{preset.estimatedDurationMinMinutes}–{preset.estimatedDurationMaxMinutes} min</em></button>)}</div></section>}
+    {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação"><header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header><div className="assessment-creation-primary"><button type="button" onClick={() => setDraft(emptyDraft())}><strong>Blank Assessment</strong><span>Comece com uma estrutura vazia e configure tudo manualmente.</span></button><button type="button" onClick={() => setDraft(cefrPlacementDraft(listeningEnabled))}><strong>General CEFR Placement</strong><span>Estime a faixa CEFR de um estudante cujo nível ainda é desconhecido.</span></button></div><div className="assessment-level-checks"><div><span>CEFR LEVEL CHECK</span><h4>Confirme a consolidação de um nível</h4>{!listeningEnabled && <small>Listening está desativado enquanto os áudios são produzidos: os Level Checks usam Reading, Language Use e as tarefas produtivas.</small>}</div>{presets.map((preset) => <div className="assessment-level-check-option" key={preset.id}><button type="button" disabled={busy} onClick={() => void createLevelCheck(preset.id)}><strong>{preset.name}</strong><span>{preset.floorLevel ? `Floor ${preset.floorLevel} · ` : ''}Target {preset.targetLevel}{preset.ceilingLevel ? ` · Ceiling ${preset.ceilingLevel}` : ''}</span><small>{preset.purpose}</small><em>{preset.estimatedDurationMinMinutes}–{preset.estimatedDurationMaxMinutes} min</em></button>)<button type="button" className="assessment-new-form" disabled={busy} title="Gera outra seleção de itens com a mesma estrutura, para outra turma ou reaplicação" onClick={() => void createLevelCheck(preset.id, newFormSeed())}>Gerar nova forma</button></div>)}</div></section>}
     {message && <div className="assessment-message" role="alert">{message}</div>}
     {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />Carregando avaliações…</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Draft' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><FileQuestion size={21} /></div>

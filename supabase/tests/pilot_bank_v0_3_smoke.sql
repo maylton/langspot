@@ -31,7 +31,8 @@ select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.3'
 select public.assert_test(public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.3', 'v03-form') = :'b1_id'::uuid, 'Generation must stay idempotent');
 reset role;
 select public.assert_test((select count(*) = 0 from public.assessment_questions where assessment_id = :'b1_id' and (question_snapshot->>'skill' = 'listening' or question_snapshot->>'type' = 'listening')), 'Generated Level Check must not contain Listening');
-select public.assert_test((select count(*) = 36 from public.assessment_questions where assessment_id = :'b1_id' and question_snapshot->>'skill' in ('reading', 'language_use')), 'B1 Level Check must keep 16 Reading + 20 Language Use items');
+select public.assert_test((select count(*) = 16 from public.assessment_questions where assessment_id = :'b1_id' and question_snapshot->>'skill' = 'reading'), 'B1 Level Check must keep 16 Reading items');
+select public.assert_test((select sum(draw_count) = 20 from public.assessment_sections where assessment_id = :'b1_id' and skill = 'language_use'), 'B1 Level Check must deliver 20 Language Use items');
 select public.assert_test((select bool_and(question_snapshot->>'bankVersion' = 'pilot-0.3') from public.assessment_questions where assessment_id = :'b1_id'), 'Generated items must come from v0.3');
 select public.assert_test((select array_agg(distinct split_part(title, ' — ', 1) order by split_part(title, ' — ', 1)) = array['PART 1', 'PART 2', 'PART 3', 'PART 4', 'PART 5', 'PART 6'] from public.assessment_sections where assessment_id = :'b1_id'), 'Parts must be numbered without the Listening gap');
 select public.assert_test((select title like 'PART 2 — Language Use%' from public.assessment_sections where assessment_id = :'b1_id' and skill = 'language_use' limit 1), 'Language Use must be part 2');

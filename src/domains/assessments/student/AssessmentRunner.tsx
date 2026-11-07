@@ -7,6 +7,7 @@ import { enqueueAssessmentWrite, listAssessmentWrites, removeAssessmentWrite, ty
 import { allStagesDone, buildStages, currentStage, formatClock, nextStage, secondsLeft, studentSectionTitle, type Stage } from './pacing';
 import { QuestionRenderer } from './QuestionRenderer';
 import { SubmitConfirmation } from './SubmitConfirmation';
+import { bulkInsertion, canUseAssessmentFullscreen, enterAssessmentFullscreen } from './integrity';
 
 type SaveState = 'saved' | 'saving' | 'offline';
 
@@ -28,6 +29,8 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
   const outsideStartedAt = useRef<number | null>(null);
   const wasFullscreen = useRef(false);
   const closingStage = useRef(false);
+  const fieldLengths = useRef(new WeakMap<EventTarget, number>());
+  const [fullscreenLost, setFullscreenLost] = useState(false);
 
   const flush = useCallback(async () => {
     if (!navigator.onLine) { setSaveState('offline'); return false; }
@@ -83,7 +86,8 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
     const online = () => { audit('network_reconnect'); void flush(); };
     const offline = () => { setSaveState('offline'); audit('network_disconnect'); };
     const visibility = () => { if (document.visibilityState === 'hidden') leave(); else returnToAssessment(); };
-    const fullscreen = () => { if (wasFullscreen.current && !document.fullscreenElement) audit('fullscreen_exit'); wasFullscreen.current = Boolean(document.fullscreenElement); };
+    const fullscreen = () => { if (wasFullscreen.current && !document.fullscreenElement) { audit('fullscreen_exit'); setFullscreenLost(true); } if (document.fullscreenElement) setFullscreenLost(false); wasFullscreen.current = Boolean(document.fullscreenElement); };
+    wasFullscreen.current = Boolean(document.fullscreenElement);
     window.addEventListener('online', online); window.addEventListener('offline', offline); document.addEventListener('visibilitychange', visibility);
     window.addEventListener('blur', leave); window.addEventListener('focus', returnToAssessment); document.addEventListener('fullscreenchange', fullscreen);
     const periodic = window.setInterval(() => void flush(), 15000);
@@ -218,7 +222,21 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
   const last = index === visibleQuestions.length - 1;
   const goTo = (target: number) => { void closeQuestion(); void flush(); setIndex(target); };
 
-  return <div className="assessment-runner-shell" onPasteCapture={(event) => void recordAssessmentEvent(client, attemptId, 'paste_detected', question.id, { pasteLength: event.clipboardData.getData('text').length }).catch(() => undefined)}>
+  const record = (type: 'copy_detected' | 'drop_detected' | 'bulk_insert_detected', metadata: Record<string, unknown>) => void recordAssessmentEvent(client, attemptId, type, question.id, metadata).catch(() => undefined);
+  const textLength = (target: EventTarget) => (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement ? target.value.length : null);
+  return <div className="assessment-runner-shell"
+    onPasteCapture={(event) => void recordAssessmentEvent(client, attemptId, 'paste_detected', question.id, { pasteLength: event.clipboardData.getData('text').length }).catch(() => undefined)}
+    onCopyCapture={() => record('copy_detected', { length: window.getSelection()?.toString().length ?? 0 })}
+    onCutCapture={() => record('copy_detected', { length: window.getSelection()?.toString().length ?? 0 })}
+    onDropCapture={(event) => record('drop_detected', { length: event.dataTransfer.getData('text').length })}
+    onFocusCapture={(event) => { const length = textLength(event.target); if (length !== null) fieldLengths.current.set(event.target, length); }}
+    onInputCapture={(event) => {
+      const length = textLength(event.target); if (length === null) return;
+      const inserted = bulkInsertion(fieldLengths.current.get(event.target) ?? length, length, (event.nativeEvent as InputEvent).inputType);
+      fieldLengths.current.set(event.target, length);
+      if (inserted !== null) record('bulk_insert_detected', { length: inserted, inputType: (event.nativeEvent as InputEvent).inputType ?? 'unknown' });
+    }}>
+    {fullscreenLost && canUseAssessmentFullscreen() && <div className="assessment-fullscreen-banner" role="status">Você saiu da tela cheia. Isso fica registrado para o professor.<button type="button" className="secondary-button compact" onClick={enterAssessmentFullscreen}>Voltar à tela cheia</button></div>}
     <div className="assessment-runner-top"><div><span>{adaptive ? 'PLACEMENT ADAPTATIVO' : paced ? `ETAPA ${activeStage?.number} DE ${stages.length}` : 'AVALIAÇÃO EM ANDAMENTO'}</span><h1>{payload.assessment.title}</h1></div><div className="assessment-runner-status"><span className={remaining !== null && remaining <= 60 ? 'assessment-clock-warning' : ''}><Clock3 size={16} />{formatClock(remaining)}</span>{saveIndicator}</div></div>
     <div className="assessment-runner-progress"><span>{adaptive ? `${answered} questão(ões) concluída(s) · percurso ajustado pelo servidor` : `${answered} de ${visibleQuestions.length} respondidas${paced ? ' nesta etapa' : ''}`}</span><i><b style={{ width: adaptive ? `${Math.min(95, answered * 10)}%` : `${visibleQuestions.length ? (answered / visibleQuestions.length) * 100 : 0}%` }} /></i></div>
     {!paced && liveNotice}
