@@ -121,7 +121,7 @@ export type DbQuestionBankItem = {
   source_material?: string | null;
   tasklet_id?: string | null;
   psychometric_status?: 'uncalibrated' | 'pilot_data_collected' | 'under_analysis' | 'calibrated' | null;
-  question_bank_tasklets?: { external_id: string; input_kind: 'text' | 'audio_script'; input_text: string } | null;
+  question_bank_tasklets?: { external_id: string; input_kind: 'text' | 'audio_script'; input_text: string; source_credit?: string | null; source_reference?: string | null } | null;
   quality_status?: 'draft' | 'reviewed' | 'approved_for_pilot' | 'pilot_data_collected' | 'item_analysis' | 'approved' | 'pilot' | 'needs_revision' | 'retired';
   restricted?: boolean;
   usage_count?: number;

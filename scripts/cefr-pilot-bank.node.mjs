@@ -3,15 +3,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
   const summary = validatePilotBank(bank);
-  assert.equal(summary.total, 300);
-  assert.equal(summary.objective, 234);
+  assert.equal(summary.total, 324);
+  assert.equal(summary.objective, 258);
   assert.equal(summary.productive, 66);
-  assert.equal(summary.tasklets, 36);
+  assert.equal(summary.tasklets, 42);
 });
 
 test('preserves stable IDs, answer keys and tasklet relationships', () => {
@@ -52,8 +52,8 @@ test('imports the expansion and keeps only legitimately repeated stems', () => {
   const summary = validatePilotBank(bank);
   assert.equal(bank.items.find(({ externalId }) => externalId === 'LU-C2-015')?.answerKey, 'B');
   assert.equal(bank.items.find(({ externalId }) => externalId === 'W-A1-003')?.answer, null);
-  // Two different Reading texts may share a gist stem; Language Use stems must be unique.
-  assert.deepEqual(summary.repeatedPromptGroups, [['R-B1-001-Q1', 'R-B1-003-Q1']]);
+  // Different Reading texts may share a gist stem; Language Use stems must be unique.
+  assert.deepEqual(summary.repeatedPromptGroups, [['R-B1-001-Q1', 'R-B1-003-Q1'], ['R-B1-002-Q1', 'R-C1-004-Q1']]);
 });
 
 const item = (id) => bank.items.find(({ externalId }) => externalId === id);
@@ -85,4 +85,17 @@ test('v0.3 targets level-appropriate lengths and defines every duration', () => 
   assert.doesNotMatch(item('M-A2-002')?.sourceMaterial ?? '', /Suggested duration/);
   assert.match(item('M-A2-002')?.sourceMaterial ?? '', /R\$15/);
   assert.ok(bank.items.filter(({ skill }) => !['reading', 'listening', 'language_use'].includes(skill)).every(({ responseConstraints }) => responseConstraints));
+});
+
+test('v0.4 adds one authentic, attributed Reading text per level', () => {
+  for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
+    const tasklet = bank.tasklets.find(({ externalId }) => externalId === `R-${level}-004`);
+    assert.ok(tasklet, level);
+    assert.match(tasklet.sourceReference, /Disponível em: https:\/\/\S+\. Acesso em: 6 nov\. 2026\./);
+    assert.match(tasklet.sourceLicense, /Domínio público|Creative Commons/);
+    assert.ok(tasklet.sourceCredit.startsWith('Texto:'));
+    assert.equal(bank.items.filter(({ taskletExternalId }) => taskletExternalId === tasklet.externalId).length, 4);
+  }
+  assert.match(bank.tasklets.find(({ externalId }) => externalId === 'R-C2-004').inputText, /^If all mankind minus one/);
+  assert.equal(bank.tasklets.find(({ externalId }) => externalId === 'R-B1-001').sourceReference, null);
 });
