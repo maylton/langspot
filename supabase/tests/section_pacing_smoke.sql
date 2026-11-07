@@ -79,7 +79,7 @@ select public.assert_test((select score = 1 from public.assessment_responses whe
 -- Generated Level Checks are paced with default part times.
 set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
-select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.6', 'paced-form') as paced_check \gset
+select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.7', 'paced-form') as paced_check \gset
 reset role;
 select public.assert_test((select section_pacing = 'sections' and time_limit_minutes is null from public.assessments where id = :'paced_check'), 'Level Checks must be paced');
 select public.assert_test((select bool_and(time_limit_minutes = case cefr_level when 'A2' then 8 when 'B1' then 10 else 12 end) from public.assessment_sections where assessment_id = :'paced_check' and skill = 'reading'), 'Reading parts need level-based times');

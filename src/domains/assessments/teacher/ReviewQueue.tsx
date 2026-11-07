@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { richText } from '../richText';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowLeft, Check, Inbox, LoaderCircle, Mic } from 'lucide-react';
 import { finalizeAssessmentReview, getAssessmentResult, listAssessmentReviewQueue, reviewAssessmentResponse } from '../assessmentService';
@@ -110,7 +111,7 @@ function ReviewItem({ client, item, onReviewed, onOpenLive }: { client: Supabase
       {item.operationalDescriptor && <div><dt>Descritor</dt><dd>{item.operationalDescriptor}</dd></div>}
       {constraints && <div><dt>Extensão pedida</dt><dd>{constraints.label || `${constraints.min}–${constraints.max} ${constraints.unit}`}{words !== null && constraints.unit === 'words' ? <b className={words < constraints.min || words > constraints.max ? 'review-words off' : 'review-words'}> · {words} palavras</b> : null}</dd></div>}
     </dl>}
-    {item.sourceMaterial && <div className="live-task-source"><b>Material-fonte</b><p>{item.sourceMaterial}</p></div>}
+    {item.sourceMaterial && <div className="live-task-source"><b>Material-fonte</b><p className="assessment-rich-text">{richText(item.sourceMaterial)}</p></div>}
     {item.live
       ? <div className="review-live-cta"><p>Esta tarefa é aplicada ao vivo. Pontue durante a sessão com o aluno.</p><button className="primary-button" onClick={onOpenLive}><Mic size={15} />Abrir sessão ao vivo</button></div>
       : message ? <p className="assessment-message" role="alert">{message}</p>

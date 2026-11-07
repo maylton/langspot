@@ -1,4 +1,4 @@
-# Guia de elaboração de itens de múltipla escolha (Reading, Listening e Language Use)
+# Guia de elaboração de itens do Pilot Bank
 
 Vale para o Pilot Bank a partir da versão 0.5 e para qualquer item novo de múltipla escolha baseado
 em texto. As regras marcadas com ✔ são verificadas automaticamente por `scripts/cefr-pilot-bank.mjs`.
@@ -114,6 +114,43 @@ a usar cada item.
   *like*, *totally* ou *terrible*.
 
 A v0.6 revisou 46 dos 90 itens de Language Use com essas regras. Os demais já as seguiam.
+
+## Tarefas de produção (Writing, Speaking e Mediation)
+
+### Como as provas de referência fazem
+
+- **Writing (Cambridge):** a tarefa sempre diz **para quem** e **por quê** se escreve e lista os pontos de
+  conteúdo. B1 Preliminary: e-mail de cerca de 100 palavras, respondendo a uma mensagem com quatro
+  anotações. B2 First: ensaio de 140–190 palavras com **duas ideias dadas e uma terceira do candidato**.
+  C1 Advanced: 220–260 palavras. C2 Proficiency: 240–320 palavras.
+- **Speaking (Cambridge):** monólogos curtos e focados (cerca de 1 minuto no B1 e no B2, 2 minutos no C2),
+  com uma pergunta clara para responder. As tarefas de interação têm um examinador que conduz.
+- **Mediation (CEFR Companion Volume, 2020):** o aluno retransmite informação específica, explica dados ou
+  processa um texto **para outra pessoa**, com um propósito, e muitas vezes passa de uma língua para outra
+  (por exemplo, de um aviso em português para uma mensagem em inglês).
+
+### Regras
+
+- ✔ **Writing e Mediation com meta em palavras.** O app recolhe texto escrito; meta em segundos ou minutos
+  não faz sentido para o aluno.
+- ✔ **Tarefa escrita para o aluno.** Use "you" e "the examiner". Nunca descreva a tarefa em terceira pessoa
+  ("the learner and the assessor…"): na prova gravada o aluno lê exatamente esse texto.
+- **Extensões alinhadas à Cambridge:** A1 20–35 palavras, A2 40–70, B1 100–120, B2 140–190, C1 220–260 e
+  C2 280–320. Mediation escrita: A1 20–35, A2 30–50, B1 60–90, B2 90–130, C1 130–180 e C2 160–220.
+- **Destinatário, propósito e gênero sempre explícitos**: "Write an email to Alex…", "Write a report for the
+  centre's management committee…".
+- **Instrução abaixo do nível testado.** Em A1/A2 o enunciado só usa vocabulário de A1/A2 (nada de *host
+  family*). Quem não entende a instrução não mostra o que sabe escrever.
+- **Pontos de conteúdo numerados ou em lista.** Três ou quatro, todos avaliáveis. No ensaio B2, use duas ideias
+  dadas mais "your own idea".
+- **Nenhum tema repetido dentro da mesma forma.** O tema de uma tarefa de produção não pode ser o de um texto
+  de Reading nem o de outra tarefa que a mesma prova pode sortear (mesmo nível, piso e teto). Na v0.7 saíram,
+  por exemplo, "decisões reversíveis" (estava no Reading C1 e em duas tarefas de fala) e "interrupções no
+  trabalho" (em três tarefas do B2).
+- **Spoken Interaction depende de um interlocutor.** Ela funciona melhor **ao vivo**, conduzida pelo professor
+  (opção "Ao vivo" no editor). Gravada, a tarefa precisa ser um cartão completo para o aluno.
+- **Formatação:** listas com "-" e negrito com `**…**` aparecem formatados para o aluno. Não use outros
+  recursos de markdown.
 
 ## Referências
 

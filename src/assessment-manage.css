@@ -125,3 +125,6 @@
 .assessment-assign-form>p{margin:0;color:#6f7a8d;font-size:12px;line-height:1.45}
 .assessment-assign-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
 .assessment-assign-status{font-weight:700}
+
+/* Task text from the Pilot Bank keeps its line breaks (bullet lists, numbered notes). */
+.assessment-rich-text{white-space:pre-line}

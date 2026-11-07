@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-export const PILOT_VERSION = 'pilot-0.6';
+export const PILOT_VERSION = 'pilot-0.7';
 export const PILOT_STATUS = 'approved_for_pilot';
 export const PSYCHOMETRIC_STATUS = 'uncalibrated';
 // Above this share, choosing the longest option is a usable test-taking strategy.
@@ -185,6 +185,9 @@ const productiveConfig = [
 ];
 
 const splitMediationPrompt = (content) => {
+  // v0.7+: an explicit **Task:** line separates the source from the instruction.
+  const marker = content.match(/^\*\*Task:\*\* (.+)$/m);
+  if (marker) return { sourceMaterial: content.slice(0, marker.index).trim(), prompt: marker[1].trim() };
   const boundary = content.search(/^(Your English-speaking|Explain the change|Explain to the club organiser|Explain this finding|Brief a manager|Prepare a concise briefing)/m);
   return boundary > 0
     ? { sourceMaterial: content.slice(0, boundary).trim(), prompt: content.slice(boundary).trim() }
@@ -356,6 +359,9 @@ export function validatePilotBank(bank) {
   }
   for (const item of productive) {
     if (!item.responseConstraints) errors.push(`${item.externalId}: productive task requires a target length or duration.`);
+    // v0.7 rules (docs/cefr/ITEM_WRITING_GUIDELINES.md).
+    if (['writing', 'mediation'].includes(item.skill) && item.responseConstraints && item.responseConstraints.unit !== 'words') errors.push(`${item.externalId}: written tasks (the app collects text) need a target in words.`);
+    if (/\b(the learner|the assessor)\b/i.test(item.prompt)) errors.push(`${item.externalId}: write the task to the candidate ("you", "the examiner"), not about "the learner" or "the assessor".`);
   }
   if (errors.length) throw new Error(errors.join('\n'));
   const promptGroups = new Map();
@@ -374,13 +380,13 @@ const sqlLiteral = (value) => value === null || value === undefined ? 'null' : `
 const jsonLiteral = (value) => value === null || value === undefined ? 'null' : `${sqlLiteral(JSON.stringify(value))}::jsonb`;
 
 export function buildSeedSql(bank) {
-  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md. Do not edit pedagogical content here.\n` +
+  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md. Do not edit pedagogical content here.\n` +
 `begin;\nselect private.import_cefr_pilot_bank(\n  ${jsonLiteral(bank.tasklets)},\n  ${jsonLiteral(bank.items)}\n);\nselect private.validate_cefr_pilot_bank('${PILOT_VERSION}');\ncommit;\n`;
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md');
+  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md');
   const outputArg = args.find((arg) => arg.startsWith('--output='));
   const markdown = await readFile(source, 'utf8');
   const bank = parsePilotBank(markdown);

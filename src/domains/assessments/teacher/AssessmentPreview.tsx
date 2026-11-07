@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { richText } from '../richText';
 import { Check, Mic, Radio, Shuffle } from 'lucide-react';
 import type { AssessmentDraft, AssessmentDraftQuestion } from '../types';
 import { studentSectionTitle } from '../student/pacing';
@@ -14,8 +15,8 @@ function PreviewQuestion({ question, number, showKey }: { question: AssessmentDr
   const live = isLiveQuestion(snapshot);
   return <div className="assessment-preview-question">
     <small>Questão {number}{live ? ' · aplicada ao vivo pelo professor' : ''}</small>
-    <h4>{snapshot.prompt}</h4>
-    {snapshot.type === 'mediation' && snapshot.sourceMaterial && <p className="assessment-source-material">{snapshot.sourceMaterial}</p>}
+    <h4 className="assessment-rich-text">{richText(snapshot.prompt)}</h4>
+    {snapshot.type === 'mediation' && snapshot.sourceMaterial && <p className="assessment-source-material">{richText(snapshot.sourceMaterial)}</p>}
     {target && <p className="assessment-response-target">{snapshot.type === 'speaking' ? 'Duração esperada' : 'Extensão esperada'}: {target}</p>}
     {['writing', 'mediation'].includes(snapshot.type) && !live && <div className="assessment-preview-answer-box">O aluno escreve a resposta aqui.</div>}
     {snapshot.type === 'speaking' && !live && <div className="assessment-preview-answer-box"><Mic size={15} />O aluno grava a resposta em áudio{snapshot.preparationSeconds ? ` (${snapshot.preparationSeconds}s de preparação` : ''}{snapshot.preparationSeconds && snapshot.recordingSeconds ? `, ${snapshot.recordingSeconds}s de gravação)` : snapshot.preparationSeconds ? ')' : ''}.</div>}

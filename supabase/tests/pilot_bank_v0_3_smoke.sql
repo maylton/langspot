@@ -1,4 +1,4 @@
--- Current Pilot Bank (v0.6 = v0.3 fixes + authentic texts + revised Reading and Language Use options) and Level Checks with Listening disabled. Runs after supabase/seed.sql.
+-- Current Pilot Bank (v0.7 = v0.3 fixes + authentic texts + revised Reading, Language Use and productive tasks) and Level Checks with Listening disabled. Runs after supabase/seed.sql.
 \set ON_ERROR_STOP on
 create or replace function public.expect_error(p_sql text, p_expected text) returns void language plpgsql as $$
 begin
@@ -8,11 +8,13 @@ exception when others then
   if position(p_expected in sqlerrm) = 0 then raise exception 'Expected error containing "%", got "%"', p_expected, sqlerrm; end if;
 end $$;
 grant execute on function public.expect_error(text,text) to authenticated;
-select public.assert_test((select count(*) = 324 from public.question_bank where bank_version = 'pilot-0.6'), 'v0.6 must replace all units (324)');
+select public.assert_test((select count(*) = 324 from public.question_bank where bank_version = 'pilot-0.7'), 'v0.7 must replace all units (324)');
 select public.assert_test((select count(*) = 0 from public.question_bank where bank_version = 'pilot-0.2'), 'No v0.2 units may remain after the in-place upgrade');
 select public.assert_test((select prompt = 'The new sports centre ___ by the mayor last year.' and answer = 'was opened' from public.question_bank where external_id = 'LU-B1-003'), 'LU-B1-003 double key was not fixed');
 select public.assert_test((select response_constraints->>'label' = '20–35 words' from public.question_bank where external_id = 'W-A1-001'), 'A1 writing length was not adjusted');
-select private.validate_cefr_pilot_bank('pilot-0.6');
+select private.validate_cefr_pilot_bank('pilot-0.7');
+select public.assert_test((select prompt like 'You are in a café.%' from public.question_bank where external_id = 'SI-A1-002'), 'v0.7 Spoken Interaction prompts must address the candidate');
+select public.assert_test((select response_constraints->>'unit' = 'words' and source_material like 'Source card:%' and prompt like 'Your English-speaking friend%' from public.question_bank where external_id = 'M-A1-001'), 'v0.7 Mediation is written, with source and task kept apart');
 select public.assert_test((select answer = 'make' and options = array['do','make','put','set'] from public.question_bank where external_id = 'LU-B1-005'), 'v0.6 Language Use options must replace v0.5 options in place');
 select public.assert_test((select answer = 'Major drink companies agreed to remove soda from high schools.' and not (options::text ~* '\m(every|only|any kind)\M') from public.question_bank where external_id = 'R-B2-004-Q1'), 'v0.5 options must replace v0.4 options in place');
 select public.assert_test((select count(*) = 6 and bool_and(source_license is not null and source_credit like 'Texto:%' and source_reference like '%Acesso em: 6 nov. 2026.') from public.question_bank_tasklets where external_id ~ '^R-(A1|A2|B1|B2|C1|C2)-004$'), 'Authentic texts must keep reference, licence and credit');
@@ -33,13 +35,13 @@ select public.assert_test(not exists (select 1 from public.cefr_level_check_pres
 
 set role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
-select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.6', 'v03-form') as b1_id \gset
-select public.assert_test(public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.6', 'v03-form') = :'b1_id'::uuid, 'Generation must stay idempotent');
+select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.7', 'v03-form') as b1_id \gset
+select public.assert_test(public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.7', 'v03-form') = :'b1_id'::uuid, 'Generation must stay idempotent');
 reset role;
 select public.assert_test((select count(*) = 0 from public.assessment_questions where assessment_id = :'b1_id' and (question_snapshot->>'skill' = 'listening' or question_snapshot->>'type' = 'listening')), 'Generated Level Check must not contain Listening');
 select public.assert_test((select count(*) = 16 from public.assessment_questions where assessment_id = :'b1_id' and question_snapshot->>'skill' = 'reading'), 'B1 Level Check must keep 16 Reading items');
 select public.assert_test((select sum(draw_count) = 20 from public.assessment_sections where assessment_id = :'b1_id' and skill = 'language_use'), 'B1 Level Check must deliver 20 Language Use items');
-select public.assert_test((select bool_and(question_snapshot->>'bankVersion' = 'pilot-0.6') from public.assessment_questions where assessment_id = :'b1_id'), 'Generated items must come from v0.3');
+select public.assert_test((select bool_and(question_snapshot->>'bankVersion' = 'pilot-0.7') from public.assessment_questions where assessment_id = :'b1_id'), 'Generated items must come from v0.3');
 select public.assert_test((select array_agg(distinct split_part(title, ' — ', 1) order by split_part(title, ' — ', 1)) = array['PART 1', 'PART 2', 'PART 3', 'PART 4', 'PART 5', 'PART 6'] from public.assessment_sections where assessment_id = :'b1_id'), 'Parts must be numbered without the Listening gap');
 select public.assert_test((select title like 'PART 2 — Language Use%' from public.assessment_sections where assessment_id = :'b1_id' and skill = 'language_use' limit 1), 'Language Use must be part 2');
 
