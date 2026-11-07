@@ -14,7 +14,7 @@ select public.assert_test(private.level_check_band_level('A2','B1','B2',1,1,1) =
 -- End to end: a completed B1 Level Check like the teacher's mock attempt.
 set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
-select public.generate_assessment_from_preset('cefr-b1-level-check', null, 'ladder-form') as ladder_id \gset
+select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.4', 'ladder-form') as ladder_id \gset
 reset role;
 select public.assert_test((select decision_rule_version = 'cefr-level-check-v2' from public.assessments where id = :'ladder_id'), 'New Level Checks must record rule v2');
 insert into public.assessment_assignments(assessment_id,teacher_id,student_id,status) values(:'ladder_id','70000000-0000-0000-0000-000000000007','80000000-0000-0000-0000-000000000008','available') returning id as ladder_assignment \gset
