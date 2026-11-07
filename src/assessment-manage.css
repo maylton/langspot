@@ -118,3 +118,10 @@
 .dark-theme .assessment-preview article ol.assessment-preview-options li.correct{background:#173328;border-color:#2c6a4f;color:#a8e6c8}
 .dark-theme .assessment-preview-key-toggle{background:#251f45;color:#c7b9ff}
 .dark-theme .assessment-preview-answer-box{border-color:#344155}
+
+/* Generic in-app confirmation and the assignment form. */
+.assessment-confirm-items{margin:0 0 12px;padding:12px 14px 12px 30px;border-radius:12px;background:#fff8e8;border:1px solid #f3dfae;color:#7a5410;display:grid;gap:6px;line-height:1.45}
+.dark-theme .assessment-confirm-items{background:#2b2414;border-color:#5c4a1e;color:#f1d58f}
+.assessment-assign-form>p{margin:0;color:#6f7a8d;font-size:12px;line-height:1.45}
+.assessment-assign-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
+.assessment-assign-status{font-weight:700}

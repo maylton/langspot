@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, Eye, FileAudio, Mic, Plus, Save, Send, Sparkles, Trash2, UploadCloud, UserRound } from 'lucide-react';
+import { ArrowLeft, Eye, FileAudio, LoaderCircle, Mic, Plus, Save, Send, Sparkles, Trash2, UploadCloud, UserRound } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ConfirmDialog } from './ConfirmDialog';
 import { joinOrderingAnswer, type QuestionType } from '../../questions';
 import { canAdministerLive, isLiveQuestion, validateAssessmentDraft } from '../validator';
 import type { AssessmentDraft, AssessmentDraftSection, AssessmentQuestionSnapshot, AssessmentSectionSkill, CefrLevel } from '../types';
@@ -28,6 +29,11 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
   const [preview, setPreview] = useState(false);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved');
   const [message, setMessage] = useState('');
+  const [publishWarnings, setPublishWarnings] = useState<string[] | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const messageRef = useRef<HTMLDivElement>(null);
+  // Errors appear under the toolbar; bring them into view even when the teacher is at the bottom of a long form.
+  useEffect(() => { if (message) messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [message]);
   const [bankLevel, setBankLevel] = useState('all');
   const [bankStatus, setBankStatus] = useState('all');
   const [bankSearch, setBankSearch] = useState('');
@@ -91,9 +97,15 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
     const issues = validateAssessmentDraft(draft, { listeningEnabled });
     const errors = issues.filter((issue) => issue.severity === 'error');
     if (errors.length) { setMessage(errors.map((issue) => issue.message).join(' ')); return; }
-    if (issues.some((issue) => issue.severity === 'warning') && !window.confirm(`${issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.message).join(' ')} Publicar mesmo assim?`)) return;
-    setMessage('');
-    try { await onPublish(draft); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível publicar.'); }
+    const warnings = issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.message);
+    if (warnings.length) { setPublishWarnings(warnings); return; }
+    await confirmPublish();
+  };
+  const confirmPublish = async () => {
+    setMessage(''); setPublishing(true);
+    try { await onPublish(draft); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível publicar.'); setPublishWarnings(null); }
+    setPublishing(false);
   };
 
   return <div className="assessment-editor">
@@ -105,10 +117,11 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
           <span className={`assessment-save-state ${saveState}`} role="status" aria-live="polite">{saveState === 'saving' ? 'Salvando…' : saveState === 'error' ? 'Não salvo' : 'Salvo'}</span>
           <button type="button" className="secondary-button" disabled={saveState === 'saving'} onClick={saveNow}><Save size={16} />Salvar</button>
         </div>
-        <button type="button" className="primary-button" onClick={publish}><Send size={16} />Publicar</button>
+        <button type="button" className="primary-button" disabled={publishing} onClick={() => void publish()}>{publishing ? <LoaderCircle className="spin" size={16} /> : <Send size={16} />}{publishing ? 'Publicando…' : 'Publicar'}</button>
       </div>
     </div>
-    {message && <div className="assessment-message" role="alert">{message}</div>}
+    {message && <div ref={messageRef} className="assessment-message" role="alert">{message}</div>}
+    {publishWarnings && <ConfirmDialog eyebrow="PUBLICAR AVALIAÇÃO" title="Publicar mesmo com estes avisos?" items={publishWarnings} note="São recomendações, não erros. Depois de publicada, a prova não pode mais ser editada; você poderá atribuí-la aos alunos." confirmLabel={publishing ? 'Publicando…' : 'Sim, publicar'} cancelLabel="Voltar e revisar" busy={publishing} onConfirm={() => void confirmPublish()} onCancel={() => setPublishWarnings(null)} />}
     {onUseReadyMade && draft.sections.every((section) => !section.questions.length) && <aside className="assessment-ready-made-hint"><Sparkles size={18} /><div><strong>Esta prova ainda não tem questões.</strong><span>Para verificar o nível de um aluno, use uma prova pronta: ela vem completa, com questões revisadas de cada habilidade.</span></div><button type="button" className="secondary-button compact" onClick={onUseReadyMade}>Ver provas prontas</button></aside>}
     {!listeningEnabled && draft.sections.some((section) => section.skill === 'listening' || section.questions.some((question) => question.snapshot.type === 'listening' || question.snapshot.skill === 'listening')) && <div className="assessment-message" role="status">Listening está desativado no momento. Remova as seções e questões de Listening para publicar esta avaliação, ou gere o Level Check de novo pelo menu “Nova avaliação”.</div>}
     {preview ? <AssessmentPreview draft={draft} /> : <>

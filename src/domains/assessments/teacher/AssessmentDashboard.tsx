@@ -60,6 +60,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [listeningEnabled, setListeningEnabled] = useState(ASSESSMENT_LISTENING_DEFAULT);
   const [pendingReviews, setPendingReviews] = useState(0);
   const [generating, setGenerating] = useState(false);
+  const [assignBusy, setAssignBusy] = useState(false);
   const [deleting, setDeleting] = useState<{ assessment: AssessmentRow; impact: AssessmentDeletionImpact | null; loading: boolean; busy: boolean } | null>(null);
 
   const load = useCallback(async () => {
@@ -67,11 +68,14 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     try {
       const [assessments, levelCheckPresets, withLiveTasks, flags] = await Promise.all([listTeacherAssessments(client), listCefrLevelCheckPresets(client), listAssessmentIdsWithLiveTasks(client), getAssessmentFeatureFlags(client, { listening: ASSESSMENT_LISTENING_DEFAULT })]);
       setItems(assessments); setPresets(levelCheckPresets); setLiveIds(withLiveTasks); setListeningEnabled(flags.listening);
+      setLoading(false);
       // The badge is a convenience: a failure here must not block the dashboard.
       void listAssessmentReviewQueue(client).then((queue) => setPendingReviews(queue.items.length + queue.readyToFinalize.length)).catch(() => undefined);
+      return assessments;
     }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar as avaliações.'); }
     setLoading(false);
+    return null;
   }, [client]);
   useEffect(() => { void load(); }, [load]);
 
@@ -96,7 +100,11 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     try {
       const id = await saveAssessmentDraft(client, value);
       await publishAssessment(client, id);
-      setDraft(null); await load();
+      setDraft(null);
+      const published = (await load())?.find((item) => item.id === id) ?? null;
+      // Next step after publishing: choose the student.
+      setAssigning(published);
+      if (published) setMessage(`“${published.title}” foi publicada. Agora escolha o aluno no formulário abaixo.`);
     } finally { setBusy(false); }
   };
 
@@ -166,18 +174,18 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Rascunho' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><button type="button" className="icon-button danger assessment-delete-button" title="Excluir avaliação" aria-label={`Excluir ${assessment.title}`} onClick={() => void askDelete(assessment)}><Trash2 size={15} /></button></div>
       <h3>{assessment.title}</h3><p>{assessment.description || 'Sem descrição.'}</p>
       <dl><div><dt>Tipo</dt><dd>{assessment.type}</dd></div><div><dt>Tempo</dt><dd>{assessment.time_limit_minutes ? `${assessment.time_limit_minutes} min` : 'Livre'}</dd></div><div><dt>Versão</dt><dd>{assessment.version}</dd></div></dl>
-      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar rascunho</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button>{assessment.framework === 'cefr' && <button className="secondary-button" onClick={() => setAnalyticsFor(assessment)}><BarChart3 size={15} />Analytics</button>}{liveIds.has(assessment.id) && <button className="secondary-button" onClick={() => setLivePickerFor((current) => current === assessment.id ? null : assessment.id)}><Mic size={15} />Aplicar ao vivo</button>}<button className="primary-button" onClick={() => setAssigning(assessment)}><ClipboardList size={15} />Atribuir</button></> : null}</div>
+      <div className="assessment-card-actions">{assessment.status === 'draft' ? <button className="secondary-button" onClick={() => void edit(assessment)}><Edit3 size={15} />Editar rascunho</button> : assessment.status === 'published' ? <><button className="secondary-button" onClick={() => setResultsFor(assessment)}><FileQuestion size={15} />Resultados</button>{assessment.framework === 'cefr' && <button className="secondary-button" onClick={() => setAnalyticsFor(assessment)}><BarChart3 size={15} />Analytics</button>}{liveIds.has(assessment.id) && <button className="secondary-button" onClick={() => setLivePickerFor((current) => current === assessment.id ? null : assessment.id)}><Mic size={15} />Aplicar ao vivo</button>}<button className="primary-button" onClick={() => setAssigning((current) => current?.id === assessment.id ? null : assessment)}><ClipboardList size={15} />Atribuir</button></> : null}</div>
       {livePickerFor === assessment.id && <form className="assessment-assign-form live-session-picker" onSubmit={(event) => { event.preventDefault(); const studentId = String(new FormData(event.currentTarget).get('studentId') ?? ''); if (studentId) void openLive(assessment, studentId); }}>
         <h3>Aplicar ao vivo</h3>
         <p>Conduza e pontue as tarefas ao vivo durante a aula. Se o aluno ainda não tiver a avaliação, ela é atribuída agora.</p>
         <label>Aluno<select name="studentId" required defaultValue=""><option value="" disabled>Selecione</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
         <button className="primary-button" disabled={busy || !students.length}><Mic size={15} />Abrir sessão</button>
       </form>}
-      {assigning?.id === assessment.id && <AssessmentAssignments students={students} busy={busy} onAssign={async (input) => {
-        setBusy(true);
+      {assigning?.id === assessment.id && <AssessmentAssignments students={students} busy={assignBusy} onClose={() => setAssigning(null)} onAssign={async (input) => {
+        setAssignBusy(true);
         try {
           await assignAssessment(client, { assessmentId: assessment.id, teacherId, studentId: input.studentId, availableFrom: input.availableFrom ? new Date(input.availableFrom).toISOString() : null, dueAt: input.dueAt ? new Date(input.dueAt).toISOString() : null, attemptLimit: input.attemptLimit });
-        } finally { setBusy(false); }
+        } finally { setAssignBusy(false); }
       }} />}
     </article>)}</div> : <div className="assessment-empty"><FileQuestion size={38} /><h3>Nenhuma avaliação criada</h3><p>Comece por uma avaliação curta e publique quando a validação estiver pronta.</p></div>}
   </section>;
