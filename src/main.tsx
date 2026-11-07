@@ -10,6 +10,7 @@ import './assessment-report.css';
 import './assessment-pacing.css';
 import './assessment-manage.css';
 import './app-dialogs.css';
+import './notifications.css';
 import './brand.css';
 
 createRoot(document.getElementById('root')!).render(
