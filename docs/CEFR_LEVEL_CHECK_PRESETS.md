@@ -46,7 +46,7 @@ The General CEFR Placement remains a separate construct and is still available i
 - Form version: `CEFR-B1-CHECK-1.0`
 - Bank version: `pilot-0.2`
 - Selection seed: `pilot-form-1`
-- Decision rule: `cefr-level-check-v1`
+- Decision rule: `cefr-level-check-v2` (v1 until 2026-11-07; see “Decision rule v2” below)
 - Routing rule: `cefr-routing-v1`
 - Report model: `cefr-profile-v1`
 - Initial status: `draft`
@@ -100,6 +100,27 @@ The selection covers tense and clause control, word formation, lexical choice, c
 - `M-B1-002` — relevant Homework Club information for a classmate, 1–2 minutes
 
 `M-B1-002` was selected for this pilot because its source notice provides a clear B1 information-selection task. The Pilot Bank importer was also corrected so legacy mediation items such as `M-B1-001` now separate source material from the learner instruction correctly.
+
+## Decision rule v2 — floor / target / ceiling ladder (2026-11-07)
+
+Reading, Listening and Language Use of preset-based forms are estimated from the share of points in
+each band of the preset (floor, target, ceiling), instead of the median of per-section levels used by
+v1. v1 let a perfect floor section pull the estimate down (a perfect B1 form scored B1, never B1+) and
+counted a failed ceiling section as evidence of the target.
+
+| Evidence | Skill estimate (B1 form) |
+|---|---|
+| target ≥ 75 % and ceiling ≥ 60 % | target+ (B1+) |
+| target ≥ 75 % | target (B1) |
+| target 50–74 % | half-band below target (A2+) |
+| target < 50 %, floor ≥ 75 % | floor (A2) |
+| target < 50 %, floor 50–74 % | half-band below floor (A1+) |
+| otherwise | two half-bands below floor (A1) |
+
+Unanswered questions count as wrong (every delivered question is graded). Productive skills are still
+rated by the teacher, and the overall level is still the median of the skills, bounded by the preset and
+the safeguards below. Implemented in `private.level_check_band_level` / `private.level_check_objective_level`
+(migration `20261107120000_level_check_decision_ladder.sql`), tested in `supabase/tests/level_check_ladder_smoke.sql`.
 
 ## Decision safeguards
 
