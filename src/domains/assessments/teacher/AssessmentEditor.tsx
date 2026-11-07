@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, Eye, FileAudio, Plus, Save, Send, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Eye, FileAudio, Mic, Plus, Save, Send, Trash2, UploadCloud, UserRound } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { joinOrderingAnswer, type QuestionType } from '../../questions';
-import { validateAssessmentDraft } from '../validator';
+import { canAdministerLive, isLiveQuestion, validateAssessmentDraft } from '../validator';
 import type { AssessmentDraft, AssessmentDraftSection, AssessmentQuestionSnapshot, AssessmentSectionSkill, CefrLevel } from '../types';
 import { AssessmentPreview } from './AssessmentPreview';
 import { uploadListeningAudio } from '../mediaService';
@@ -55,6 +55,10 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack
     const section = draft.sections.find((item) => item.id === sectionId);
     if (section) changeSection(sectionId, { questions: section.questions.filter((question) => question.id !== questionId) });
   };
+  const toggleLive = (sectionId: string, questionId: string) => setDraft((current) => ({ ...current, sections: current.sections.map((section) => section.id !== sectionId ? section : {
+    ...section,
+    questions: section.questions.map((question) => question.id !== questionId ? question : { ...question, snapshot: { ...question.snapshot, administration: isLiveQuestion(question.snapshot) ? 'student' : 'live' } }),
+  }) }));
   const addManualQuestion = (sectionId: string, question: AssessmentQuestionSnapshot) => {
     const section = draft.sections.find((item) => item.id === sectionId);
     if (section) changeSection(sectionId, { questions: [...section.questions, { id: crypto.randomUUID(), questionBankId: null, weight: 1, required: true, snapshot: question }] });
@@ -124,7 +128,7 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, onBack
           <FileAudio size={20} /><div><strong>{section.questions[0]?.snapshot.taskletId}</strong><span>{section.questions.every((question) => Boolean(question.snapshot.audioPath)) ? 'Áudio associado às quatro questões.' : `Aguardando ${section.questions[0]?.snapshot.taskletId}.mp3`}</span></div>
           <label className="secondary-button"><UploadCloud size={15} />{audioUploadingFor === section.id ? 'Enviando…' : 'Associar áudio'}<input type="file" accept="audio/*" disabled={audioUploadingFor !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadTaskletAudio(section, file); event.target.value = ''; }} /></label>
         </div>}
-        <div className="assessment-question-list">{section.questions.map((question, questionIndex) => <article key={question.id}><span>{questionIndex + 1}</span><div><strong>{question.snapshot.prompt}</strong><small>{question.snapshot.type.replace(/_/g, ' ')}</small></div><button className="icon-button danger" aria-label="Remover questão" onClick={() => removeQuestion(section.id, question.id)}><Trash2 size={15} /></button></article>)}</div>
+        <div className="assessment-question-list">{section.questions.map((question, questionIndex) => <article key={question.id}><span>{questionIndex + 1}</span><div><strong>{question.snapshot.prompt}</strong><small>{question.snapshot.type.replace(/_/g, ' ')}{isLiveQuestion(question.snapshot) ? ' · aplicada ao vivo pelo professor' : section.skill === 'spoken_interaction' && question.snapshot.type === 'speaking' ? ' · recomendado: aplicar ao vivo' : ''}</small></div>{canAdministerLive(question.snapshot) && draft.assessmentMode === 'fixed' && <button type="button" className={`assessment-live-toggle ${isLiveQuestion(question.snapshot) ? 'live' : ''}`} aria-pressed={isLiveQuestion(question.snapshot)} title={isLiveQuestion(question.snapshot) ? 'O professor conduz e pontua esta tarefa ao vivo. Clique para o aluno responder sozinho.' : 'O aluno responde sozinho. Clique para aplicar ao vivo.'} onClick={() => toggleLive(section.id, question.id)}>{isLiveQuestion(question.snapshot) ? <><Mic size={14} />Ao vivo</> : <><UserRound size={14} />Aluno</>}</button>}<button className="icon-button danger" aria-label="Remover questão" onClick={() => removeQuestion(section.id, question.id)}><Trash2 size={15} /></button></article>)}</div>
         <div className="assessment-question-actions"><label>Adicionar do banco<select defaultValue="" onChange={(event) => { addBankQuestion(section.id, event.target.value); event.target.value = ''; }}><option value="" disabled>Escolha uma questão</option>{bank.filter((question) => (draft.framework !== 'cefr' || !question.skill || question.skill === section.skill || (section.skill === 'language_use' && ['grammar','vocabulary','language_use'].includes(question.skill))) && (bankLevel === 'all' || question.cefr === bankLevel) && (bankStatus === 'all' || question.qualityStatus === bankStatus) && (!bankSearch.trim() || [question.subskill, question.taskType, question.topic, question.genre, question.prompt].some((value) => value?.toLowerCase().includes(bankSearch.trim().toLowerCase())))).map((question) => <option key={question.bankId} value={question.bankId}>{question.cefr ? `${question.cefr} · ` : ''}{question.qualityStatus ? `${question.qualityStatus} · ` : ''}{question.prompt}</option>)}</select></label><ManualQuestionForm assessmentId={draft.id} defaultSkill={section.skill} framework={draft.framework} onUpload={(questionId, file) => {
           if (!draft.id) throw new Error('Salve o draft antes de enviar o áudio.');
           return uploadListeningAudio(client, teacherId, draft.id, questionId, file);

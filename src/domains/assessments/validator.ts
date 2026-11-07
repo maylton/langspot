@@ -1,5 +1,10 @@
 import { validateQuestion } from '../questions';
-import type { AssessmentDraft } from './types';
+import type { AssessmentDraft, AssessmentQuestionSnapshot } from './types';
+
+/** Question types a teacher can conduct and score live (mirrors private.validate_live_assessment_publish). */
+export const LIVE_ADMINISTRABLE_TYPES = ['speaking', 'mediation'] as const;
+export const isLiveQuestion = (snapshot: Pick<AssessmentQuestionSnapshot, 'administration'>) => snapshot.administration === 'live';
+export const canAdministerLive = (snapshot: Pick<AssessmentQuestionSnapshot, 'type'>) => (LIVE_ADMINISTRABLE_TYPES as readonly string[]).includes(snapshot.type);
 
 export type AssessmentValidationIssue = {
   severity: 'error' | 'warning';
@@ -35,6 +40,9 @@ export function validateAssessmentDraft(draft: AssessmentDraft): AssessmentValid
       if (question.snapshot.type === 'listening' && !question.snapshot.audioPath) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.audioPath`, message: `Questão ${questionIndex + 1}: envie o áudio de Listening.` });
       if (question.snapshot.type === 'listening' && (!question.snapshot.maxPlays || question.snapshot.maxPlays < 1)) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.maxPlays`, message: `Questão ${questionIndex + 1}: informe ao menos uma reprodução.` });
       if (['writing', 'speaking', 'mediation'].includes(question.snapshot.type) && !question.snapshot.rubric?.length) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.rubric`, message: `Questão ${questionIndex + 1}: configure a rubrica de correção.` });
+      if (isLiveQuestion(question.snapshot) && !canAdministerLive(question.snapshot)) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.administration`, message: `Questão ${questionIndex + 1}: somente Speaking e Mediation podem ser aplicadas ao vivo.` });
+      if (isLiveQuestion(question.snapshot) && draft.assessmentMode === 'adaptive') issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.administration`, message: `Questão ${questionIndex + 1}: tarefas ao vivo só existem em avaliações de forma fixa.` });
+      if (section.skill === 'spoken_interaction' && question.snapshot.type === 'speaking' && !isLiveQuestion(question.snapshot)) issues.push({ severity: 'warning', path: `sections.${sectionIndex}.questions.${questionIndex}.administration`, message: `Questão ${questionIndex + 1} (Spoken Interaction) depende de um interlocutor; considere aplicá-la ao vivo.` });
       if (question.snapshot.type === 'mediation' && !question.snapshot.sourceMaterial?.trim()) issues.push({ severity: 'error', path: `sections.${sectionIndex}.questions.${questionIndex}.sourceMaterial`, message: `Questão ${questionIndex + 1}: informe o material-fonte de Mediation.` });
     });
   });
