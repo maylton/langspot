@@ -17,6 +17,15 @@ const validDraft = (): AssessmentDraft => ({
 
 describe('validateAssessmentDraft', () => {
   it('accepts a complete objective assessment', () => expect(validateAssessmentDraft(validDraft())).toEqual([]));
+  it('does not crash on CEFR bank productive tasks, whose snapshots have no answer key', () => {
+    // Regression: validateQuestion called answer.trim() on undefined and "Publicar" silently did nothing.
+    const draft = validDraft();
+    draft.sections.push({ id: 's2', title: 'Writing', skill: 'writing', instructions: '', weight: 1, drawCount: null, questions: [
+      { id: 'w', questionBankId: null, weight: 1, required: true, snapshot: { id: 'w', type: 'writing', prompt: 'Write an email.', options: [], rubric: [{ key: 'task', label: 'Task', maxScore: 5 }] } as never },
+    ] });
+    expect(() => validateAssessmentDraft(draft)).not.toThrow();
+    expect(validateAssessmentDraft(draft).filter((issue) => issue.severity === 'error')).toEqual([]);
+  });
   it('blocks empty sections and invalid questions', () => {
     const draft = validDraft();
     draft.sections[0].questions = [];

@@ -8,10 +8,12 @@ function duplicateOptions(options: string[]): boolean {
 
 export function validateQuestion(question: QuestionDefinition): QuestionValidationResult {
   const errors: QuestionValidationIssue[] = [];
-  const options = question.options.map((option) => option.trim()).filter(Boolean);
-  const answer = question.answer.trim();
+  // Snapshots of productive tasks (Writing, Speaking, Mediation) from the CEFR bank carry no answer
+  // key, and older snapshots may lack options: treat missing fields as empty instead of crashing.
+  const options = (question.options ?? []).map((option) => String(option ?? '').trim()).filter(Boolean);
+  const answer = String(question.answer ?? '').trim();
 
-  if (!question.prompt.trim()) errors.push({ code: 'empty_prompt', message: 'Question prompt is required.' });
+  if (!String(question.prompt ?? '').trim()) errors.push({ code: 'empty_prompt', message: 'Question prompt is required.' });
   if (duplicateOptions(options)) errors.push({ code: 'duplicate_option', message: 'Question options must be unique.' });
   if (!answer && !['writing', 'speaking', 'mediation'].includes(question.type)) errors.push({ code: 'missing_answer', message: 'A correct answer is required.' });
 

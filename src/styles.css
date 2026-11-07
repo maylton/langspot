@@ -1385,7 +1385,7 @@ button:disabled,button[aria-disabled="true"]{cursor:not-allowed}
 .dark-theme .student-profile-page .student-avatar-controls>button:not(.student-primary){background:#3b2028;border-color:#70414a;color:#ffb4bd}
 .dark-theme .student-profile-page .student-avatar-controls>button:not(.student-primary):hover{border-color:#ff9aa5;box-shadow:0 0 0 3px rgba(255,154,165,.12)}
 
-@keyframes soft-pop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes soft-pop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
 @keyframes wizard-step-in{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
 @keyframes badge-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .app-shell main,.student-main-content,.student-page,.settings-page,.progress-page,.materials-layout,.agenda-layout,.notifications-panel,.assignments-page{animation:soft-pop .26s ease both}
