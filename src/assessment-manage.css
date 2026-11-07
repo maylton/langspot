@@ -62,3 +62,29 @@
 /* Stage overview: the exit/submit row lines up with the list of stages, right below it. */
 .assessment-runner-actions.assessment-stage-actions{width:min(760px,100%);max-width:none;margin:0 auto}
 .assessment-runner-shell main.assessment-stage-list{padding:12px 0 0}
+
+/* Creation menu: ready-made level tests first, manual building below. */
+.assessment-creation-group{display:grid;gap:4px}
+.assessment-creation-group>span{color:#7655f3;font-size:9px;font-weight:900;letter-spacing:.1em}
+.assessment-creation-group h4{margin:2px 0 0;font-size:15px}
+.assessment-creation-group small{font-size:11px;color:#6f7a8d;line-height:1.45}
+.assessment-level-checks .assessment-level-check-option>button:first-child{grid-template-columns:42px minmax(0,1fr);column-gap:12px;row-gap:6px;align-items:center;align-content:start;padding:14px;min-height:0}
+.assessment-level-badge{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:#7655f3;color:#fff;font-size:15px;font-weight:900}
+.assessment-level-checks .assessment-level-check-option strong{font-size:14px}
+.assessment-level-checks .assessment-level-check-option>button:first-child>:is(small,span,em){grid-column:1/-1}
+.assessment-level-checks .assessment-level-check-option small{font-size:11px;color:#596579;line-height:1.4}
+.assessment-level-checks .assessment-level-check-option>button:first-child>span{font-size:11px;font-weight:500;letter-spacing:0;color:#6f7a8d;line-height:1.4}
+.assessment-level-checks .assessment-level-check-option em{font-size:11px}
+.assessment-creation-empty{grid-column:1/-1;margin:0;padding:12px 14px;border-radius:12px;background:#fff4e8;color:#8b5415;font-size:12px}
+.assessment-creation-manual{display:grid;gap:10px;padding-top:16px;border-top:1px solid #eceff4}
+.assessment-creation-manual .assessment-creation-primary button{min-height:70px}
+.assessment-creation-manual .assessment-creation-primary strong{font-size:13px}
+.assessment-ready-made-hint{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #e0d8ff;border-radius:14px;background:#f6f3ff;color:#4a3aa8}
+.assessment-ready-made-hint>div{display:grid;gap:3px;flex:1}
+.assessment-ready-made-hint strong{font-size:13px;color:#2d2470}
+.assessment-ready-made-hint span{font-size:12px;color:#5b5490}
+.dark-theme .assessment-creation-manual{border-color:#2a3547}
+.dark-theme .assessment-ready-made-hint{background:#1d1838;border-color:#3a3170;color:#c7b9ff}
+.dark-theme .assessment-ready-made-hint strong{color:#e6e0ff}
+.dark-theme .assessment-ready-made-hint span{color:#b3abe0}
+@media(max-width:620px){.assessment-ready-made-hint{flex-wrap:wrap}.assessment-ready-made-hint>button{width:100%}}
