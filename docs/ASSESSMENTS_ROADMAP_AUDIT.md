@@ -7,7 +7,7 @@ Branch: `feature/assessments-foundation`
 
 | Fase | Resultado | Evidência principal |
 |---|---|---|
-| 0 — baseline | Conforme | branch isolada, `node_modules` fora do tracking, build e typecheck verdes |
+| 0 — baseline | Conforme | branch isolada, `node_modules` fora do tracking (efetivado em 2026-11-06), build e typecheck verdes |
 | 1 — Question Engine | Conforme | domínio compartilhado em `src/domains/questions`, grading/normalização/validação/randomização e testes |
 | 2 — fundação | Conforme | domínio modular, services, navegação e flag de rollback sem lógica grande nova nos monólitos |
 | 3 — banco | Conforme | sete entidades-base, FKs, constraints, índices, timestamps, RLS e aplicação limpa das migrations |
