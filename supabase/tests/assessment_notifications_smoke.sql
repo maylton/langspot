@@ -26,10 +26,10 @@ select public.assert_test((select scheduled_for > now() + interval '2 days' from
 update public.assessment_assignments set available_from = null, status = 'available' where id = :'later_assignment';
 
 -- Submitting notifies the teacher.
+select id as nq from public.assessment_questions where assessment_id = :'notified_id' \gset
 set role authenticated;
 select set_config('request.jwt.claim.sub','80000000-0000-0000-0000-000000000008',false);
 select public.start_assessment_attempt(:'later_assignment','notify-device') as notified_attempt \gset
-select id as nq from public.assessment_questions where assessment_id = :'notified_id' \gset
 select public.save_assessment_response(:'notified_attempt', :'nq', '{"value":"A"}'::jsonb);
 select public.submit_assessment_attempt(:'notified_attempt');
 reset role;
