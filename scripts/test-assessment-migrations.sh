@@ -56,6 +56,7 @@ from_v0_3=(
   20261106210000_add_assessment_deletion.sql
   20261107120000_level_check_decision_ladder.sql
   20261107130000_pilot_bank_v0_5_defaults.sql
+  20261107140000_pilot_bank_v0_6_defaults.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql

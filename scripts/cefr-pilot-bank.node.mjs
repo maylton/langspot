@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
@@ -119,4 +119,31 @@ test('the validator rejects a Reading distractor with an absolute the text does 
   const target = tampered.items.find(({ externalId }) => externalId === 'R-B1-001-Q2');
   target.options[0] = 'never stay while the volunteers repair the object';
   assert.throws(() => validatePilotBank(tampered), /R-B1-001-Q2: distractor uses "never"/);
+});
+
+test('v0.6 Language Use keys keep their letter, with real-word distractors and no length cue', () => {
+  assert.equal(item('LU-B1-005')?.answerKey, 'B');
+  assert.deepEqual(item('LU-B1-005')?.options, ['do', 'make', 'put', 'set']);
+  assert.equal(item('LU-C2-002')?.answer, 'tempered');
+  for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
+    const languageUse = bank.items.filter((entry) => entry.level === level && entry.skill === 'language_use');
+    // Ties are not a cue (single words often share a length); count the strictly longest key, as the validator does.
+    const longest = languageUse.filter((entry) => {
+      const lengths = entry.options.map((option) => option.length);
+      return entry.answer.length === Math.max(...lengths) && lengths.filter((length) => length === entry.answer.length).length === 1;
+    }).length;
+    assert.ok(longest / languageUse.length <= 0.35, `${level}: ${longest}/${languageUse.length}`);
+  }
+  // Invented forms such as "create up" or "increases up" are gone.
+  const invented = /\b(create up|earn out|collect up|increases up|extract out|whose it|are have|is go|have lose|was lose|did we have seen|whereas of|consequently of|for example of)\b/i;
+  assert.deepEqual(bank.items.filter((entry) => entry.skill === 'language_use' && entry.options.some((option) => invented.test(option))).map(({ externalId }) => externalId), []);
+});
+
+test('the validator rejects a Language Use form where the key is usually the longest option', () => {
+  const tampered = structuredClone(bank);
+  for (const entry of tampered.items.filter(({ level, skill }) => level === 'B1' && skill === 'language_use').slice(0, 8)) {
+    entry.options = entry.options.map((option) => option === entry.answer ? `${option} indeed, without any doubt` : option);
+    entry.answer = `${entry.answer} indeed, without any doubt`;
+  }
+  assert.throws(() => validatePilotBank(tampered), /B1: the key is the longest option in \d+\/15 Language Use items/);
 });
