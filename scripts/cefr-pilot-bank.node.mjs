@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
@@ -36,7 +36,7 @@ test('separates legacy mediation source material from the learner task', () => {
   const item = bank.items.find(({ externalId }) => externalId === 'M-B1-001');
   assert.match(item?.sourceMaterial ?? '', /Comment 1:/u);
   assert.match(item?.sourceMaterial ?? '', /Comment 2:/u);
-  assert.equal(item?.prompt, 'Explain to the club organiser the two main problems and suggest what information from the comments is most important to act on.');
+  assert.equal(item?.prompt, 'Write an email to the club organiser explaining the two main problems in the comments and saying which one is most important to act on first.'); // v0.7 wording
 });
 
 test('retains listening transcripts and application duration metadata', () => {
@@ -81,7 +81,7 @@ test('v0.3 targets level-appropriate lengths and defines every duration', () => 
   assert.equal(item('W-A2-003')?.responseConstraints?.max, 70);
   assert.equal(item('W-B2-001')?.responseConstraints?.max, 190);
   assert.equal(item('SI-C2-003')?.responseConstraints?.label, '7–9 minutes');
-  assert.equal(item('M-A2-002')?.responseConstraints?.unit, 'seconds');
+  assert.equal(item('M-A2-002')?.responseConstraints?.unit, 'words'); // written since v0.7
   assert.doesNotMatch(item('M-A2-002')?.sourceMaterial ?? '', /Suggested duration/);
   assert.match(item('M-A2-002')?.sourceMaterial ?? '', /R\$15/);
   assert.ok(bank.items.filter(({ skill }) => !['reading', 'listening', 'language_use'].includes(skill)).every(({ responseConstraints }) => responseConstraints));
@@ -146,4 +146,26 @@ test('the validator rejects a Language Use form where the key is usually the lon
     entry.answer = `${entry.answer} indeed, without any doubt`;
   }
   assert.throws(() => validatePilotBank(tampered), /B1: the key is the longest option in \d+\/15 Language Use items/);
+});
+
+test('v0.7 productive tasks: written targets in words, candidate-facing interaction, Cambridge lengths', () => {
+  for (const entry of bank.items.filter(({ skill }) => ['writing', 'mediation'].includes(skill))) {
+    assert.equal(entry.responseConstraints?.unit, 'words', entry.externalId);
+  }
+  for (const entry of bank.items.filter(({ skill }) => skill === 'spoken_interaction')) {
+    assert.doesNotMatch(entry.prompt, /\b(the learner|the assessor)\b/i, entry.externalId);
+    assert.match(entry.prompt, /\b(you|your)\b/i, entry.externalId);
+  }
+  assert.deepEqual(item('W-B1-001')?.responseConstraints, { min: 100, max: 120, unit: 'words', label: '100–120 words' });
+  assert.equal(item('W-C1-002')?.responseConstraints?.label, '220–260 words');
+  assert.equal(item('W-C2-001')?.responseConstraints?.label, '280–320 words');
+  assert.match(item('M-A1-001')?.sourceMaterial ?? '', /^Source card:/);
+  assert.match(item('M-A1-001')?.prompt ?? '', /^Your English-speaking friend/);
+});
+
+test('the validator rejects a written task timed in seconds and a prompt about "the learner"', () => {
+  const tampered = structuredClone(bank);
+  tampered.items.find(({ externalId }) => externalId === 'M-B1-001').responseConstraints = { min: 60, max: 90, unit: 'seconds', label: '60–90 seconds' };
+  tampered.items.find(({ externalId }) => externalId === 'SI-B1-001').prompt = 'The learner and assessor agree on two activities.';
+  assert.throws(() => validatePilotBank(tampered), (error) => /M-B1-001: written tasks/.test(error.message) && /SI-B1-001: write the task to the candidate/.test(error.message));
 });

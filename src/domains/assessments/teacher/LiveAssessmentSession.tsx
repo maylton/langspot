@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { richText } from '../richText';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowLeft, Check, CheckCircle2, Circle, LoaderCircle, Mic, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 import { completeLiveAssessmentSession, getLiveAssessmentSession, scoreLiveAssessmentResponse } from '../assessmentService';
@@ -150,8 +151,8 @@ function LiveTask({ client, attemptId, question, locked, onSaved }: {
       {question.estimatedDurationLabel && <span><Timer size={12} />{question.estimatedDurationLabel}</span>}
       {question.gradingStatus === 'reviewed' && <span className="done"><Check size={12} />Pontuada</span>}
     </div>
-    <h3 className="live-task-prompt">{question.prompt}</h3>
-    {question.sourceMaterial && <div className="live-task-source"><b>Material de apoio</b><p>{question.sourceMaterial}</p></div>}
+    <h3 className="live-task-prompt assessment-rich-text">{richText(question.prompt)}</h3>
+    {question.sourceMaterial && <div className="live-task-source"><b>Material de apoio</b><p className="assessment-rich-text">{richText(question.sourceMaterial)}</p></div>}
     {(question.primaryEvidence || question.operationalDescriptor) && <dl className="live-task-evidence">
       {question.primaryEvidence && <div><dt>Evidência esperada</dt><dd>{question.primaryEvidence}</dd></div>}
       {question.operationalDescriptor && <div><dt>Descritor</dt><dd>{question.operationalDescriptor}</dd></div>}
