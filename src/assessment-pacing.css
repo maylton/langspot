@@ -1,0 +1,206 @@
+/* Paced assessments (parts), part confirmation and the final submission code. */
+
+.assessment-pacing-option {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #e4e0f6;
+  border-radius: 12px;
+  background: #faf9ff;
+}
+
+.assessment-pacing-option p {
+  margin: 0;
+  color: #6e7a8f;
+  font-size: 12px;
+}
+
+.assessment-stage-list {
+  display: grid;
+  gap: 14px;
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.assessment-stage-list > p {
+  margin: 0;
+  color: #536075;
+  line-height: 1.55;
+}
+
+.assessment-stage-list ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assessment-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e4e8ef;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.assessment-stage strong,
+.assessment-stage small {
+  display: block;
+}
+
+.assessment-stage small {
+  margin-top: 3px;
+  color: #7e899b;
+  font-size: 12px;
+}
+
+.assessment-stage-icon {
+  display: grid;
+  place-items: center;
+  color: #8b95a7;
+}
+
+.assessment-stage.done .assessment-stage-icon {
+  color: #23885a;
+}
+
+.assessment-stage.open,
+.assessment-stage.available {
+  border-color: #c9bcff;
+}
+
+.assessment-stage.open .assessment-stage-icon,
+.assessment-stage.available .assessment-stage-icon {
+  color: #7655f3;
+}
+
+.assessment-stage.locked {
+  opacity: .65;
+}
+
+.assessment-stage-notice {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #edf9f3;
+  color: #27694d;
+}
+
+.assessment-stage-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto;
+  width: min(900px, 100%);
+  padding: 14px 16px;
+  border: 1px solid #f0cf97;
+  border-radius: 12px;
+  background: #fff8e9;
+  color: #75521d;
+}
+
+.assessment-stage-confirm p {
+  margin: 0;
+}
+
+.assessment-stage-confirm div {
+  display: flex;
+  gap: 8px;
+}
+
+.assessment-clock-warning {
+  color: #b4434f;
+  font-weight: 800;
+}
+
+.assessment-submit-confirmation {
+  display: grid;
+  gap: 12px;
+  width: min(460px, 100%);
+}
+
+.assessment-submit-confirmation h2,
+.assessment-submit-confirmation p {
+  margin: 0;
+}
+
+.assessment-confirmation-code {
+  justify-self: center;
+  padding: 10px 22px;
+  border: 1px dashed #9a7cff;
+  border-radius: 12px;
+  background: #f4f1ff;
+  color: #4d3aa8;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: .3em;
+  user-select: none;
+}
+
+.assessment-submit-confirmation label {
+  display: grid;
+  gap: 6px;
+  color: #536075;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assessment-submit-confirmation input {
+  padding: 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  font-size: 20px;
+  letter-spacing: .3em;
+  text-align: center;
+}
+
+.dark-theme .assessment-pacing-option,
+.dark-theme .assessment-stage {
+  border-color: #29364b;
+  background: #151e2d;
+  color: #edf1f8;
+}
+
+.dark-theme .assessment-stage-list > p,
+.dark-theme .assessment-pacing-option p {
+  color: #b8c2d1;
+}
+
+.dark-theme .assessment-stage-notice {
+  background: #172a23;
+  color: #aee5ca;
+}
+
+.dark-theme .assessment-stage-confirm {
+  border-color: #72552b;
+  background: #2a2318;
+  color: #f1d299;
+}
+
+.dark-theme .assessment-confirmation-code {
+  border-color: #8d75ed;
+  background: #241f3d;
+  color: #d3c9ff;
+}
+
+@media (max-width: 560px) {
+  .assessment-stage {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .assessment-stage button {
+    grid-column: 1 / -1;
+  }
+}
+
+.assessment-runner-actions .primary-button {
+  white-space: nowrap;
+}

@@ -16,7 +16,7 @@ import { ReviewQueue } from './ReviewQueue';
 const emptyDraft = (): AssessmentDraft => ({
   id: null, title: '', description: '', type: 'custom', framework: 'none', assessmentMode: 'fixed', navigationMode: 'free',
   levelMin: null, levelMax: null, timeLimitMinutes: 30, maxAttempts: 1,
-  randomizeQuestions: false, randomizeOptions: false, showResults: 'after_teacher_review', sections: [],
+  randomizeQuestions: false, randomizeOptions: false, showResults: 'after_teacher_review', sectionPacing: 'none', sections: [],
   adaptiveInitialAbility: 5, adaptiveMinItems: 4, adaptiveMaxItems: 10, adaptiveConfidenceThreshold: 0.65,
   formVersion: 'GENERIC-1.0', decisionRuleVersion: 'objective-v1', routingRuleVersion: 'none', reportModelVersion: 'standard-report-v1',
 });

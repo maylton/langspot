@@ -20,11 +20,14 @@ export async function listAssessmentAssignments(client: SupabaseClient, assessme
 }
 
 export async function loadAssessmentDraft(client: SupabaseClient, assessmentId: string): Promise<AssessmentDraft> {
-  const [{ data, error }, metadata] = await Promise.all([
+  const [{ data, error }, metadata, pacingResult] = await Promise.all([
     client.rpc('get_assessment_draft', { p_assessment_id: assessmentId }),
     client.rpc('get_assessment_cefr_metadata', { p_assessment_id: assessmentId }),
+    client.rpc('get_assessment_pacing', { p_assessment_id: assessmentId }),
   ]);
-  const draft = requireData(data as AssessmentDraft | null, error);
+  const loaded = requireData(data as AssessmentDraft | null, error);
+  const pacing = pacingResult.error ? null : pacingResult.data as { sectionPacing: 'none' | 'sections'; sections: { timeLimitMinutes: number | null }[] } | null;
+  const draft: AssessmentDraft = pacing ? { ...loaded, sectionPacing: pacing.sectionPacing, sections: loaded.sections.map((section, index) => ({ ...section, timeLimitMinutes: pacing.sections[index]?.timeLimitMinutes ?? null })) } : { ...loaded, sectionPacing: 'none' };
   if (metadata.error || !metadata.data) return { ...draft, framework: 'none', formVersion: 'GENERIC-1.0', decisionRuleVersion: 'objective-v1', routingRuleVersion: 'none', reportModelVersion: 'standard-report-v1' };
   const cefr = metadata.data as Pick<AssessmentDraft, 'framework' | 'formVersion' | 'decisionRuleVersion' | 'routingRuleVersion' | 'reportModelVersion'> & { sections: Partial<AssessmentDraft['sections'][number]>[] };
   return { ...draft, ...cefr, sections: draft.sections.map((section, index) => ({ ...section, ...(cefr.sections[index] ?? {}) })) };
@@ -35,6 +38,8 @@ export async function saveAssessmentDraft(client: SupabaseClient, draft: Assessm
   const id = requireData(data as string | null, error);
   const { error: metadataError } = await client.rpc('save_assessment_cefr_metadata', { p_assessment_id: id, p_metadata: draft });
   if (metadataError) throw new Error(metadataError.message);
+  const { error: pacingError } = await client.rpc('save_assessment_pacing', { p_assessment_id: id, p_draft: { sectionPacing: draft.sectionPacing ?? 'none', sections: draft.sections.map((section) => ({ timeLimitMinutes: section.timeLimitMinutes ?? null })) } });
+  if (pacingError) throw new Error(pacingError.message);
   return id;
 }
 
