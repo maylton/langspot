@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
@@ -68,7 +68,7 @@ test('v0.3 removes the double key and the cross-level duplicate', () => {
 
 test('v0.3 keeps answer keys in place while rebalancing option length', () => {
   assert.equal(item('R-B2-001-Q1')?.answerKey, 'D');
-  assert.match(item('R-B2-001-Q1')?.answer ?? '', /^Convenience helps/);
+  assert.match(item('R-B2-001-Q1')?.answer ?? '', /^Assistance is useful/); // key paraphrased in v0.5
   for (const level of ['B1', 'B2', 'C1', 'C2']) {
     const comprehension = bank.items.filter((entry) => entry.level === level && ['reading', 'listening'].includes(entry.skill));
     const longest = comprehension.filter((entry) => entry.answer.length === Math.max(...entry.options.map((option) => option.length))).length;
@@ -98,4 +98,25 @@ test('v0.4 adds one authentic, attributed Reading text per level', () => {
   }
   assert.match(bank.tasklets.find(({ externalId }) => externalId === 'R-C2-004').inputText, /^If all mankind minus one/);
   assert.equal(bank.tasklets.find(({ externalId }) => externalId === 'R-B1-001').sourceReference, null);
+});
+
+test('v0.5 Reading distractors carry no absolute-word cue and keys keep their letter', () => {
+  const absolute = /\b(all|every|everyone|everything|always|never|only|none|nothing|nobody|completely|entirely|totally)\b/i;
+  const texts = new Map(bank.tasklets.map((tasklet) => [tasklet.externalId, (tasklet.inputText ?? '').toLowerCase()]));
+  for (const entry of bank.items.filter(({ skill }) => skill === 'reading')) {
+    if (absolute.test(entry.answer)) continue;
+    for (const option of entry.options.filter((value) => value !== entry.answer)) {
+      const word = option.match(absolute)?.[0]?.toLowerCase();
+      if (word) assert.match(texts.get(entry.taskletExternalId) ?? '', new RegExp(`\\b${word}\\b`), `${entry.externalId}: "${word}"`);
+    }
+  }
+  assert.equal(item('R-B2-004-Q1')?.answerKey, 'D');
+  assert.equal(item('R-B2-004-Q1')?.answer, 'Major drink companies agreed to remove soda from high schools.');
+});
+
+test('the validator rejects a Reading distractor with an absolute the text does not use', () => {
+  const tampered = structuredClone(bank);
+  const target = tampered.items.find(({ externalId }) => externalId === 'R-B1-001-Q2');
+  target.options[0] = 'never stay while the volunteers repair the object';
+  assert.throws(() => validatePilotBank(tampered), /R-B1-001-Q2: distractor uses "never"/);
 });
