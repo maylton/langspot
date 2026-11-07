@@ -94,7 +94,10 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
     catch (error) { setSaveState('error'); setMessage(error instanceof Error ? error.message : 'Não foi possível salvar.'); }
   };
   const publish = async () => {
-    const issues = validateAssessmentDraft(draft, { listeningEnabled });
+    let issues: ReturnType<typeof validateAssessmentDraft>;
+    // Any unexpected failure must reach the teacher; an exception here used to make "Publicar" look dead.
+    try { issues = validateAssessmentDraft(draft, { listeningEnabled }); }
+    catch (error) { setMessage(`Não foi possível validar a avaliação: ${error instanceof Error ? error.message : String(error)}`); return; }
     const errors = issues.filter((issue) => issue.severity === 'error');
     if (errors.length) { setMessage(errors.map((issue) => issue.message).join(' ')); return; }
     const warnings = issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.message);
