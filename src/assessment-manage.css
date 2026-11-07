@@ -1,0 +1,12 @@
+.assessment-card-actions .assessment-delete-button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid #f1d4d8;background:#fff;color:#b23a4a;border-radius:12px;padding:9px 12px;font-weight:700;font-size:12px}
+.assessment-card-actions .assessment-delete-button:hover{background:#fdf0f2;border-color:#e7a9b2}
+.assessment-delete-dialog{width:min(480px,100%)}
+.assessment-delete-dialog h2{font-size:19px;margin:4px 0 12px;overflow-wrap:anywhere}
+.assessment-delete-dialog p{color:#596579;line-height:1.5;display:flex;align-items:center;gap:7px}
+.assessment-delete-warnings{margin:0 0 12px;padding:12px 14px 12px 30px;border-radius:12px;background:#fff1f2;border:1px solid #f5cdd3;color:#8f2f3d;display:grid;gap:6px;line-height:1.45}
+.assessment-delete-confirm{border:0;border-radius:12px;display:inline-flex;gap:8px;align-items:center;justify-content:center;font-weight:700;padding:12px 17px;background:#c2384b;color:#fff}
+.assessment-delete-confirm:hover:not(:disabled){background:#a92e40}
+.assessment-delete-confirm:disabled{opacity:.6;cursor:not-allowed}
+.dark-theme .assessment-card-actions .assessment-delete-button{background:transparent;border-color:#5a2f39;color:#f19aa7}
+.dark-theme .assessment-delete-dialog p{color:#b8c2d3}
+.dark-theme .assessment-delete-warnings{background:#2a1a20;border-color:#5a2f39;color:#f6b8c1}
