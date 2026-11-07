@@ -1,12 +1,64 @@
-.assessment-card-actions .assessment-delete-button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid #f1d4d8;background:#fff;color:#b23a4a;border-radius:12px;padding:9px 12px;font-weight:700;font-size:12px}
-.assessment-card-actions .assessment-delete-button:hover{background:#fdf0f2;border-color:#e7a9b2}
+/* Assessment area — one button system for the teacher builder and the student screens.
+   Every action button has the same height, radius and type; only the colour says what it does:
+   primary (purple), secondary (light purple), neutral (grey) and danger (red). */
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.secondary-button,.cancel-button,.student-primary,.danger-button,.assessment-delete-confirm){
+  min-height:40px;width:auto;margin:0;padding:0 16px;border:1px solid transparent;border-radius:12px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;text-decoration:none;box-shadow:none
+}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.student-primary){background:#7655f3;color:#fff}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.student-primary):hover:not(:disabled){background:#6847e8}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .secondary-button{background:#eeeaff;color:#684be1}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .secondary-button:hover:not(:disabled){background:#e3dcff}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .cancel-button{background:#eef1f6;color:#596579}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .cancel-button:hover:not(:disabled){background:#e4e8ef}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.danger-button,.assessment-delete-confirm){background:#c2384b;color:#fff}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.danger-button,.assessment-delete-confirm):hover:not(:disabled){background:#a92e40}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.secondary-button,.cancel-button,.student-primary,.danger-button,.assessment-delete-confirm).compact{min-height:34px;padding:0 12px}
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.secondary-button,.cancel-button,.student-primary,.danger-button,.assessment-delete-confirm):disabled{opacity:.55;cursor:not-allowed;transform:none}
+/* Icon-only actions (delete section, remove question, delete assessment). */
+:is(.assessment-dashboard,.assessment-editor,.live-session) .icon-button{width:34px;height:34px;border-radius:10px;flex:0 0 auto}
+:is(.assessment-dashboard,.assessment-editor) .icon-button.danger{background:#fff1f2;color:#c2384b}
+:is(.assessment-dashboard,.assessment-editor) .icon-button.danger:hover{background:#ffe3e6}
+/* Native checkboxes and radios use the platform purple. */
+:is(.assessment-editor,.assessment-runner-shell,.assessment-student-hub,.live-session,.review-queue,.assessment-results) :is(input[type=checkbox],input[type=radio]){accent-color:#7655f3}
+
+/* Dashboard */
+.assessment-card-top{gap:10px}
+.assessment-card-top .assessment-delete-button{margin-left:auto}
+.assessment-card-actions{flex-wrap:wrap;gap:8px}
+.assessment-card-actions>button{flex:1 1 auto}
+.assessment-level-checks .assessment-new-form{justify-self:start;display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border:0;border-radius:12px;background:#eeeaff;color:#684be1;font-size:12px;font-weight:700}
+.assessment-level-checks .assessment-new-form:hover{background:#e3dcff;border:0}
+
+/* Editor: fields align to the top of their row; add actions keep their natural width. */
+.assessment-settings-grid label,.assessment-section-fields label{align-content:start}
+.assessment-editor .assessment-add-section{justify-self:start}
+.assessment-question-actions{align-items:end}
+
+/* Student runner: previous on the left, next on the right, same size. */
+.assessment-runner-actions{justify-content:space-between}
+.assessment-runner-actions>button{min-width:132px}
+
+/* Delete confirmation */
 .assessment-delete-dialog{width:min(480px,100%)}
 .assessment-delete-dialog h2{font-size:19px;margin:4px 0 12px;overflow-wrap:anywhere}
 .assessment-delete-dialog p{color:#596579;line-height:1.5;display:flex;align-items:center;gap:7px}
 .assessment-delete-warnings{margin:0 0 12px;padding:12px 14px 12px 30px;border-radius:12px;background:#fff1f2;border:1px solid #f5cdd3;color:#8f2f3d;display:grid;gap:6px;line-height:1.45}
-.assessment-delete-confirm{border:0;border-radius:12px;display:inline-flex;gap:8px;align-items:center;justify-content:center;font-weight:700;padding:12px 17px;background:#c2384b;color:#fff}
-.assessment-delete-confirm:hover:not(:disabled){background:#a92e40}
-.assessment-delete-confirm:disabled{opacity:.6;cursor:not-allowed}
-.dark-theme .assessment-card-actions .assessment-delete-button{background:transparent;border-color:#5a2f39;color:#f19aa7}
+
+@media(max-width:620px){
+  .assessment-runner-actions>button{min-width:0;flex:1}
+}
+
+.dark-theme :is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .secondary-button{background:#251f45;color:#c7b9ff}
+.dark-theme :is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .cancel-button{background:#202b3e;color:#b5c0d0}
+.dark-theme :is(.assessment-dashboard,.assessment-editor) .icon-button.danger{background:#3a2228;color:#ffb8bf}
+.dark-theme .assessment-level-checks .assessment-new-form{background:#251f45;color:#c7b9ff}
 .dark-theme .assessment-delete-dialog p{color:#b8c2d3}
 .dark-theme .assessment-delete-warnings{background:#2a1a20;border-color:#5a2f39;color:#f6b8c1}
+
+/* The runner scrolls as a whole: its blocks keep their natural height instead of shrinking. */
+.assessment-runner-shell>*{flex-shrink:0}
+/* Stage overview: the exit/submit row lines up with the list of stages, right below it. */
+.assessment-runner-actions.assessment-stage-actions{width:min(760px,100%);max-width:none;margin:0 auto}
+.assessment-runner-shell main.assessment-stage-list{padding:12px 0 0}

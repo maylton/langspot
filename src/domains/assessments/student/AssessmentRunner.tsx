@@ -181,8 +181,8 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
   const answered = useMemo(() => visibleQuestions.filter((item) => Boolean(answers[item.id])).length, [answers, visibleQuestions]);
   const unansweredTotal = payload ? payload.questions.filter((item) => !answers[item.id]).length : 0;
 
-  if (message && !payload) return <div className="assessment-runner-shell"><div className="assessment-runner-error"><p>{message}</p><button onClick={onExit}>Voltar</button></div></div>;
-  if (payload && !payload.questions.length && payload.assessment.liveQuestionCount) return <div className="assessment-runner-shell"><div className="assessment-runner-error"><p>Esta avaliação é feita ao vivo com seu professor. Não há nada para responder aqui.</p><button onClick={onExit}>Voltar</button></div></div>;
+  if (message && !payload) return <div className="assessment-runner-shell"><div className="assessment-runner-error"><p>{message}</p><button className="secondary-button" onClick={onExit}>Voltar</button></div></div>;
+  if (payload && !payload.questions.length && payload.assessment.liveQuestionCount) return <div className="assessment-runner-shell"><div className="assessment-runner-error"><p>Esta avaliação é feita ao vivo com seu professor. Não há nada para responder aqui.</p><button className="secondary-button" onClick={onExit}>Voltar</button></div></div>;
   if (!payload) return <div className="assessment-runner-shell"><LoaderCircle className="spin" size={28} />Carregando prova…</div>;
 
   const saveIndicator = <span aria-live="polite">{saveState === 'offline' ? <CloudOff size={16} /> : <Cloud size={16} />}{saveState === 'saving' ? 'Salvando…' : saveState === 'offline' ? 'Offline — alterações pendentes' : 'Salvo'}</span>;
@@ -207,7 +207,7 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
         </li>)}</ol>
       </main>
       {message && <div className="assessment-message" role="alert">{message}</div>}
-      <footer className="assessment-runner-actions">
+      <footer className="assessment-runner-actions assessment-stage-actions">
         <button className="secondary-button" onClick={() => { void flush(); onExit(); }}><ArrowLeft size={16} />Sair e continuar depois</button>
         {done && <button className="primary-button" disabled={submitting} onClick={() => setConfirmingSubmit(true)}><Check size={16} />Enviar avaliação</button>}
       </footer>
