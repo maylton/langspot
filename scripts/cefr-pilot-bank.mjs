@@ -4,20 +4,20 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-export const PILOT_VERSION = 'pilot-0.7';
+export const PILOT_VERSION = 'pilot-0.8';
 export const PILOT_STATUS = 'approved_for_pilot';
 export const PSYCHOMETRIC_STATUS = 'uncalibrated';
 // Above this share, choosing the longest option is a usable test-taking strategy.
 export const MAX_KEY_IS_LONGEST_SHARE = 0.35;
 
 const EXPECTED = {
-  total: 324,
-  objective: 258,
+  total: 372,
+  objective: 306,
   productive: 66,
-  tasklets: 42,
-  taskletsPerLevel: { reading: 4, listening: 3 },
-  answerKeys: { A: 65, B: 64, C: 65, D: 64 },
-  bySkill: { reading: 96, listening: 72, language_use: 90, writing: 18, spoken_production: 18, spoken_interaction: 18, mediation: 12 },
+  tasklets: 54,
+  taskletsPerLevel: { reading: 6, listening: 3 },
+  answerKeys: { A: 77, B: 76, C: 77, D: 76 },
+  bySkill: { reading: 144, listening: 72, language_use: 90, writing: 18, spoken_production: 18, spoken_interaction: 18, mediation: 12 },
 };
 
 const RUBRICS = {
@@ -380,13 +380,13 @@ const sqlLiteral = (value) => value === null || value === undefined ? 'null' : `
 const jsonLiteral = (value) => value === null || value === undefined ? 'null' : `${sqlLiteral(JSON.stringify(value))}::jsonb`;
 
 export function buildSeedSql(bank) {
-  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md. Do not edit pedagogical content here.\n` +
+  return `-- Generated from docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.8.md. Do not edit pedagogical content here.\n` +
 `begin;\nselect private.import_cefr_pilot_bank(\n  ${jsonLiteral(bank.tasklets)},\n  ${jsonLiteral(bank.items)}\n);\nselect private.validate_cefr_pilot_bank('${PILOT_VERSION}');\ncommit;\n`;
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md');
+  const source = resolve(args.find((arg) => !arg.startsWith('--')) ?? 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.8.md');
   const outputArg = args.find((arg) => arg.startsWith('--output='));
   const markdown = await readFile(source, 'utf8');
   const bank = parsePilotBank(markdown);

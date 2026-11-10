@@ -60,6 +60,7 @@ from_v0_3=(
   20261107150000_pilot_bank_v0_7_defaults.sql
   20261107160000_assessment_notifications.sql
   20261110120000_level_check_text_variety.sql
+  20261110130000_pilot_bank_v0_8_more_texts.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql
