@@ -11,6 +11,7 @@ import './assessment-pacing.css';
 import './assessment-manage.css';
 import './app-dialogs.css';
 import './notifications.css';
+import './sidebar.css';
 import './brand.css';
 
 createRoot(document.getElementById('root')!).render(
