@@ -3,7 +3,7 @@
 set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
 create temporary table variety_forms as
-  select seed, public.generate_assessment_from_preset('cefr-a2-level-check', 'pilot-0.7', 'variety-' || seed) as assessment_id
+  select seed, public.generate_assessment_from_preset('cefr-a2-level-check', 'pilot-0.8', 'variety-' || seed) as assessment_id
   from generate_series(1, 12) as seed;
 reset role;
 select public.assert_test((

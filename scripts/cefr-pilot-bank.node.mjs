@@ -3,15 +3,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.8.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
   const summary = validatePilotBank(bank);
-  assert.equal(summary.total, 324);
-  assert.equal(summary.objective, 258);
+  assert.equal(summary.total, 372);
+  assert.equal(summary.objective, 306);
   assert.equal(summary.productive, 66);
-  assert.equal(summary.tasklets, 42);
+  assert.equal(summary.tasklets, 54);
 });
 
 test('preserves stable IDs, answer keys and tasklet relationships', () => {
@@ -53,7 +53,7 @@ test('imports the expansion and keeps only legitimately repeated stems', () => {
   assert.equal(bank.items.find(({ externalId }) => externalId === 'LU-C2-015')?.answerKey, 'B');
   assert.equal(bank.items.find(({ externalId }) => externalId === 'W-A1-003')?.answer, null);
   // Different Reading texts may share a gist stem; Language Use stems must be unique.
-  assert.deepEqual(summary.repeatedPromptGroups, [['R-B1-001-Q1', 'R-B1-003-Q1'], ['R-B1-002-Q1', 'R-C1-004-Q1']]);
+  assert.deepEqual(summary.repeatedPromptGroups, [['R-A2-001-Q1', 'R-B1-005-Q1'], ['R-B1-001-Q1', 'R-B1-003-Q1'], ['R-B1-002-Q1', 'R-C1-004-Q1'], ['R-A2-006-Q1', 'R-B2-005-Q1']]);
 });
 
 const item = (id) => bank.items.find(({ externalId }) => externalId === id);
@@ -168,4 +168,19 @@ test('the validator rejects a written task timed in seconds and a prompt about "
   tampered.items.find(({ externalId }) => externalId === 'M-B1-001').responseConstraints = { min: 60, max: 90, unit: 'seconds', label: '60–90 seconds' };
   tampered.items.find(({ externalId }) => externalId === 'SI-B1-001').prompt = 'The learner and assessor agree on two activities.';
   assert.throws(() => validatePilotBank(tampered), (error) => /M-B1-001: written tasks/.test(error.message) && /SI-B1-001: write the task to the candidate/.test(error.message));
+});
+
+test('v0.8 adds two Reading texts per level with balanced keys and no length cue', () => {
+  const added = bank.items.filter(({ externalId }) => /^R-(A1|A2|B1|B2|C1|C2)-00[56]-Q\d$/.test(externalId));
+  assert.equal(added.length, 48);
+  const keys = Object.fromEntries(['A', 'B', 'C', 'D'].map((letter) => [letter, added.filter(({ answerKey }) => answerKey === letter).length]));
+  assert.deepEqual(keys, { A: 12, B: 12, C: 12, D: 12 });
+  for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
+    assert.equal(bank.tasklets.filter((tasklet) => tasklet.skill === 'reading' && tasklet.level === level).length, 6, level);
+    const longest = added.filter((entry) => entry.level === level && entry.answer.length === Math.max(...entry.options.map((option) => option.length))).length;
+    assert.ok(longest <= 2, `${level}: ${longest}/8`);
+  }
+  const external = bank.tasklets.filter(({ externalId, sourceReference }) => /-00[56]$/.test(externalId) && sourceReference);
+  assert.equal(external.length, 8);
+  for (const tasklet of external) assert.match(tasklet.sourceReference, /Acesso em: 10 nov\. 2026\.$/);
 });
