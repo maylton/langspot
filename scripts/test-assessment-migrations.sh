@@ -63,6 +63,7 @@ from_v0_3=(
   20261110130000_pilot_bank_v0_8_more_texts.sql
   20261111120000_live_attempt_monitor.sql
   20261111130000_student_item_exposure.sql
+  20261111140000_productive_evidence_fixes.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql
@@ -80,7 +81,7 @@ apply_migrations "${from_v0_3[@]}"
 copy supabase/seed.sql pilot-seed.sql
 run pilot-seed.sql >/dev/null
 run pilot-seed.sql >/dev/null
-for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke section_pacing_smoke integrity_v2_smoke assessment_deletion_smoke level_check_ladder_smoke assessment_notifications_smoke level_check_variety_smoke live_attempt_monitor_smoke student_item_exposure_smoke; do
+for test in pilot_bank_v0_3_smoke live_assessment_smoke report_notes_smoke review_queue_smoke section_pacing_smoke integrity_v2_smoke assessment_deletion_smoke level_check_ladder_smoke assessment_notifications_smoke level_check_variety_smoke live_attempt_monitor_smoke student_item_exposure_smoke productive_evidence_smoke; do
   copy "supabase/tests/$test.sql" "$test.sql"
   run "$test.sql"
 done
