@@ -15,3 +15,5 @@
 @media (max-width:620px){.classplay-link--topbar{padding:0 9px}.classplay-link--topbar span:not(.classplay-mark),.classplay-link--topbar .classplay-link-arrow{display:none}}
 /* Teacher top bar on phones is a fixed two-column grid (bell + main action); there ClassPlay stays in the menu drawer. */
 @media (max-width:700px){.topbar-actions .classplay-link--topbar{display:none}}
+/* Student phones: the sidebar becomes the bottom navigation; ClassPlay stays as the top-bar mark. */
+@media (max-width:820px){.student-sidebar .classplay-link--footer{display:none}}
