@@ -76,7 +76,7 @@ export async function listCefrLevelCheckPresets(client: SupabaseClient): Promise
   }));
 }
 
-export const CURRENT_PILOT_BANK_VERSION = 'pilot-0.8';
+export const CURRENT_PILOT_BANK_VERSION = 'pilot-0.9';
 
 /** With a student, texts, tasks and items the student has already seen are avoided. */
 export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = CURRENT_PILOT_BANK_VERSION, selectionSeed = 'pilot-form-1', studentId: string | null = null): Promise<string> {

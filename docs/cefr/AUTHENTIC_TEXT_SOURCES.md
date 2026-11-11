@@ -62,3 +62,44 @@ Fontes descartadas nesta rodada:
 
 No A1 e em parte do A2, avisos e textos curtos foram escritos pelo LangSpot. É o padrão das provas de
 referência para esses níveis, e as páginas oficiais encontradas eram longas ou complexas demais.
+
+## Textos da versão 0.9 (oito textos de Reading por nível)
+
+A v0.9 acrescentou mais dois textos por nível. Com o gerador que evita textos já vistos pelo aluno
+(`generate_assessment_from_preset(..., p_student_id)`), o mesmo aluno pode fazer mais Level Checks sem
+repetir texto. Os itens seguem [`ITEM_AUTHORING_PROMPT.md`](ITEM_AUTHORING_PROMPT.md). Os textos estão em
+`scripts/cefr_pilot_bank_v0_9_texts.py` e, literalmente, em `scripts/cefr_pilot_bank_v0_9_authentic_texts.json`.
+
+| Tasklet | Texto | Fonte | Licença |
+|---|---|---|---|
+| R-A1-007 | Weather This Weekend | LangSpot (original) | — |
+| R-A1-008 | Party Invitation | LangSpot (original) | — |
+| R-A2-007 | Find Your Joy! (diálogo) | VOA Learning English, Let’s Learn English nível 2, lição 16 | Domínio público (17 U.S.C. § 105) |
+| R-A2-008 | Greetings from the Mountains | LangSpot (original) | — |
+| R-B1-007 | A New Bridge Opens | Wikinews, 18 set. 2008 | CC BY 2.5 |
+| R-B1-008 | Sharing a Flat with Strangers | LangSpot (original) | — |
+| R-B2-007 | The First Flight | National Park Service, Wright Brothers National Memorial | Domínio público (17 U.S.C. § 105) |
+| R-B2-008 | Free Images, Paid Permissions | Wikinews, 5 mar. 2005 | Domínio público (Wikinews anterior a 25 set. 2005) |
+| R-C1-007 | On a Piece of Chalk | T. H. Huxley, palestra de 1868 | Domínio público (autor † 1895) |
+| R-C1-008 | The Public Kitchen | Jane Addams, *Twenty Years at Hull-House* (1910), cap. VII | Domínio público (autora † 1935) |
+| R-C2-007 | An Apology for Idlers | R. L. Stevenson (1877) | Domínio público (autor † 1894) |
+| R-C2-008 | On the Pleasure of Hating | William Hazlitt, *The Plain Speaker* (1826) | Domínio público (autor † 1830) |
+
+Cortes editoriais (indicados por […]): no texto de Hazlitt, a frase que agrupa "a woman" com crianças e
+palhaços e as passagens sobre perseguição religiosa; no de Addams, a anedota que usa um estereótipo étnico.
+
+Fontes descartadas nesta rodada:
+- **NOAA Ocean Service e NIH *News in Health*:** linguagem técnica demais para o B1 (NOAA) ou simples demais
+  para o C1 (NIH).
+- ***Walking*, de Thoreau:** tema (ócio, caminhar) muito próximo do ensaio de Stevenson no mesmo nível.
+
+### Referências (v0.9)
+
+- VOICE OF AMERICA. Let’s Learn English: level 2: lesson 16: find your joy! Washington, DC: VOA Learning English, 12 jan. 2019. Disponível em: https://learningenglish.voanews.com/a/lets-learn-english-level-2-lesson-16/4198066.html. Acesso em: 11 nov. 2026.
+- NEW I-35W Minneapolis bridge opens. Wikinews, [s. l.], 18 set. 2008. Disponível em: https://en.wikinews.org/wiki/New_I-35W_Minneapolis_bridge_opens. Acesso em: 11 nov. 2026.
+- NATIONAL PARK SERVICE (Estados Unidos). 1903: the first flight. Wright Brothers National Memorial, 14 abr. 2015. Disponível em: https://www.nps.gov/wrbr/learn/historyculture/thefirstflight.htm. Acesso em: 11 nov. 2026.
+- NEW York Public Library opens collection of 275,000 digital images. Wikinews, [s. l.], 5 mar. 2005. Disponível em: https://en.wikinews.org/wiki/New_York_Public_Library_opens_collection_of_275,000_digital_images. Acesso em: 11 nov. 2026.
+- HUXLEY, Thomas Henry. On a piece of chalk. In: HUXLEY, Thomas Henry. Lay sermons, addresses and reviews. London: Macmillan, 1870. Disponível em: https://www.gutenberg.org/ebooks/16729. Acesso em: 11 nov. 2026.
+- ADDAMS, Jane. Twenty years at Hull-House: with autobiographical notes. New York: Macmillan, 1910. Disponível em: https://www.gutenberg.org/ebooks/1325. Acesso em: 11 nov. 2026.
+- STEVENSON, Robert Louis. An apology for idlers. In: STEVENSON, Robert Louis. Virginibus puerisque, and other papers. London: C. Kegan Paul, 1881. Disponível em: https://www.gutenberg.org/ebooks/386. Acesso em: 11 nov. 2026.
+- HAZLITT, William. On the pleasure of hating. In: HAZLITT, William. The collected works of William Hazlitt. Edição de A. R. Waller e Arnold Glover. London: J. M. Dent, 1903. v. 7. Disponível em: https://www.gutenberg.org/ebooks/58408. Acesso em: 11 nov. 2026.
