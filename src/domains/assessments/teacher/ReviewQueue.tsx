@@ -6,7 +6,7 @@ import { finalizeAssessmentReview, getAssessmentResult, listAssessmentReviewQueu
 import { REPORT_SKILL_LABELS } from '../report';
 import { countWords, filterReviewQueue, formatWaiting, nextReviewItemId, type ReviewQueueFilters } from '../reviewQueue';
 import type { ReviewQueue as Queue, ReviewQueueItem, TeacherAssessmentResult } from '../types';
-import { QuestionReview, TeacherReportPanel } from './AssessmentResults';
+import { discardedRecordings, QuestionReview, TeacherReportPanel } from './AssessmentResults';
 
 export function ReviewQueue({ client, onBack, onOpenLive }: {
   client: SupabaseClient;
@@ -121,7 +121,7 @@ function ReviewItem({ client, item, onReviewed, onOpenLive }: { client: Supabase
       ? <div className="review-live-cta"><p>Esta tarefa é aplicada ao vivo. Pontue durante a sessão com o aluno.</p><button className="primary-button" onClick={onOpenLive}><Mic size={15} />Abrir sessão ao vivo</button></div>
       : message ? <p className="assessment-message" role="alert">{message}</p>
         : !question ? <div className="assessment-loading"><LoaderCircle className="spin" size={20} />Carregando resposta…</div>
-          : <div className="assessment-report-questions"><QuestionReview client={client} question={question} index={result!.questions.indexOf(question)} onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await onReviewed(); }} /></div>}
+          : <div className="assessment-report-questions"><QuestionReview client={client} question={question} index={result!.questions.indexOf(question)} discarded={discardedRecordings(result!, question.id)} onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await onReviewed(); }} /></div>}
   </article>;
 }
 
@@ -136,7 +136,7 @@ function CorrectionPreview({ client, attemptId }: { client: SupabaseClient; atte
   const graded = result.questions.filter((question) => question.rubric?.length || ['writing', 'speaking', 'mediation'].includes(question.type ?? ''));
   return <div className="review-queue-preview">
     <p>Confira a correção de cada tarefa. Você pode editar antes de concluir; depois de concluir, o resultado é liberado ao aluno.</p>
-    <div className="assessment-report-questions">{graded.map((question) => <QuestionReview key={question.id} client={client} question={question} index={result.questions.indexOf(question)}
+    <div className="assessment-report-questions">{graded.map((question) => <QuestionReview key={question.id} client={client} question={question} index={result.questions.indexOf(question)} discarded={discardedRecordings(result, question.id)}
       onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await load(); }} />)}</div>
     <TeacherReportPanel client={client} report={result} />
   </div>;
