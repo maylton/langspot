@@ -6,13 +6,15 @@ import { joinOrderingAnswer, type QuestionType } from '../../questions';
 import { canAdministerLive, isLiveQuestion, validateAssessmentDraft } from '../validator';
 import type { AssessmentDraft, AssessmentDraftSection, AssessmentQuestionSnapshot, AssessmentSectionSkill, CefrLevel } from '../types';
 import { AssessmentPreview } from './AssessmentPreview';
+import type { AssessmentStudentOption } from './AssessmentAssignments';
+import type { StudentSeenItem } from '../types';
 import { uploadListeningAudio } from '../mediaService';
 
 export type AssessmentBankQuestion = Omit<AssessmentQuestionSnapshot, 'type'> & { type: QuestionType; bankId: string; restricted?: boolean };
 
 const newSection = (): AssessmentDraftSection => ({ id: crypto.randomUUID(), title: 'Nova seção', skill: 'grammar', instructions: '', weight: 1, drawCount: null, cefrLevel: null, construct: '', taskletKind: 'primary', confirmationForSectionId: null, questions: [] });
 
-export function AssessmentEditor({ client, teacherId, initialDraft, bank, listeningEnabled = true, onBack, onSave, onPublish, onUseReadyMade }: {
+export function AssessmentEditor({ client, teacherId, initialDraft, bank, listeningEnabled = true, onBack, onSave, onPublish, onUseReadyMade, students = [], previewStudentId = null, loadSeenItems }: {
   client: SupabaseClient;
   /** When false the Listening module is hidden (server-side flag `listening`). */
   listeningEnabled?: boolean;
@@ -24,6 +26,10 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
   onPublish: (draft: AssessmentDraft) => Promise<void>;
   /** Leaves the editor and opens the ready-made level tests. Shown while the draft has no questions. */
   onUseReadyMade?: () => void;
+  /** Preview markers: texts and questions a chosen student has already seen. */
+  students?: AssessmentStudentOption[];
+  previewStudentId?: string | null;
+  loadSeenItems?: (studentId: string) => Promise<StudentSeenItem[]>;
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [preview, setPreview] = useState(false);
@@ -127,7 +133,7 @@ export function AssessmentEditor({ client, teacherId, initialDraft, bank, listen
     {publishWarnings && <ConfirmDialog eyebrow="PUBLICAR AVALIAÇÃO" title="Publicar mesmo com estes avisos?" items={publishWarnings} note="São recomendações, não erros. Depois de publicada, a prova não pode mais ser editada; você poderá atribuí-la aos alunos." confirmLabel={publishing ? 'Publicando…' : 'Sim, publicar'} cancelLabel="Voltar e revisar" busy={publishing} onConfirm={() => void confirmPublish()} onCancel={() => setPublishWarnings(null)} />}
     {onUseReadyMade && draft.sections.every((section) => !section.questions.length) && <aside className="assessment-ready-made-hint"><Sparkles size={18} /><div><strong>Esta prova ainda não tem questões.</strong><span>Para verificar o nível de um aluno, use uma prova pronta: ela vem completa, com questões revisadas de cada habilidade.</span></div><button type="button" className="secondary-button compact" onClick={onUseReadyMade}>Ver provas prontas</button></aside>}
     {!listeningEnabled && draft.sections.some((section) => section.skill === 'listening' || section.questions.some((question) => question.snapshot.type === 'listening' || question.snapshot.skill === 'listening')) && <div className="assessment-message" role="status">Listening está desativado no momento. Remova as seções e questões de Listening para publicar esta avaliação, ou gere o Level Check de novo pelo menu “Nova avaliação”.</div>}
-    {preview ? <AssessmentPreview draft={draft} /> : <>
+    {preview ? <AssessmentPreview draft={draft} students={students} initialStudentId={previewStudentId} loadSeenItems={loadSeenItems} /> : <>
       <section className="assessment-settings-grid">
         <div className="assessment-settings-heading"><div><span>CONFIGURAÇÃO GERAL</span><h3>Organização do teste</h3></div><p>Defina a estrutura, aplicação e entrega dos resultados.</p></div>
         <label className="assessment-title-field">Título<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Ex.: Unit 4 Progress Test" /></label>
