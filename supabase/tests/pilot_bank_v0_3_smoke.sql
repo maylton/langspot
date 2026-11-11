@@ -29,7 +29,7 @@ select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002
 select public.assert_test((select count(*) = 0 from public.question_bank where source_origin = 'cefr_pilot'), 'Students must not read the Pilot Bank answer key');
 select public.assert_test((select count(*) = 0 from public.question_bank_tasklets), 'Students must not read Pilot Bank texts or Listening scripts');
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', false);
-select public.assert_test((select count(*) = 372 from public.question_bank where source_origin = 'cefr_pilot'), 'Teachers must keep reading the Pilot Bank');
+select public.assert_test((select count(*) = 420 from public.question_bank where source_origin = 'cefr_pilot'), 'Teachers must keep reading the Pilot Bank');
 reset role;
 select public.assert_test(not (select enabled from public.assessment_feature_flags where key = 'listening'), 'Listening must start disabled');
 select public.assert_test(not exists (select 1 from public.cefr_level_check_presets where objective_distribution ? 'listening'), 'Presets must not request Listening');
