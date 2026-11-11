@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
 import type { AssessmentReportNote, PreviousAssessmentForReport } from './report';
-import type { ActiveTeacherAttempt, AttemptLiveStatus, AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, AssessmentIntegritySignals, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
+import type { ActiveTeacherAttempt, AttemptLiveStatus, AssessmentDraft, AssessmentStudentExposure, StudentSeenItem, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, AssessmentIntegritySignals, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -78,8 +78,9 @@ export async function listCefrLevelCheckPresets(client: SupabaseClient): Promise
 
 export const CURRENT_PILOT_BANK_VERSION = 'pilot-0.8';
 
-export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = CURRENT_PILOT_BANK_VERSION, selectionSeed = 'pilot-form-1'): Promise<string> {
-  const { data, error } = await client.rpc('generate_assessment_from_preset', { p_preset_id: presetId, p_bank_version: bankVersion, p_selection_seed: selectionSeed });
+/** With a student, texts, tasks and items the student has already seen are avoided. */
+export async function generateAssessmentFromPreset(client: SupabaseClient, presetId: string, bankVersion = CURRENT_PILOT_BANK_VERSION, selectionSeed = 'pilot-form-1', studentId: string | null = null): Promise<string> {
+  const { data, error } = await client.rpc('generate_assessment_from_preset', { p_preset_id: presetId, p_bank_version: bankVersion, p_selection_seed: selectionSeed, ...(studentId ? { p_student_id: studentId } : {}) });
   return requireData(data as string | null, error);
 }
 
@@ -230,4 +231,15 @@ export async function listActiveTeacherAttempts(client: SupabaseClient): Promise
 export async function getAttemptLiveStatus(client: SupabaseClient, attemptId: string): Promise<AttemptLiveStatus> {
   const { data, error } = await client.rpc('get_attempt_live_status', { p_attempt_id: attemptId });
   return requireData(data as AttemptLiveStatus | null, error);
+}
+
+/** Bank items and texts the student has seen in earlier attempts. */
+export async function listStudentSeenItems(client: SupabaseClient, studentId: string): Promise<StudentSeenItem[]> {
+  const { data, error } = await client.rpc('list_student_seen_items', { p_student_id: studentId });
+  return requireData(data as StudentSeenItem[] | null, error);
+}
+
+export async function getAssessmentStudentExposure(client: SupabaseClient, assessmentId: string, studentId: string): Promise<AssessmentStudentExposure> {
+  const { data, error } = await client.rpc('get_assessment_student_exposure', { p_assessment_id: assessmentId, p_student_id: studentId });
+  return requireData(data as AssessmentStudentExposure | null, error);
 }

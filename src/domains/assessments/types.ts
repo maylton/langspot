@@ -499,3 +499,11 @@ export type AttemptLiveStatus = {
   questions: AttemptLiveQuestion[];
   events: { type: string; occurredAt: string; metadata: Record<string, unknown> }[];
 };
+
+export type StudentSeenItem = { itemKey: string; taskletKey: string | null; skill: string; seenAt: string; assessmentTitle: string };
+
+/** Overlap between an assessment and what a student has seen. fixed: repeats in every attempt; pools: drawn per attempt, unseen first. */
+export type AssessmentStudentExposure = {
+  fixed: { sectionTitle: string; skill: string; itemKey: string; taskletKey: string | null; taskletTitle: string | null; seenAt: string; assessmentTitle: string }[];
+  pools: { sectionTitle: string; skill: string; poolSize: number; drawCount: number; unseen: number }[];
+};

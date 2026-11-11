@@ -42,6 +42,7 @@ export type AssessmentRow = {
   preset_version: string | null;
   bank_version: string | null;
   selection_seed: string | null;
+  generated_for_student_id?: string | null;
   adaptive_initial_ability: number;
   adaptive_min_items: number;
   adaptive_max_items: number;

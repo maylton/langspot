@@ -98,3 +98,29 @@
 .dark-theme .attempt-monitor-tag{background:#1d2738;color:#b8c2d3}
 .dark-theme .attempt-monitor-events li{color:#c6cfdd}
 .attempt-monitor-missing li strong small{color:#8b95a7;font-weight:600}
+
+/* Exposure: what a student has already seen (assignment form, creation menu, preview). */
+.assessment-assign-form .assessment-exposure{grid-column:1/-1}
+.assessment-exposure{display:grid;gap:6px;margin:0;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.5}
+.assessment-exposure.loading{display:flex;align-items:center;gap:6px;background:#f3f5f9;color:#6e7a8f}
+.assessment-exposure.clean{display:flex;align-items:center;gap:6px;background:#e3f8f2;color:#0a6f5a}
+.assessment-exposure.warning{border:1px solid #f3d38a;background:#fffaf0;color:#5c4a00}
+.assessment-exposure strong{display:flex;align-items:center;gap:6px;color:#8a5a00;font-size:13px}
+.assessment-exposure ul{display:grid;gap:3px;margin:0;padding-left:18px}
+.assessment-exposure small{color:#7a6a2c}
+.assessment-exposure .secondary-button{justify-self:start;margin-top:4px}
+.assessment-seen-badge{display:inline-flex;align-items:center;gap:5px;width:fit-content;padding:3px 9px;border-radius:999px;background:#fdecef;color:#a3123f;font-size:11px;font-weight:700}
+.assessment-creation-student{display:grid;gap:6px;padding:12px 14px;border:1px solid #e1e7ef;border-radius:14px;background:#f8fafd}
+.assessment-creation-student label{display:grid;gap:6px;color:#596579;font-size:11px;font-weight:800}
+.assessment-creation-student select{width:100%;max-width:360px;border:1px solid #dfe4ec;border-radius:10px;padding:9px 10px;background:#fff;color:#172033}
+.assessment-creation-student small{color:#6e7a8f;font-size:12px}
+.assessment-preview-student{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:#596579;font-size:12px;font-weight:700}
+.assessment-preview-student select{border:1px solid #dfe4ec;border-radius:9px;padding:6px 8px;background:#fff;color:#172033}
+.dark-theme .assessment-exposure.loading{background:#1b2536;color:#b8c2d3}
+.dark-theme .assessment-exposure.clean{background:#10261f;color:#7fe0c6}
+.dark-theme .assessment-exposure.warning{border-color:#5b4c12;background:#241f0d;color:#f1dc8e}
+.dark-theme .assessment-exposure strong{color:#f5c55a}
+.dark-theme .assessment-exposure small{color:#d6c27c}
+.dark-theme .assessment-seen-badge{background:#3a1622;color:#ff9fbd}
+.dark-theme .assessment-creation-student{border-color:#2a3547;background:#151e2d}
+.dark-theme :is(.assessment-creation-student select,.assessment-preview-student select){border-color:#2a3547;background:#111a28;color:#e6ecf5}

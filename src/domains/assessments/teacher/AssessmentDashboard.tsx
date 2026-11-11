@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BarChart3, ClipboardList, Edit3, FileQuestion, Inbox, LoaderCircle, Mic, Plus, Trash2, TrendingUp } from 'lucide-react';
-import { assignAssessment, deleteAssessment, generateAssessmentFromPreset, getAssessmentDeletionImpact, getAssessmentFeatureFlags, listActiveTeacherAttempts, listAssessmentIdsWithLiveTasks, listAssessmentReviewQueue, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
+import { assignAssessment, deleteAssessment, generateAssessmentFromPreset, getAssessmentDeletionImpact, getAssessmentFeatureFlags, getAssessmentStudentExposure, listActiveTeacherAttempts, listAssessmentIdsWithLiveTasks, listStudentSeenItems, listAssessmentReviewQueue, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
 import type { AssessmentRow } from '../database';
 import type { ActiveTeacherAttempt, AssessmentDraft, CefrLevelCheckPreset } from '../types';
 import { ActiveAttemptsPanel, AttemptMonitor } from './AttemptMonitor';
+import { studentFormSeed } from './exposure';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
 import { AssessmentEditor, type AssessmentBankQuestion } from './AssessmentEditor';
 import { AssessmentResults } from './AssessmentResults';
@@ -63,6 +64,9 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [generating, setGenerating] = useState(false);
   const [assignBusy, setAssignBusy] = useState(false);
   const [activeAttempts, setActiveAttempts] = useState<ActiveTeacherAttempt[]>([]);
+  // Student a new ready-made form is generated for (avoids what they have seen) and shown in the preview.
+  const [creationStudentId, setCreationStudentId] = useState('');
+  const [previewStudentId, setPreviewStudentId] = useState<string | null>(null);
   const [monitoring, setMonitoring] = useState<ActiveTeacherAttempt | null>(null);
   const [deleting, setDeleting] = useState<{ assessment: AssessmentRow; impact: AssessmentDeletionImpact | null; loading: boolean; busy: boolean } | null>(null);
 
@@ -98,12 +102,16 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível abrir o draft.'); }
     setBusy(false);
   };
-  const createLevelCheck = async (presetId: string, selectionSeed?: string) => {
+  const createLevelCheck = async (presetId: string, selectionSeed?: string, forStudentId = creationStudentId) => {
     setBusy(true); setGenerating(true); setMessage('');
     try {
-      const assessmentId = await generateAssessmentFromPreset(client, presetId, undefined, selectionSeed);
+      const student = students.find((entry) => entry.id === forStudentId);
+      // A form for a student always gets a fresh seed, so it is built from what they have not seen yet.
+      const seed = student ? studentFormSeed(student.name) : selectionSeed;
+      const assessmentId = await generateAssessmentFromPreset(client, presetId, undefined, seed, student?.id ?? null);
       setDraft(await loadAssessmentDraft(client, assessmentId));
-      setCreationOpen(false);
+      setPreviewStudentId(student?.id ?? null);
+      setCreationOpen(false); setAssigning(null);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível montar a prova pronta.'); }
     setBusy(false); setGenerating(false);
   };
@@ -158,7 +166,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   }
   if (liveSession) return <LiveAssessmentSession client={client} attemptId={liveSession.attemptId} onBack={() => { setLiveSession(null); void load(); }} onOpenResults={() => { setResultsFor(liveSession.assessment); setLiveSession(null); }} />;
   if (queueOpen) return <ReviewQueue client={client} onBack={() => { setQueueOpen(false); void load(); }} onOpenLive={(item) => { const assessment = items.find((entry) => entry.id === item.assessmentId); if (assessment) { setQueueOpen(false); setLiveSession({ attemptId: item.attemptId, assessment }); } }} />;
-  if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} listeningEnabled={listeningEnabled} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} onUseReadyMade={() => { setDraft(null); setCreationOpen(true); void load(); }} />;
+  if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} listeningEnabled={listeningEnabled} students={students} previewStudentId={previewStudentId} loadSeenItems={(studentId) => listStudentSeenItems(client, studentId)} onBack={() => { setDraft(null); setPreviewStudentId(null); void load(); }} onSave={save} onPublish={publish} onUseReadyMade={() => { setDraft(null); setCreationOpen(true); void load(); }} />;
   if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} studentNames={new Map(students.map((student) => [student.id, student.name]))} onBack={() => setResultsFor(null)} />;
   if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} />;
   if (analyticsFor) return <CefrAnalytics client={client} assessment={analyticsFor} onBack={() => setAnalyticsFor(null)} />;
@@ -166,6 +174,12 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setCreationOpen((value) => !value)}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setQueueOpen(true)}><Inbox size={17} />Fila de correção{pendingReviews ? <span className="review-queue-badge">{pendingReviews}</span> : null}</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
     {creationOpen && <section className="assessment-creation-menu" aria-label="Criar avaliação" ref={(node) => node?.scrollIntoView({ block: 'nearest' })}>
       <header><div><span>NOVA AVALIAÇÃO</span><h3>Escolha o ponto de partida</h3></div><button type="button" className="cancel-button" onClick={() => setCreationOpen(false)}>Fechar</button></header>
+      <div className="assessment-creation-student">
+        <label>Para qual aluno é a prova? (opcional)<select value={creationStudentId} onChange={(event) => setCreationStudentId(event.target.value)}>
+          <option value="">Nenhum aluno específico</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}
+        </select></label>
+        <small>{creationStudentId ? 'A prova pronta será montada evitando os textos, tarefas e questões que este aluno já viu em provas anteriores.' : 'Escolha o aluno para a prova evitar os textos e questões que ele já viu.'}</small>
+      </div>
       <div className="assessment-level-checks">
         <div className="assessment-creation-group"><span>PROVA PRONTA · RECOMENDADO</span><h4>Verificar se o aluno está em um nível</h4><small>Escolha o nível. A prova completa (Reading, Language Use, Writing, Speaking e Mediação) é montada automaticamente com questões revisadas do banco CEFR. Depois é só revisar, publicar e atribuir ao aluno.{!listeningEnabled && ' Por enquanto as provas não têm Listening (os áudios ainda estão sendo produzidos).'}</small></div>
         {presets.length ? presets.map((preset) => <div className="assessment-level-check-option" key={preset.id}>
@@ -201,7 +215,9 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
         <label>Aluno<select name="studentId" required defaultValue=""><option value="" disabled>Selecione</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
         <button className="primary-button" disabled={busy || !students.length}><Mic size={15} />Abrir sessão</button>
       </form>}
-      {assigning?.id === assessment.id && <AssessmentAssignments students={students} busy={assignBusy} onClose={() => setAssigning(null)} onAssign={async (input) => {
+      {assigning?.id === assessment.id && <AssessmentAssignments students={students} busy={assignBusy} defaultStudentId={assessment.generated_for_student_id ?? null}
+        loadExposure={(studentId) => getAssessmentStudentExposure(client, assessment.id, studentId)}
+        onNewVersionFor={assessment.preset_id && presets.some((preset) => preset.id === assessment.preset_id) ? (studentId) => void createLevelCheck(assessment.preset_id as string, undefined, studentId) : undefined} onClose={() => setAssigning(null)} onAssign={async (input) => {
         setAssignBusy(true);
         try {
           await assignAssessment(client, { assessmentId: assessment.id, teacherId, studentId: input.studentId, availableFrom: input.availableFrom ? new Date(input.availableFrom).toISOString() : null, dueAt: input.dueAt ? new Date(input.dueAt).toISOString() : null, attemptLimit: input.attemptLimit });
