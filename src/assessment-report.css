@@ -332,3 +332,23 @@
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Skills rated with a teacher rubric show the level instead of a percentage. */
+.student-report-skill > .student-report-rubric {
+  color: #7e899b;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.student-report-skill > strong.student-report-level {
+  color: #345995;
+  font-size: 15px;
+}
+
+.dark-theme .student-report-skill > strong.student-report-level {
+  color: #aac0e4;
+}
+
+/* Profile dimensions: sentence case ("Precisão do significado"), not title case. */
+.cefr-skill-grid dt { text-transform: none; }
+.cefr-skill-grid dt::first-letter { text-transform: uppercase; }
