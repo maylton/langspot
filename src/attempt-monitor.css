@@ -124,3 +124,19 @@
 .dark-theme .assessment-seen-badge{background:#3a1622;color:#ff9fbd}
 .dark-theme .assessment-creation-student{border-color:#2a3547;background:#151e2d}
 .dark-theme :is(.assessment-creation-student select,.assessment-preview-student select){border-color:#2a3547;background:#111a28;color:#e6ecf5}
+
+/* Review queue: check a finished correction before releasing it. */
+.review-queue-ready-actions{display:flex;flex-wrap:wrap;gap:8px}
+.review-queue-ready .review-queue-preview{flex-basis:100%;display:grid;gap:14px;padding:14px;border-radius:14px;background:#fff;border:1px solid #d6ece7}
+.review-queue-ready .review-queue-preview>p{color:#536075}
+.review-queue-ready .review-queue-preview strong{display:inline}
+.assessment-rubric-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin:8px 0}
+.assessment-rubric-summary div{display:flex;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:10px;background:#f3f6fb;font-size:12px}
+.assessment-rubric-summary dt{color:#536075}
+.assessment-rubric-summary dd{margin:0;color:#2b4a7d;font-weight:800}
+.assessment-excluded{display:grid;gap:2px;margin:8px 0;padding:9px 12px;border-radius:10px;background:#fdf6dc;color:#6b5600;font-size:12px}
+.assessment-review-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.dark-theme .review-queue-ready .review-queue-preview{background:#151e2d;border-color:#21483f}
+.dark-theme .assessment-rubric-summary div{background:#1b2536}
+.dark-theme .assessment-rubric-summary dd{color:#aac0e4}
+.dark-theme .assessment-excluded{background:#241f0d;color:#f1dc8e}

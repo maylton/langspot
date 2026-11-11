@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { richText } from '../richText';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ArrowLeft, Check, Inbox, LoaderCircle, Mic } from 'lucide-react';
+import { ArrowLeft, Check, Eye, EyeOff, Inbox, LoaderCircle, Mic } from 'lucide-react';
 import { finalizeAssessmentReview, getAssessmentResult, listAssessmentReviewQueue, reviewAssessmentResponse } from '../assessmentService';
 import { REPORT_SKILL_LABELS } from '../report';
 import { countWords, filterReviewQueue, formatWaiting, nextReviewItemId, type ReviewQueueFilters } from '../reviewQueue';
 import type { ReviewQueue as Queue, ReviewQueueItem, TeacherAssessmentResult } from '../types';
-import { QuestionReview } from './AssessmentResults';
+import { QuestionReview, TeacherReportPanel } from './AssessmentResults';
 
 export function ReviewQueue({ client, onBack, onOpenLive }: {
   client: SupabaseClient;
@@ -18,6 +18,7 @@ export function ReviewQueue({ client, onBack, onOpenLive }: {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [finalizing, setFinalizing] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const loaded = await listAssessmentReviewQueue(client);
@@ -58,9 +59,13 @@ export function ReviewQueue({ client, onBack, onOpenLive }: {
     {queue?.readyToFinalize.length ? <section className="review-queue-ready">
       <h3>Prontas para concluir</h3>
       <p>Todas as respostas já foram corrigidas. Concluir libera o resultado ao aluno conforme a configuração da avaliação.</p>
-      {queue.readyToFinalize.map((attempt) => <div key={attempt.attemptId}>
+      {queue.readyToFinalize.map((attempt) => <div key={attempt.attemptId} className={previewing === attempt.attemptId ? 'previewing' : ''}>
         <span><strong>{attempt.studentName ?? 'Aluno'}</strong><small>{attempt.assessmentTitle} · enviada {formatWaiting(attempt.submittedAt)}</small></span>
-        <button className="primary-button" disabled={finalizing !== null} onClick={() => void finalize(attempt.attemptId)}>{finalizing === attempt.attemptId ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}Concluir revisão</button>
+        <div className="review-queue-ready-actions">
+          <button className="secondary-button compact" onClick={() => setPreviewing((current) => current === attempt.attemptId ? null : attempt.attemptId)}>{previewing === attempt.attemptId ? <EyeOff size={15} /> : <Eye size={15} />}{previewing === attempt.attemptId ? 'Fechar correção' : 'Ver correção'}</button>
+          <button className="primary-button" disabled={finalizing !== null} onClick={() => void finalize(attempt.attemptId)}>{finalizing === attempt.attemptId ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />}Concluir revisão</button>
+        </div>
+        {previewing === attempt.attemptId && <CorrectionPreview client={client} attemptId={attempt.attemptId} />}
       </div>)}
     </section> : null}
 
@@ -118,4 +123,21 @@ function ReviewItem({ client, item, onReviewed, onOpenLive }: { client: Supabase
         : !question ? <div className="assessment-loading"><LoaderCircle className="spin" size={20} />Carregando resposta…</div>
           : <div className="assessment-report-questions"><QuestionReview client={client} question={question} index={result!.questions.indexOf(question)} onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await onReviewed(); }} /></div>}
   </article>;
+}
+
+/** Productive answers already graded for one attempt, editable, with the report comment, before finalising. */
+function CorrectionPreview({ client, attemptId }: { client: SupabaseClient; attemptId: string }) {
+  const [result, setResult] = useState<TeacherAssessmentResult | null>(null);
+  const [message, setMessage] = useState('');
+  const load = useCallback(() => getAssessmentResult(client, attemptId).then(setResult).catch((error) => setMessage(error instanceof Error ? error.message : 'Não foi possível abrir a correção.')), [attemptId, client]);
+  useEffect(() => { void load(); }, [load]);
+  if (message) return <p className="assessment-message" role="alert">{message}</p>;
+  if (!result) return <div className="assessment-loading"><LoaderCircle className="spin" size={20} />Carregando correção…</div>;
+  const graded = result.questions.filter((question) => question.rubric?.length || ['writing', 'speaking', 'mediation'].includes(question.type ?? ''));
+  return <div className="review-queue-preview">
+    <p>Confira a correção de cada tarefa. Você pode editar antes de concluir; depois de concluir, o resultado é liberado ao aluno.</p>
+    <div className="assessment-report-questions">{graded.map((question) => <QuestionReview key={question.id} client={client} question={question} index={result.questions.indexOf(question)}
+      onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await load(); }} />)}</div>
+    <TeacherReportPanel client={client} report={result} />
+  </div>;
 }
