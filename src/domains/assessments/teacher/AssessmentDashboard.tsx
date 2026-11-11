@@ -48,6 +48,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [draft, setDraft] = useState<AssessmentDraft | null>(null);
   const [assigning, setAssigning] = useState<AssessmentRow | null>(null);
   const [resultsFor, setResultsFor] = useState<AssessmentRow | null>(null);
+  const [resultsAttemptId, setResultsAttemptId] = useState<string | null>(null);
   const [progressOpen, setProgressOpen] = useState(false);
   const [analyticsFor, setAnalyticsFor] = useState<AssessmentRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,8 +168,8 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   if (liveSession) return <LiveAssessmentSession client={client} attemptId={liveSession.attemptId} onBack={() => { setLiveSession(null); void load(); }} onOpenResults={() => { setResultsFor(liveSession.assessment); setLiveSession(null); }} />;
   if (queueOpen) return <ReviewQueue client={client} onBack={() => { setQueueOpen(false); void load(); }} onOpenLive={(item) => { const assessment = items.find((entry) => entry.id === item.assessmentId); if (assessment) { setQueueOpen(false); setLiveSession({ attemptId: item.attemptId, assessment }); } }} />;
   if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} listeningEnabled={listeningEnabled} students={students} previewStudentId={previewStudentId} loadSeenItems={(studentId) => listStudentSeenItems(client, studentId)} onBack={() => { setDraft(null); setPreviewStudentId(null); void load(); }} onSave={save} onPublish={publish} onUseReadyMade={() => { setDraft(null); setCreationOpen(true); void load(); }} />;
-  if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} studentNames={new Map(students.map((student) => [student.id, student.name]))} onBack={() => setResultsFor(null)} />;
-  if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} />;
+  if (resultsFor) return <AssessmentResults client={client} assessment={resultsFor} studentNames={new Map(students.map((student) => [student.id, student.name]))} onBack={() => { setResultsFor(null); setResultsAttemptId(null); }} initialAttemptId={resultsAttemptId} />;
+  if (progressOpen) return <AssessmentProgress client={client} students={students} onBack={() => setProgressOpen(false)} onOpenReport={(assessmentId, attemptId) => { const assessment = items.find((entry) => entry.id === assessmentId); if (assessment) { setResultsAttemptId(attemptId); setResultsFor(assessment); setProgressOpen(false); } }} />;
   if (analyticsFor) return <CefrAnalytics client={client} assessment={analyticsFor} onBack={() => setAnalyticsFor(null)} />;
   return <section className="assessment-dashboard">
     <header className="assessment-dashboard-header"><div><p className="eyebrow">ASSESSMENTS</p><h2>Construtor de avaliações</h2><p>Crie, aplique e acompanhe avaliações multimodais.</p></div><div className="assessment-header-actions"><button type="button" className="primary-button assessment-new-action" onClick={() => setCreationOpen((value) => !value)}><Plus size={17} />Nova avaliação</button><button type="button" className="secondary-button" onClick={() => setQueueOpen(true)}><Inbox size={17} />Fila de correção{pendingReviews ? <span className="review-queue-badge">{pendingReviews}</span> : null}</button><button type="button" className="secondary-button" onClick={() => setProgressOpen(true)}><TrendingUp size={17} />Evolução</button></div></header>
