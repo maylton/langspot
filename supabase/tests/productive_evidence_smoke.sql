@@ -35,7 +35,7 @@ select public.exclude_assessment_response(:'sp_r', 'Gravação não salva por fa
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',false);
 select public.expect_error(format('select public.exclude_assessment_response(%L,%L)', :'sp_r', 'x'), 'Assessment response not found');
 reset role;
-select public.assert_test((select grading_status = 'reviewed' and max_score = 0 and (answer_payload->>'excluded')::boolean from public.assessment_responses where id = :'sp_r'), 'Excluded responses are reviewed with no weight');
+select public.assert_test((select grading_status = 'reviewed' and max_score is null and score is null and (answer_payload->>'excluded')::boolean from public.assessment_responses where id = :'sp_r'), 'Excluded responses are reviewed with no weight');
 
 update public.assessment_attempts set status = 'completed' where id = :'evidence_attempt';
 select public.assert_test((select skill_results ? 'writing' and skill_results->'writing'->>'level' = 'B1' from public.assessment_cefr_profiles where attempt_id = :'evidence_attempt'), 'A rated productive part gives its rubric level');

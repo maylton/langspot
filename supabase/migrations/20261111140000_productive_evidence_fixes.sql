@@ -7,7 +7,8 @@
 --   was stored with estimated_cefr = C2 on submission. It now returns null, and stored values
 --   from attempts without adaptive state are cleared.
 -- * public.exclude_assessment_response: the teacher marks a productive response with no answer
---   (e.g. a lost recording) as excluded, so it does not block finalising nor count as zero.
+--   (e.g. a lost recording) as excluded: reviewed, with no score and no weight, so it neither
+--   blocks finalising nor counts as zero.
 -- build_cefr_profile is otherwise identical to 20261107120000.
 
 create or replace function private.ability_to_cefr(p_ability numeric)
@@ -93,7 +94,7 @@ begin
   if nullif(trim(coalesce(p_reason, '')), '') is null then raise exception 'A reason is required'; end if;
   delete from public.assessment_rubric_scores where response_id = p_response_id;
   update public.assessment_responses
-  set score = 0, max_score = 0, grading_status = 'reviewed', teacher_feedback = left(trim(p_reason), 2000),
+  set score = null, max_score = null, grading_status = 'reviewed', teacher_feedback = left(trim(p_reason), 2000),
       answer_payload = answer_payload || jsonb_build_object('excluded', true, 'excludedReason', left(trim(p_reason), 2000), 'excludedAt', now())
   where id = p_response_id;
 end; $$;
