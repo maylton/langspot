@@ -113,3 +113,6 @@ if (CURRENT_FEATURES.enableDebugLogging) {
     `└─ Supabase: ${SUPABASE.isConfigured ? '✅ configured' : '⚠️  not configured'}`
   );
 }
+
+/** ClassPlay, the companion activity platform (teacher area /dashboard, student area /student). */
+export const CLASSPLAY_URL = (import.meta.env.VITE_CLASSPLAY_URL || 'https://class-play-five.vercel.app').replace(/\/$/, '');

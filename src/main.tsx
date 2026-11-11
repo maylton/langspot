@@ -13,6 +13,7 @@ import './app-dialogs.css';
 import './attempt-monitor.css';
 import './notifications.css';
 import './sidebar.css';
+import './classplay.css';
 import './brand.css';
 
 createRoot(document.getElementById('root')!).render(
