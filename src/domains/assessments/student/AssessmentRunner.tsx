@@ -3,7 +3,7 @@ import { isPermissionPromptActive, releaseMicrophone } from './microphone';
 import { richText } from '../richText';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, Clock3, Cloud, CloudOff, LoaderCircle, Lock, Maximize2, Play } from 'lucide-react';
-import { advanceAdaptiveAttempt, completeAssessmentSection, isClosedPartError, loadAssessmentAttempt, recordAssessmentEvent, saveAssessmentResponse, startAssessmentSection, submitAssessmentAttempt } from '../attemptService';
+import { advanceAdaptiveAttempt, completeAssessmentSection, isClosedPartError, loadAssessmentAttempt, recordAssessmentEvent, reportAssessmentPresence, saveAssessmentResponse, startAssessmentSection, submitAssessmentAttempt } from '../attemptService';
 import type { StudentAttemptPayload } from '../types';
 import { enqueueAssessmentWrite, listAssessmentWrites, removeAssessmentWrite, type PendingAssessmentWrite } from './offlineQueue';
 import { allStagesDone, buildStages, currentStage, formatClock, nextStage, secondsLeft, studentSectionTitle, type Stage } from './pacing';
@@ -130,6 +130,19 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
     questionStartedAt.current = Date.now();
     void recordAssessmentEvent(client, attemptId, 'question_opened', question.id).catch(() => undefined);
   }, [attemptId, client, question?.id]);
+
+  // Presence for the teacher's live monitor: on every question change and every 20 s while visible.
+  const presenceQuestionId = useRef<string | null>(null);
+  presenceQuestionId.current = question?.id ?? null;
+  useEffect(() => {
+    if (question?.id) void reportAssessmentPresence(client, attemptId, question.id).catch(() => undefined);
+  }, [attemptId, client, question?.id]);
+  useEffect(() => {
+    const beat = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void reportAssessmentPresence(client, attemptId, presenceQuestionId.current).catch(() => undefined);
+    }, 20000);
+    return () => window.clearInterval(beat);
+  }, [attemptId, client]);
 
   const submit = useCallback(async () => {
     if (submitting) return;

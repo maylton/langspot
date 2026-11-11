@@ -64,3 +64,9 @@ export async function completeAssessmentSection(client: SupabaseClient, attemptI
 
 /** Server errors meaning a queued answer can never be saved, because its part is already closed. */
 export const isClosedPartError = (message: string) => /This part is closed|Start this part before answering/.test(message);
+
+/** Heartbeat for the teacher's live monitor: the student is on the page and looking at this question. */
+export async function reportAssessmentPresence(client: SupabaseClient, attemptId: string, questionId: string | null): Promise<void> {
+  const { error } = await client.rpc('report_assessment_presence', { p_attempt_id: attemptId, p_question_id: questionId });
+  if (error) throw new Error(error.message);
+}

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BarChart3, ClipboardList, Edit3, FileQuestion, Inbox, LoaderCircle, Mic, Plus, Trash2, TrendingUp } from 'lucide-react';
-import { assignAssessment, deleteAssessment, generateAssessmentFromPreset, getAssessmentDeletionImpact, getAssessmentFeatureFlags, listAssessmentIdsWithLiveTasks, listAssessmentReviewQueue, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
+import { assignAssessment, deleteAssessment, generateAssessmentFromPreset, getAssessmentDeletionImpact, getAssessmentFeatureFlags, listActiveTeacherAttempts, listAssessmentIdsWithLiveTasks, listAssessmentReviewQueue, listCefrLevelCheckPresets, listTeacherAssessments, loadAssessmentDraft, openLiveAssessmentSession, publishAssessment, saveAssessmentDraft } from '../assessmentService';
 import type { AssessmentRow } from '../database';
-import type { AssessmentDraft, CefrLevelCheckPreset } from '../types';
+import type { ActiveTeacherAttempt, AssessmentDraft, CefrLevelCheckPreset } from '../types';
+import { ActiveAttemptsPanel, AttemptMonitor } from './AttemptMonitor';
 import { AssessmentAssignments, type AssessmentStudentOption } from './AssessmentAssignments';
 import { AssessmentEditor, type AssessmentBankQuestion } from './AssessmentEditor';
 import { AssessmentResults } from './AssessmentResults';
@@ -61,6 +62,8 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
   const [pendingReviews, setPendingReviews] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [assignBusy, setAssignBusy] = useState(false);
+  const [activeAttempts, setActiveAttempts] = useState<ActiveTeacherAttempt[]>([]);
+  const [monitoring, setMonitoring] = useState<ActiveTeacherAttempt | null>(null);
   const [deleting, setDeleting] = useState<{ assessment: AssessmentRow; impact: AssessmentDeletionImpact | null; loading: boolean; busy: boolean } | null>(null);
 
   const load = useCallback(async () => {
@@ -78,6 +81,16 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     return null;
   }, [client]);
   useEffect(() => { void load(); }, [load]);
+
+  // Attempts in progress; refreshed while the dashboard is on screen. A failure only hides the panel.
+  const loadActive = useCallback(() => listActiveTeacherAttempts(client).then(setActiveAttempts).catch(() => undefined), [client]);
+  const onDashboard = !monitoring && !draft && !queueOpen && !resultsFor && !progressOpen && !analyticsFor && !liveSession;
+  useEffect(() => {
+    if (!onDashboard) return;
+    void loadActive();
+    const poll = window.setInterval(() => { if (document.visibilityState === 'visible') void loadActive(); }, 30_000);
+    return () => window.clearInterval(poll);
+  }, [loadActive, onDashboard]);
 
   const edit = async (assessment: AssessmentRow) => {
     setBusy(true); setMessage('');
@@ -137,6 +150,12 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
     setBusy(false);
   };
 
+  if (monitoring) {
+    const assessment = items.find((entry) => entry.id === monitoring.assessmentId) ?? null;
+    return <AttemptMonitor client={client} attemptId={monitoring.attemptId} onBack={() => setMonitoring(null)}
+      onOpenLiveSession={() => { if (assessment) { setLiveSession({ attemptId: monitoring.attemptId, assessment }); setMonitoring(null); } }}
+      onOpenResults={() => { setResultsFor(assessment); setMonitoring(null); }} />;
+  }
   if (liveSession) return <LiveAssessmentSession client={client} attemptId={liveSession.attemptId} onBack={() => { setLiveSession(null); void load(); }} onOpenResults={() => { setResultsFor(liveSession.assessment); setLiveSession(null); }} />;
   if (queueOpen) return <ReviewQueue client={client} onBack={() => { setQueueOpen(false); void load(); }} onOpenLive={(item) => { const assessment = items.find((entry) => entry.id === item.assessmentId); if (assessment) { setQueueOpen(false); setLiveSession({ attemptId: item.attemptId, assessment }); } }} />;
   if (draft) return <AssessmentEditor client={client} teacherId={teacherId} initialDraft={draft} bank={bank} listeningEnabled={listeningEnabled} onBack={() => { setDraft(null); void load(); }} onSave={save} onPublish={publish} onUseReadyMade={() => { setDraft(null); setCreationOpen(true); void load(); }} />;
@@ -169,6 +188,7 @@ export function AssessmentDashboard({ client, teacherId, students, bank }: {
       </div>
     </section>}
     {message && <div className="assessment-message" role="alert">{message}</div>}
+    <ActiveAttemptsPanel attempts={activeAttempts} onOpen={setMonitoring} />
     {deleting && <DeleteAssessmentDialog title={deleting.assessment.title} impact={deleting.impact} loadingImpact={deleting.loading} busy={deleting.busy} onConfirm={() => void confirmDelete()} onCancel={() => setDeleting(null)} />}
     {loading || busy ? <div className="assessment-loading"><LoaderCircle className="spin" size={24} />{generating ? 'Montando a prova pronta…' : 'Carregando avaliações…'}</div> : items.length ? <div className="assessment-card-grid">{items.map((assessment) => <article key={assessment.id}>
       <div className="assessment-card-top"><span className={`assessment-status ${assessment.status}`}>{assessment.status === 'draft' ? 'Rascunho' : assessment.status === 'published' ? 'Publicada' : 'Arquivada'}</span><button type="button" className="icon-button danger assessment-delete-button" title="Excluir avaliação" aria-label={`Excluir ${assessment.title}`} onClick={() => void askDelete(assessment)}><Trash2 size={15} /></button></div>
