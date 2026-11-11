@@ -139,3 +139,16 @@
 .dark-theme .assessment-fullscreen-gate>section{background:#151e2d}
 .dark-theme .assessment-fullscreen-gate h2{color:#edf1f8}
 .dark-theme .assessment-fullscreen-gate p{color:#b8c2d3}
+/* CEFR level review (teacher): stacked form, actions on the right. */
+.cefr-override-form{display:grid;gap:12px;max-width:640px;padding:16px 18px;border:1px solid #e1e7ef;border-radius:16px;background:#fff}
+.cefr-override-form header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 12px}
+.cefr-override-form header strong{font-size:15px}
+.cefr-override-form header span{color:#6e7a8f;font-size:12px}
+.cefr-override-form label{display:grid;gap:6px;color:#536075;font-size:12px;font-weight:800}
+.cefr-override-form select{width:min(180px,100%);border:1px solid #dfe4ec;border-radius:10px;padding:9px 10px;background:#fff;color:#172033;font-weight:700}
+.cefr-override-form textarea{width:100%;border:1px solid #dfe4ec;border-radius:10px;padding:10px 12px;font:inherit;font-weight:400;resize:vertical;background:#fafbfc;color:#172033}
+.cefr-override-form small{color:#7e899b;font-size:11px}
+.cefr-override-form [role=alert]{margin:0;color:#ca1551;font-size:12px}
+.cefr-override-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.dark-theme .cefr-override-form{border-color:#2a3547;background:#151e2d}
+.dark-theme .cefr-override-form select,.dark-theme .cefr-override-form textarea{border-color:#2a3547;background:#111a28;color:#e6ecf5}

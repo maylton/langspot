@@ -13,7 +13,7 @@ import { calculateRubricScore } from '../rubric';
 import { CefrProfileReport } from '../CefrProfileReport';
 import { CEFR_LEVELS } from '../cefr';
 
-export function AssessmentResults({ client, assessment, studentNames, onBack }: { client: SupabaseClient; assessment: AssessmentRow; studentNames?: Map<string, string>; onBack: () => void }) {
+export function AssessmentResults({ client, assessment, studentNames, onBack, initialAttemptId }: { client: SupabaseClient; assessment: AssessmentRow; studentNames?: Map<string, string>; onBack: () => void; /** Opens this attempt's report directly (e.g. from the progress history). */ initialAttemptId?: string | null }) {
   const [attempts, setAttempts] = useState<AssessmentAttemptRow[]>([]);
   const [report, setReport] = useState<TeacherAssessmentResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,12 +25,13 @@ export function AssessmentResults({ client, assessment, studentNames, onBack }: 
     setLoading(false);
   }, [assessment.id, client]);
   useEffect(() => { void loadAttempts(); }, [loadAttempts]);
-  const open = async (attemptId: string) => {
+  const open = useCallback(async (attemptId: string) => {
     setLoading(true); setMessage('');
     try { setReport(await getAssessmentResult(client, attemptId)); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.'); }
     setLoading(false);
-  };
+  }, [client]);
+  useEffect(() => { if (initialAttemptId) void open(initialAttemptId); }, [initialAttemptId, open]);
   const reloadReport = async () => { if (report) setReport(await getAssessmentResult(client, report.attempt.id)); };
 
   if (report) return <AssessmentAttemptDetails client={client} report={report} onBack={() => setReport(null)} onReview={async (responseId, score, feedback, rubricScores) => { await reviewAssessmentResponse(client, responseId, score, feedback, rubricScores); await reloadReport(); }} onFinalize={async () => { await finalizeAssessmentReview(client, report.attempt.id); await reloadReport(); await loadAttempts(); }} />;
@@ -49,7 +50,8 @@ function AssessmentAttemptDetails({ client, report, onBack, onReview, onFinalize
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [reportOpen, setReportOpen] = useState(false);
+  // Once the review is finished, the report is what the teacher comes back for.
+  const [reportOpen, setReportOpen] = useState(Boolean(report.attempt.reviewedAt));
   const [signals, setSignals] = useState<AssessmentIntegritySignals | null>(null);
   useEffect(() => { let active = true; void getAssessmentIntegritySignals(client, report.attempt.id).then((value) => { if (active) setSignals(value); }).catch(() => undefined); return () => { active = false; }; }, [client, report.attempt.id]);
   const pending = report.questions.filter((question) => question.gradingStatus === 'manual_review' || question.gradingStatus === 'pending').length;
@@ -91,7 +93,14 @@ export function QuestionReview({ client, question, index, onReview }: { client: 
 function CefrOverride({ attemptId, currentLevel, onOverride }: { attemptId: string; currentLevel: string | null; onOverride: (level: typeof CEFR_LEVELS[number], reason: string) => Promise<void> }) {
   const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
   if (!open) return <button className="secondary-button" onClick={() => setOpen(true)}>Revisar nível CEFR</button>;
-  return <form className="assessment-manual-review" onSubmit={(event) => void (async () => { event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setMessage(''); try { await onOverride(String(form.get('level')) as typeof CEFR_LEVELS[number], String(form.get('reason'))); setOpen(false); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível registrar o override.'); } finally { setBusy(false); } })()}><p>Resultado automático: <b>{currentLevel ?? 'sem classificação'}</b></p><label>Nível revisado<select name="level" defaultValue={currentLevel ?? 'B1'}>{CEFR_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label><label>Justificativa<textarea name="reason" minLength={10} required /></label>{message && <p role="alert">{message}</p>}<button className="primary-button" disabled={busy}>Registrar revisão auditável</button></form>;
+  return <form className="cefr-override-form" onSubmit={(event) => void (async () => { event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setMessage(''); try { await onOverride(String(form.get('level')) as typeof CEFR_LEVELS[number], String(form.get('reason'))); setOpen(false); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível registrar a revisão.'); } finally { setBusy(false); } })()}>
+    <header><strong>Revisar nível CEFR</strong><span>Resultado automático: <b>{currentLevel ?? 'sem classificação'}</b></span></header>
+    <label>Nível revisado<select name="level" defaultValue={currentLevel ?? 'B1'}>{CEFR_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label>
+    <label>Justificativa<textarea name="reason" rows={3} minLength={10} required placeholder="Ex.: Writing B1 na tarefa principal; a tarefa A2 limita o nível mostrado." /></label>
+    <small>A revisão fica registrada com data e justificativa. O aluno passa a ver o nível revisado.</small>
+    {message && <p role="alert">{message}</p>}
+    <div className="cefr-override-actions"><button type="button" className="cancel-button" disabled={busy} onClick={() => setOpen(false)}>Cancelar</button><button className="primary-button" disabled={busy}>{busy ? 'Registrando…' : 'Registrar revisão'}</button></div>
+  </form>;
 }
 
 export function TeacherAudioPlayer({ client, path }: { client: SupabaseClient; path: string }) {
