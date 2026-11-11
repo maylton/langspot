@@ -9,6 +9,7 @@ import { enqueueAssessmentWrite, listAssessmentWrites, removeAssessmentWrite, ty
 import { allStagesDone, buildStages, currentStage, formatClock, nextStage, secondsLeft, studentSectionTitle, type Stage } from './pacing';
 import { QuestionRenderer } from './QuestionRenderer';
 import { SubmitConfirmation } from './SubmitConfirmation';
+import { flushPendingRecordings } from './pendingRecordings';
 import { bulkInsertion, canUseAssessmentFullscreen, requestAssessmentFullscreen } from './integrity';
 
 type SaveState = 'saved' | 'saving' | 'offline';
@@ -148,6 +149,8 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
     if (submitting) return;
     setSubmitting(true); setMessage('');
     try {
+      try { await flushPendingRecordings(); }
+      catch { setMessage('Não foi possível enviar sua gravação. Verifique a conexão e tente de novo.'); return; }
       const synced = await flush();
       if (!synced) { setMessage('Conecte-se à internet para sincronizar as respostas antes de enviar.'); return; }
       await submitAssessmentAttempt(client, attemptId); onComplete();
@@ -173,6 +176,9 @@ export function AssessmentRunner({ client, attemptId, onComplete, onExit }: { cl
     closingStage.current = true; setSubmitting(true); setMessage('');
     try {
       await closeQuestion();
+      // A recording the student did not send yet is sent now (also when the part's time runs out).
+      try { await flushPendingRecordings(); }
+      catch { if (reason === 'student') { setMessage('Não foi possível enviar sua gravação. Verifique a conexão e tente de novo antes de concluir a etapa.'); return; } }
       if (!await flush() && reason === 'student') { setMessage('Conecte-se à internet para salvar as respostas antes de concluir a etapa.'); return; }
       await completeAssessmentSection(client, attemptId, activeSectionId);
       await reload();
