@@ -27,7 +27,7 @@ export function AssessmentResult({ client, attemptId, title, onBack }: { client:
     {result.sections?.length
       ? <StudentReport title={title} score={result.score} estimatedCefr={result.estimatedCefr} sections={result.sections} cefrProfile={result.cefrProfile} previous={previous} note={note} />
       : <header className="student-panel"><div className="assessment-result-score"><Check size={24} /><span><strong>{result.cefrProfile?.overallLevel ?? (result.score === undefined ? result.estimatedCefr ?? '—' : `${result.score}%`)}</strong><small>{result.cefrProfile ? 'Estimativa CEFR alinhada' : result.estimatedCefr ? `Nível estimado: ${result.estimatedCefr}` : 'Avaliação concluída'}</small></span></div>{note?.summary && <p className="teacher-feedback"><b>Comentário do professor</b>{note.summary}</p>}</header>}
-    {result.cefrProfile && <CefrProfileReport profile={result.cefrProfile} />}
+    {result.cefrProfile && <CefrProfileReport profile={result.cefrProfile} audience="student" />}
     {result.questions?.length ? <div className="assessment-report-questions">{result.questions.map((question, index) => <article key={question.id}><div className="assessment-question-result-heading"><span>{index + 1}</span><div><h3>{question.prompt}</h3><small>{question.answer === 'live' && ['speaking', 'mediation'].includes(question.type ?? '') ? 'Feita ao vivo com o professor' : question.type === 'speaking' ? 'Resposta gravada' : question.answer || 'Em branco'}</small></div><strong>{question.score ?? 0}/{question.maxScore ?? 0}</strong></div>{question.teacherFeedback && <p className="teacher-feedback"><b>Feedback do professor</b>{question.teacherFeedback}</p>}</article>)}</div> : null}
   </section>;
 }

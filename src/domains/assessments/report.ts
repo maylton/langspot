@@ -1,4 +1,5 @@
 import type { AssessmentResultSection, CefrLevel, CefrProfile } from './types';
+import { formatProfileItem, meaningfulPriorities, RUBRIC_SKILLS } from './cefrLabels';
 
 export const REPORT_SKILL_LABELS: Record<string, string> = {
   grammar: 'Grammar',
@@ -30,6 +31,8 @@ export type ReportSkillLine = {
   level: CefrLevel | null;
   previousPercentage: number | null;
   delta: number | null;
+  /** Rated with a teacher rubric: show the level, not a percentage (B1 = 45% of the scale reads as a fail). */
+  rubric: boolean;
 };
 
 export type StudentReportSummary = {
@@ -44,12 +47,8 @@ const PRIORITY_THRESHOLD = 60;
 
 export const normalizeReportSkill = (skill: string) => (skill === 'use_of_english' ? 'language_use' : skill);
 
-/** "writing.task_achievement" → "Writing · task achievement" */
-export function formatReportItem(item: string): string {
-  const [skill, dimension] = item.split('.');
-  const label = REPORT_SKILL_LABELS[skill] ?? skill.replace(/_/g, ' ');
-  return dimension ? `${label} · ${dimension.replace(/_/g, ' ')}` : label;
-}
+/** "writing.task_achievement" → "Writing · cumprimento da tarefa" */
+export const formatReportItem = formatProfileItem;
 
 const cefrSkillKey = (skill: string) => (skill === 'speaking' ? 'spoken_production' : ['grammar', 'vocabulary'].includes(skill) ? 'language_use' : skill);
 const round = (value: number) => Math.round(value * 10) / 10;
@@ -70,13 +69,16 @@ export function buildStudentReport(input: {
   const skills: ReportSkillLine[] = [...totals.entries()].map(([key, total]) => {
     const percentage = total.max > 0 ? round((100 * total.score) / total.max) : null;
     const previousPercentage = input.previous?.skills[key] ?? null;
+    const level = input.cefrProfile?.skills[cefrSkillKey(key) as keyof CefrProfile['skills']]?.level ?? null;
+    const rubric = RUBRIC_SKILLS.has(key) && level !== null;
     return {
       key,
       label: REPORT_SKILL_LABELS[key] ?? key.replace(/_/g, ' '),
       percentage,
-      level: input.cefrProfile?.skills[cefrSkillKey(key) as keyof CefrProfile['skills']]?.level ?? null,
+      level,
       previousPercentage,
-      delta: percentage !== null && previousPercentage !== null ? round(percentage - previousPercentage) : null,
+      delta: !rubric && percentage !== null && previousPercentage !== null ? round(percentage - previousPercentage) : null,
+      rubric,
     };
   });
 
@@ -84,7 +86,7 @@ export function buildStudentReport(input: {
   let priorities: string[];
   if (input.cefrProfile) {
     strengths = input.cefrProfile.strengths.map(formatReportItem);
-    priorities = input.cefrProfile.developmentPriorities.map(formatReportItem);
+    priorities = meaningfulPriorities(input.cefrProfile).map(formatReportItem);
   } else {
     const scored = skills.filter((line): line is ReportSkillLine & { percentage: number } => line.percentage !== null);
     strengths = scored.filter((line) => line.percentage >= STRENGTH_THRESHOLD).sort((a, b) => b.percentage - a.percentage).slice(0, 3).map((line) => line.label);

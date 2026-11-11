@@ -50,8 +50,11 @@ export function StudentReport({ title, studentName, completedAt, score, estimate
     {report.skills.length ? <section className="student-report-skills" aria-label="Resultado por habilidade">
       {report.skills.map((line) => <div key={line.key} className="student-report-skill">
         <span>{line.label}</span>
-        <i aria-hidden="true"><b style={{ width: `${Math.max(0, Math.min(100, line.percentage ?? 0))}%` }} /></i>
-        <strong>{line.percentage === null ? '—' : `${line.percentage}%`}{line.level ? <small>{line.level}</small> : null}</strong>
+        {line.rubric
+          ? <><em className="student-report-rubric">avaliado pelo professor</em><strong className="student-report-level">{line.level}</strong></>
+          : line.percentage === null && !line.level ? <><em className="student-report-rubric">não avaliado</em><strong>—</strong></>
+          : <><i aria-hidden="true"><b style={{ width: `${Math.max(0, Math.min(100, line.percentage ?? 0))}%` }} /></i>
+            <strong>{line.percentage === null ? '—' : `${line.percentage}%`}{line.level ? <small>{line.level}</small> : null}</strong></>}
         {line.delta !== null ? <Delta value={line.delta} suffix=" p.p." /> : <em className="student-report-delta none">{previous ? 'novo' : ''}</em>}
       </div>)}
     </section> : null}

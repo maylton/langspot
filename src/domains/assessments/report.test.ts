@@ -35,7 +35,20 @@ describe('buildStudentReport', () => {
     const report = buildStudentReport({ sections: [section('r', 'reading', 5, 10), section('s', 'speaking', 1, 2)], score: 55, cefrProfile: profile });
     expect(report.skills.map((line) => line.level)).toEqual(['B1+', 'B1']);
     expect(report.strengths).toEqual(['Reading']);
-    expect(report.priorities).toEqual(['Writing · task achievement']);
+    expect(report.priorities).toEqual(['Writing · cumprimento da tarefa']);
+    // Speaking is rated with a rubric: the line shows the level, not a percentage, and no delta.
+    expect(report.skills.find((line) => line.key === 'speaking')).toMatchObject({ rubric: true, level: 'B1', delta: null });
+    expect(report.skills.find((line) => line.key === 'reading')?.rubric).toBe(false);
+  });
+
+  it('drops objective dimensions answered correctly from the priorities', () => {
+    const profile = {
+      overallLevel: 'A2+', confidence: 'low', strengths: [], developmentPriorities: ['writing', 'reading.sequence', 'reading.inference'], flags: ['MANUAL_REVIEW_REQUIRED'], manualReviewRequired: true,
+      skills: { reading: { level: 'B1+', confidence: 'high', dimensions: { sequence: { level: 'A2', evidence: '1/1 objective items' }, inference: { level: 'A2', evidence: '1/3 objective items' } } } },
+      decisionRuleVersion: 'v', routingRuleVersion: 'v', reportModelVersion: 'v', provisionalStandard: true, disclaimer: '',
+    } as unknown as CefrProfile;
+    const report = buildStudentReport({ sections: [section('r', 'reading', 15, 16)], score: 90, cefrProfile: profile });
+    expect(report.priorities).toEqual(['Writing', 'Reading · inferência']);
   });
 
   it('formats unknown skill keys readably', () => expect(formatReportItem('use_of_tense.past_simple')).toBe('use of tense · past simple'));
