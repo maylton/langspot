@@ -2,6 +2,7 @@
 \set ON_ERROR_STOP on
 select public.assert_test(private.ability_to_cefr(null) is null, 'No adaptive ability means no estimated level');
 select public.assert_test(private.ability_to_cefr(5) = 'B1', 'Adaptive levels are unchanged');
+select public.assert_test(private.cefr_level_from_ordinal(null) is null and private.cefr_level_from_ordinal(5) = 'B1', 'No evidence means no level on the ordinal scale');
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
@@ -38,7 +39,6 @@ reset role;
 select public.assert_test((select grading_status = 'reviewed' and max_score is null and score is null and (answer_payload->>'excluded')::boolean from public.assessment_responses where id = :'sp_r'), 'Excluded responses are reviewed with no weight');
 
 update public.assessment_attempts set status = 'completed' where id = :'evidence_attempt';
-select jsonb_pretty(skill_results) as debug_skills from public.assessment_cefr_profiles where attempt_id = :'evidence_attempt';
 select public.assert_test((select skill_results ? 'writing' and skill_results->'writing'->>'level' = 'B1' from public.assessment_cefr_profiles where attempt_id = :'evidence_attempt'), 'A rated productive part gives its rubric level');
 select public.assert_test((select not (skill_results ? 'spoken_production') and not (skill_results ? 'mediation') and not (skill_results ? 'spoken_interaction') from public.assessment_cefr_profiles where attempt_id = :'evidence_attempt'), 'Productive parts without evidence give no level');
 select public.assert_test((select skill_results->'reading'->>'level' = 'B1+' from public.assessment_cefr_profiles where attempt_id = :'evidence_attempt'), 'Objective skills still follow the ladder');

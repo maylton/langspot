@@ -3,7 +3,7 @@
 -- * private.build_cefr_profile: a productive part with no answer and no rubric rating no longer
 --   produces a level. Before, it fell through to the objective percentage rule and became
 --   "task level minus two" (an unsent B1 recording counted as A2 Spoken Production).
--- * private.ability_to_cefr(null) returned C2, so every fixed-form attempt (no adaptive state)
+-- * private.ability_to_cefr(null) and private.cefr_level_from_ordinal(null) returned C2, so every fixed-form attempt (no adaptive state)
 --   was stored with estimated_cefr = C2 on submission. It now returns null, and stored values
 --   from attempts without adaptive state are cleared.
 -- * public.exclude_assessment_response: the teacher marks a productive response with no answer
@@ -16,6 +16,12 @@ returns text language sql immutable security invoker set search_path = pg_catalo
   select case when p_ability is null then null when p_ability < 2 then 'A1' when p_ability < 3.5 then 'A2'
     when p_ability < 5.25 then 'B1' when p_ability < 7 then 'B2'
     when p_ability < 8.75 then 'C1' else 'C2' end;
+$$;
+
+-- Same problem in the ordinal scale: greatest/least skip null, so no evidence became C2.
+create or replace function private.cefr_level_from_ordinal(p_value numeric)
+returns text language sql immutable security invoker set search_path='' as $$
+  select case when p_value is null then null else (array['A1','A1+','A2','A2+','B1','B1+','B2','B2+','C1','C1+','C2'])[greatest(1,least(11,round(p_value)::integer))] end;
 $$;
 
 update public.assessment_attempts attempt set estimated_cefr = null
@@ -100,5 +106,6 @@ begin
 end; $$;
 
 revoke all on function private.ability_to_cefr(numeric) from public, anon, authenticated;
+revoke all on function private.cefr_level_from_ordinal(numeric) from public, anon, authenticated;
 revoke all on function public.exclude_assessment_response(uuid, text) from public, anon;
 grant execute on function public.exclude_assessment_response(uuid, text) to authenticated;
