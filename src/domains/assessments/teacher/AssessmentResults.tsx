@@ -93,7 +93,14 @@ export function QuestionReview({ client, question, index, onReview }: { client: 
 function CefrOverride({ attemptId, currentLevel, onOverride }: { attemptId: string; currentLevel: string | null; onOverride: (level: typeof CEFR_LEVELS[number], reason: string) => Promise<void> }) {
   const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
   if (!open) return <button className="secondary-button" onClick={() => setOpen(true)}>Revisar nível CEFR</button>;
-  return <form className="assessment-manual-review" onSubmit={(event) => void (async () => { event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setMessage(''); try { await onOverride(String(form.get('level')) as typeof CEFR_LEVELS[number], String(form.get('reason'))); setOpen(false); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível registrar o override.'); } finally { setBusy(false); } })()}><p>Resultado automático: <b>{currentLevel ?? 'sem classificação'}</b></p><label>Nível revisado<select name="level" defaultValue={currentLevel ?? 'B1'}>{CEFR_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label><label>Justificativa<textarea name="reason" minLength={10} required /></label>{message && <p role="alert">{message}</p>}<button className="primary-button" disabled={busy}>Registrar revisão auditável</button></form>;
+  return <form className="cefr-override-form" onSubmit={(event) => void (async () => { event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setMessage(''); try { await onOverride(String(form.get('level')) as typeof CEFR_LEVELS[number], String(form.get('reason'))); setOpen(false); } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível registrar a revisão.'); } finally { setBusy(false); } })()}>
+    <header><strong>Revisar nível CEFR</strong><span>Resultado automático: <b>{currentLevel ?? 'sem classificação'}</b></span></header>
+    <label>Nível revisado<select name="level" defaultValue={currentLevel ?? 'B1'}>{CEFR_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label>
+    <label>Justificativa<textarea name="reason" rows={3} minLength={10} required placeholder="Ex.: Writing B1 na tarefa principal; a tarefa A2 limita o nível mostrado." /></label>
+    <small>A revisão fica registrada com data e justificativa. O aluno passa a ver o nível revisado.</small>
+    {message && <p role="alert">{message}</p>}
+    <div className="cefr-override-actions"><button type="button" className="cancel-button" disabled={busy} onClick={() => setOpen(false)}>Cancelar</button><button className="primary-button" disabled={busy}>{busy ? 'Registrando…' : 'Registrar revisão'}</button></div>
+  </form>;
 }
 
 export function TeacherAudioPlayer({ client, path }: { client: SupabaseClient; path: string }) {
