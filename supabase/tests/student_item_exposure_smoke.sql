@@ -5,7 +5,7 @@ set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
 select public.generate_assessment_from_preset('cefr-a2-level-check', null, 'exposure-a') as form_a \gset
 reset role;
-select public.assert_test((select bank_version = 'pilot-0.8' and generated_for_student_id is null from public.assessments where id = :'form_a'), 'A null bank version uses the current pilot bank');
+select public.assert_test((select bank_version = 'pilot-0.9' and generated_for_student_id is null from public.assessments where id = :'form_a'), 'A null bank version uses the current pilot bank');
 insert into public.assessment_assignments(assessment_id,teacher_id,student_id,status) values(:'form_a','70000000-0000-0000-0000-000000000007','80000000-0000-0000-0000-000000000008','completed') returning id as assignment_a \gset
 insert into public.assessment_attempts(assessment_assignment_id,assessment_id,student_id,status,submitted_at) values(:'assignment_a',:'form_a','80000000-0000-0000-0000-000000000008','completed',now()) returning id as attempt_a \gset
 insert into public.assessment_attempt_questions(attempt_id,assessment_question_id,position)

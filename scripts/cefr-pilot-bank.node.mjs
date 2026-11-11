@@ -3,15 +3,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.8.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.9.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
   const summary = validatePilotBank(bank);
-  assert.equal(summary.total, 372);
-  assert.equal(summary.objective, 306);
+  assert.equal(summary.total, 420);
+  assert.equal(summary.objective, 354);
   assert.equal(summary.productive, 66);
-  assert.equal(summary.tasklets, 54);
+  assert.equal(summary.tasklets, 66);
 });
 
 test('preserves stable IDs, answer keys and tasklet relationships', () => {
@@ -176,11 +176,25 @@ test('v0.8 adds two Reading texts per level with balanced keys and no length cue
   const keys = Object.fromEntries(['A', 'B', 'C', 'D'].map((letter) => [letter, added.filter(({ answerKey }) => answerKey === letter).length]));
   assert.deepEqual(keys, { A: 12, B: 12, C: 12, D: 12 });
   for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
-    assert.equal(bank.tasklets.filter((tasklet) => tasklet.skill === 'reading' && tasklet.level === level).length, 6, level);
+    assert.equal(bank.tasklets.filter((tasklet) => tasklet.skill === 'reading' && tasklet.level === level).length, 8, level);
     const longest = added.filter((entry) => entry.level === level && entry.answer.length === Math.max(...entry.options.map((option) => option.length))).length;
     assert.ok(longest <= 2, `${level}: ${longest}/8`);
   }
   const external = bank.tasklets.filter(({ externalId, sourceReference }) => /-00[56]$/.test(externalId) && sourceReference);
   assert.equal(external.length, 8);
   for (const tasklet of external) assert.match(tasklet.sourceReference, /Acesso em: 10 nov\. 2026\.$/);
+});
+
+test('v0.9 adds two more Reading texts per level with balanced keys and no length cue', () => {
+  const added = bank.items.filter(({ externalId }) => /^R-(A1|A2|B1|B2|C1|C2)-00[78]-Q\d$/.test(externalId));
+  assert.equal(added.length, 48);
+  const keys = Object.fromEntries(['A', 'B', 'C', 'D'].map((letter) => [letter, added.filter(({ answerKey }) => answerKey === letter).length]));
+  assert.deepEqual(keys, { A: 12, B: 12, C: 12, D: 12 });
+  for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
+    const longest = added.filter((entry) => entry.level === level && entry.answer.length === Math.max(...entry.options.map((option) => option.length))).length;
+    assert.ok(longest <= 2, `${level}: ${longest}/8`);
+  }
+  const external = bank.tasklets.filter(({ externalId, sourceReference }) => /-00[78]$/.test(externalId) && sourceReference);
+  assert.equal(external.length, 8);
+  for (const tasklet of external) assert.match(tasklet.sourceReference, /Acesso em: 11 nov\. 2026\.$/);
 });

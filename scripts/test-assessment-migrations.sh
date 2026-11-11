@@ -64,6 +64,7 @@ from_v0_3=(
   20261111120000_live_attempt_monitor.sql
   20261111130000_student_item_exposure.sql
   20261111140000_productive_evidence_fixes.sql
+  20261111150000_pilot_bank_v0_9_more_texts.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql

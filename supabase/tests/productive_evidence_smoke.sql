@@ -6,7 +6,7 @@ select public.assert_test(private.cefr_level_from_ordinal(null) is null and priv
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
-select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.8', 'evidence-form') as evidence_id \gset
+select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.9', 'evidence-form') as evidence_id \gset
 reset role;
 insert into public.assessment_assignments(assessment_id,teacher_id,student_id,status) values(:'evidence_id','70000000-0000-0000-0000-000000000007','80000000-0000-0000-0000-000000000008','grading') returning id as evidence_assignment \gset
 insert into public.assessment_attempts(assessment_assignment_id,assessment_id,student_id,status,submitted_at) values(:'evidence_assignment',:'evidence_id','80000000-0000-0000-0000-000000000008','grading',now()) returning id as evidence_attempt \gset
