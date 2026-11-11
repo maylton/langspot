@@ -2,7 +2,7 @@
 \set ON_ERROR_STOP on
 set role authenticated;
 select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000007',false);
-select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.9', 'writing-target-form') as wt_id \gset
+select public.generate_assessment_from_preset('cefr-b1-level-check', 'pilot-0.10', 'writing-target-form') as wt_id \gset
 reset role;
 insert into public.assessment_assignments(assessment_id,teacher_id,student_id,status) values(:'wt_id','70000000-0000-0000-0000-000000000007','80000000-0000-0000-0000-000000000008','grading') returning id as wt_assignment \gset
 insert into public.assessment_attempts(assessment_assignment_id,assessment_id,student_id,status,submitted_at) values(:'wt_assignment',:'wt_id','80000000-0000-0000-0000-000000000008','grading',now()) returning id as wt_attempt \gset

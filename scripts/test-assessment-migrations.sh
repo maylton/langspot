@@ -66,6 +66,7 @@ from_v0_3=(
   20261111140000_productive_evidence_fixes.sql
   20261111150000_pilot_bank_v0_9_more_texts.sql
   20261111160000_writing_target_and_recording_attempts.sql
+  20261111170000_pilot_bank_v0_10_language_use.sql
 )
 
 copy supabase/tests/assessment_bootstrap.sql bootstrap.sql

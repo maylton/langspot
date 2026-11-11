@@ -3,13 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parsePilotBank, validatePilotBank } from './cefr-pilot-bank.mjs';
 
-const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.9.md', import.meta.url), 'utf8');
+const markdown = await readFile(new URL('../docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.10.md', import.meta.url), 'utf8');
 const bank = parsePilotBank(markdown);
 
 test('validates the complete Pilot Bank inventory and taxonomy', () => {
   const summary = validatePilotBank(bank);
-  assert.equal(summary.total, 420);
-  assert.equal(summary.objective, 354);
+  assert.equal(summary.total, 480);
+  assert.equal(summary.objective, 414);
   assert.equal(summary.productive, 66);
   assert.equal(summary.tasklets, 66);
 });
@@ -141,11 +141,11 @@ test('v0.6 Language Use keys keep their letter, with real-word distractors and n
 
 test('the validator rejects a Language Use form where the key is usually the longest option', () => {
   const tampered = structuredClone(bank);
-  for (const entry of tampered.items.filter(({ level, skill }) => level === 'B1' && skill === 'language_use').slice(0, 8)) {
+  for (const entry of tampered.items.filter(({ level, skill }) => level === 'B1' && skill === 'language_use').slice(0, 10)) {
     entry.options = entry.options.map((option) => option === entry.answer ? `${option} indeed, without any doubt` : option);
     entry.answer = `${entry.answer} indeed, without any doubt`;
   }
-  assert.throws(() => validatePilotBank(tampered), /B1: the key is the longest option in \d+\/15 Language Use items/);
+  assert.throws(() => validatePilotBank(tampered), /B1: the key is the longest option in \d+\/25 Language Use items/);
 });
 
 test('v0.7 productive tasks: written targets in words, candidate-facing interaction, Cambridge lengths', () => {
@@ -197,4 +197,15 @@ test('v0.9 adds two more Reading texts per level with balanced keys and no lengt
   const external = bank.tasklets.filter(({ externalId, sourceReference }) => /-00[78]$/.test(externalId) && sourceReference);
   assert.equal(external.length, 8);
   for (const tasklet of external) assert.match(tasklet.sourceReference, /Acesso em: 11 nov\. 2026\.$/);
+});
+
+test('v0.10 adds ten Language Use items per level, real-form options and no length cue', () => {
+  const added = bank.items.filter(({ externalId }) => /^LU-(A1|A2|B1|B2|C1|C2)-0(1[6-9]|2[0-5])$/.test(externalId));
+  assert.equal(added.length, 60);
+  for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
+    assert.equal(bank.items.filter((item) => item.skill === 'language_use' && item.level === level).length, 25, level);
+    const longest = added.filter((entry) => entry.level === level && entry.answer.length === Math.max(...entry.options.map((option) => option.length))).length;
+    assert.equal(longest, 0, `${level}: the key is the longest option`);
+  }
+  assert.equal(bank.items.find(({ externalId }) => externalId === 'LU-A2-023').answer, 'missed');
 });
