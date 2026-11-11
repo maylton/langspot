@@ -10,6 +10,7 @@ import './assessment-report.css';
 import './assessment-pacing.css';
 import './assessment-manage.css';
 import './app-dialogs.css';
+import './attempt-monitor.css';
 import './notifications.css';
 import './sidebar.css';
 import './brand.css';

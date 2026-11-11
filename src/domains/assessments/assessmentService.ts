@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
 import type { AssessmentReportNote, PreviousAssessmentForReport } from './report';
-import type { AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, AssessmentIntegritySignals, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
+import type { ActiveTeacherAttempt, AttemptLiveStatus, AssessmentDraft, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, AssessmentIntegritySignals, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -220,4 +220,14 @@ export async function getAssessmentFeatureFlags(client: SupabaseClient, fallback
 export async function getAssessmentIntegritySignals(client: SupabaseClient, attemptId: string): Promise<AssessmentIntegritySignals> {
   const { data, error } = await client.rpc('get_assessment_integrity_signals', { p_attempt_id: attemptId });
   return requireData(data as AssessmentIntegritySignals | null, error);
+}
+
+export async function listActiveTeacherAttempts(client: SupabaseClient): Promise<ActiveTeacherAttempt[]> {
+  const { data, error } = await client.rpc('list_active_teacher_attempts');
+  return requireData(data as ActiveTeacherAttempt[] | null, error);
+}
+
+export async function getAttemptLiveStatus(client: SupabaseClient, attemptId: string): Promise<AttemptLiveStatus> {
+  const { data, error } = await client.rpc('get_attempt_live_status', { p_attempt_id: attemptId });
+  return requireData(data as AttemptLiveStatus | null, error);
 }

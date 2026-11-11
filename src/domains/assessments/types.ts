@@ -437,3 +437,65 @@ export type AssessmentIntegritySignals = {
   fastObjectiveAnswers: { count: number; total: number };
   sharedWrongAnswers: { studentName: string | null; sharedWrong: number; ownWrong: number }[];
 };
+
+/** In-progress attempt in the teacher's live monitor list. Counts cover the student's own (non-live) questions. */
+export type ActiveTeacherAttempt = {
+  attemptId: string;
+  assessmentId: string;
+  assessmentTitle: string;
+  studentId: string;
+  studentName: string;
+  startedAt: string;
+  expiresAt: string | null;
+  lastSeenAt: string | null;
+  lastActivityAt: string;
+  integrityStatus: string;
+  delivered: number;
+  answered: number;
+  liveTasks: number;
+  currentSectionTitle: string | null;
+};
+
+export type AttemptLiveSection = {
+  id: string;
+  title: string;
+  skill: string;
+  instructions?: string;
+  position: number;
+  timeLimitSeconds?: number;
+  startedAt?: string;
+  expiresAt?: string;
+  completedAt?: string;
+  completionReason?: 'student' | 'time_expired' | 'submitted';
+};
+
+/** A delivered question as the student sees it (never includes the key). */
+export type AttemptLiveQuestion = {
+  id: string;
+  sectionId: string;
+  type: string;
+  prompt: string;
+  options: string[];
+  sourceMaterial?: string;
+  sourceCredit?: string;
+  responseConstraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string };
+  preparationSeconds?: number;
+  recordingSeconds?: number;
+  taskType?: string;
+  cefr?: string;
+  live: boolean;
+  answered: boolean;
+  wordCount?: number;
+  timeSpentMs?: number;
+};
+
+export type AttemptLiveStatus = {
+  attempt: {
+    id: string; status: string; studentId: string; studentName: string; startedAt: string; submittedAt: string | null;
+    expiresAt: string | null; lastSeenAt: string | null; lastActivityAt: string; integrityStatus: string; viewingQuestionId: string | null;
+  };
+  assessment: { id: string; title: string; description: string; sectionPacing: boolean };
+  sections: AttemptLiveSection[];
+  questions: AttemptLiveQuestion[];
+  events: { type: string; occurredAt: string; metadata: Record<string, unknown> }[];
+};
