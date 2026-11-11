@@ -6,7 +6,7 @@ select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001'
 select public.generate_assessment_from_preset('cefr-b1-level-check','pilot-0.10','variation-form') as check_id \gset
 reset role;
 select public.assert_test((select randomize_questions and randomize_options from public.assessments where id = :'check_id'), 'Level Checks must shuffle questions and options');
-select public.assert_test((select array_agg(cefr_level || ':' || draw_count || '/' || (select count(*) from public.assessment_questions question where question.section_id = section.id) order by position) = array['A2:5/15', 'B1:10/15', 'B2:5/15'] from public.assessment_sections section where assessment_id = :'check_id' and skill = 'language_use'), 'Language Use sections must hold the level pool and draw from it');
+select public.assert_test((select array_agg(cefr_level || ':' || draw_count || '/' || (select count(*) from public.assessment_questions question where question.section_id = section.id) order by position) = array['A2:5/25', 'B1:10/25', 'B2:5/25'] from public.assessment_sections section where assessment_id = :'check_id' and skill = 'language_use'), 'Language Use sections must hold the level pool and draw from it');
 set role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',false);
 select public.publish_assessment(:'check_id');
