@@ -140,3 +140,8 @@
 .dark-theme .assessment-rubric-summary div{background:#1b2536}
 .dark-theme .assessment-rubric-summary dd{color:#aac0e4}
 .dark-theme .assessment-excluded{background:#241f0d;color:#f1dc8e}
+.assessment-recording-attempts{margin:8px 0;padding:8px 12px;border-radius:10px;background:#eef3fb;color:#2b4a7d;font-size:12px}
+.dark-theme .assessment-recording-attempts{background:#1b2536;color:#aac0e4}
+.assessment-recording-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#fdecef;color:#7a1033;font-size:13px}
+.assessment-recording-live{color:#ca1551}
+.dark-theme .assessment-recording-confirm{background:#3a1622;color:#ffc2d4}

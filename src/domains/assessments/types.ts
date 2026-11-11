@@ -62,7 +62,8 @@ export type AssessmentEventType =
   | 'session_conflict'
   | 'copy_detected'
   | 'drop_detected'
-  | 'bulk_insert_detected';
+  | 'bulk_insert_detected'
+  | 'recording_discarded';
 
 export type CefrBaseLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type CefrLevel = CefrBaseLevel | 'A1+' | 'A2+' | 'B1+' | 'B2+' | 'C1+';
