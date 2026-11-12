@@ -1,0 +1,24 @@
+[project]
+name = "langspot-linux"
+version = "0.1.0"
+description = "Native GTK4 + libadwaita teacher app for the LangSpot platform"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["PyGObject>=3.50"]
+
+[project.gui-scripts]
+langspot-linux = "langspot_linux.ui.app:main"
+
+[tool.setuptools.packages.find]
+include = ["langspot_linux*"]
+
+[tool.setuptools.package-data]
+"langspot_linux.ui" = ["style.css"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "SIM", "C4", "PIE", "RET"]
+ignore = ["SIM105", "E402"]
