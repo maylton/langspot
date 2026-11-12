@@ -91,6 +91,20 @@ def _collect_rows(widget, rows):
         child = child.get_next_sibling()
 
 
+def close_dialogs():
+    from gi.repository import Adw as _Adw
+    stack = [app.window]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, _Adw.Dialog):
+            current.force_close()
+            continue
+        child = current.get_first_child()
+        while child:
+            stack.append(child)
+            child = child.get_next_sibling()
+
+
 def back(key: str):
     return lambda: app.window.pages[key].nav.pop_to_tag('root')
 
@@ -114,17 +128,30 @@ def run_steps() -> bool:
 
 steps += [
     (2500, lambda: None),
-    (1500, shot('01-agenda')),
-    (1500, page('students')), (1200, shot('02-alunos')),
-    (1500, first_row_of('students', '3 alunos')), (1500, shot('03-aluno-detalhe')), (300, back('students')),
-    (1500, page('review')), (1200, shot('04-correcao-fila')),
-    (2000, first_row_of('review', 'Aguardando correção')), (2500, shot('05-correcao-writing')), (300, back('review')),
+    (1500, shot('01-agenda-semana')),
+    (500, lambda: app.window.pages['agenda'].header.get_title_widget().set_active_name('month')), (1200, shot('02-agenda-mes')),
+    (500, lambda: app.window.pages['agenda']._select_day(__import__('datetime').date.today())), (1200, shot('03-agenda-mes-dia')),
+    (500, lambda: app.window.pages['agenda'].record_lesson(app.window.pages['agenda'].lessons[0])), (1500, shot('04-agenda-concluir-aula')),
+    (300, close_dialogs),
+    (500, lambda: app.window.pages['agenda'].show_requests()), (1200, shot('05-agenda-pedidos-cancelamento')), (300, close_dialogs),
+    (500, lambda: app.window.pages['agenda'].header.get_title_widget().set_active_name('week')),
+    (1500, page('students')), (1200, shot('06-alunos')),
+    (1500, first_row_of('students', '3 alunos')), (1500, shot('07-aluno-detalhe')), (300, back('students')),
+    (1500, page('tasks')), (1500, shot('08-tarefas')),
+    (1500, first_row_of('tasks', 'Para corrigir')), (1500, shot('09-tarefa-correcao')), (300, back('tasks')),
+    (1500, page('review')), (1200, shot('10-correcao-fila')),
+    (2000, first_row_of('review', 'Aguardando correção')), (2500, shot('11-correcao-writing')), (300, back('review')),
     (300, lambda: app.window.pages['review'].refresh()),
-    (1500, lambda: app.window.pages['review'].open_item(app.window.pages['review'].queue['items'][1])), (3000, shot('06-correcao-speaking')), (300, back('review')),
-    (1500, page('live')), (1500, shot('07-ao-vivo')),
-    (1500, first_row_of('live', 'Provas em andamento')), (2500, shot('08-ao-vivo-detalhe')), (300, back('live')),
-    (1500, page('notifications')), (1200, shot('09-notificacoes')),
-    (800, logout), (1200, shot('10-login')),
+    (1500, lambda: app.window.pages['review'].open_item(app.window.pages['review'].queue['items'][1])), (3000, shot('12-correcao-speaking')), (300, back('review')),
+    (1500, page('live')), (1500, shot('13-ao-vivo')),
+    (1500, first_row_of('live', 'Provas em andamento')), (2500, shot('14-ao-vivo-detalhe')), (300, back('live')),
+    (1500, page('materials')), (1500, shot('15-materiais')),
+    (500, lambda: app.window.pages['materials'].new_material()), (1200, shot('16-material-novo')), (300, close_dialogs),
+    (1500, page('finance')), (1500, shot('17-financeiro')),
+    (1500, page('reports')), (1500, shot('18-relatorio-resumo')),
+    (500, lambda: app.window.pages['reports']._open_individual('st-ana')), (1500, shot('19-relatorio-individual')),
+    (1500, page('notifications')), (1200, shot('20-notificacoes')),
+    (800, logout), (1200, shot('21-login')),
 ]
 
 

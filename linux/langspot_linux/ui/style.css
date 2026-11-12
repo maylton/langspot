@@ -21,3 +21,19 @@
 .ls-unread { font-weight: 800; }
 .ls-dot { background: var(--accent-bg-color); border-radius: 99px; min-width: 8px; min-height: 8px; }
 .ls-answer { border-radius: 12px; padding: 10px; background: alpha(currentColor, 0.04); }
+
+/* Calendar (Agenda) */
+.ls-day-head { padding: 6px 0; border-radius: 12px; }
+.ls-day-head.today { background: var(--accent-bg-color); color: var(--accent-fg-color); }
+.ls-lesson { padding: 8px 10px; border-radius: 12px; background: alpha(var(--accent-color), 0.1); border-left: 4px solid var(--accent-color); }
+.ls-lesson label { text-align: left; }
+.ls-lesson.completed { background: alpha(var(--success-color), 0.12); border-left-color: var(--success-color); }
+.ls-lesson.cancelled { background: alpha(var(--error-color), 0.08); border-left-color: var(--error-color); opacity: 0.75; }
+.ls-month-cell { min-height: 92px; padding: 6px 8px; border-radius: 12px; background: alpha(currentColor, 0.04); }
+.ls-month-cell > box { margin-bottom: auto; }
+.ls-month-cell.other-month { opacity: 0.45; }
+.ls-month-cell.today { box-shadow: inset 0 0 0 2px var(--accent-color); }
+.ls-month-cell.selected { background: alpha(var(--accent-color), 0.16); }
+.ls-dot-scheduled { color: var(--accent-color); }
+.ls-dot-completed { color: var(--success-color); }
+.ls-dot-cancelled { color: var(--error-color); text-decoration: line-through; }

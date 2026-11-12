@@ -7,11 +7,9 @@ from langspot_linux.ui.common import label, open_uri
 from langspot_linux.ui.login import LoginView
 
 WEB_SECTIONS = [
-    ('Avaliações e provas', 'document-properties-symbolic'),
-    ('Materiais', 'folder-documents-symbolic'),
-    ('Tarefas e Quiz', 'checkbox-checked-symbolic'),
-    ('Financeiro', 'wallet-symbolic'),
-    ('Relatórios', 'x-office-document-symbolic'),
+    ('Construtor de provas', 'document-properties-symbolic'),
+    ('Quiz interativo', 'dialog-question-symbolic'),
+    ('Configurações da conta', 'emblem-system-symbolic'),
 ]
 
 
@@ -71,13 +69,17 @@ class MainWindow(Adw.ApplicationWindow):
 
     def show_main(self, profile: dict) -> None:
         from langspot_linux.ui.pages.agenda import AgendaPage
+        from langspot_linux.ui.pages.finance import FinancePage
         from langspot_linux.ui.pages.live import LivePage
+        from langspot_linux.ui.pages.materials import MaterialsPage
         from langspot_linux.ui.pages.notifications import NotificationsPage
+        from langspot_linux.ui.pages.reports import ReportsPage
         from langspot_linux.ui.pages.review import ReviewPage
         from langspot_linux.ui.pages.students import StudentsPage
+        from langspot_linux.ui.pages.tasks import TasksPage
 
         self.profile = profile
-        for page_class in (AgendaPage, StudentsPage, ReviewPage, LivePage, NotificationsPage):
+        for page_class in (AgendaPage, StudentsPage, TasksPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ReportsPage, NotificationsPage):
             self.pages[page_class.key] = page_class(self)
 
         self.split = Adw.NavigationSplitView(min_sidebar_width=230, max_sidebar_width=280)
@@ -101,6 +103,7 @@ class MainWindow(Adw.ApplicationWindow):
         section = Gio.Menu()
         section.append('Abrir o LangSpot no navegador', 'app.open-web')
         section.append('Continuar em segundo plano ao fechar', 'app.background')
+        section.append('Mostrar as aulas no calendário do sistema', 'app.calendar-sync')
         menu.append_section(None, section)
         account = Gio.Menu()
         account.append('Sair da conta', 'app.logout')

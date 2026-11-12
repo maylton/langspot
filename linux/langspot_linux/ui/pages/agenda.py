@@ -1,15 +1,23 @@
-"""Agenda: lessons by day, join the online room, lesson details, cancel, schedule a new lesson."""
+"""Agenda: week and month calendar (as on the website) plus a list, with every lesson action.
+
+- Week / Month / List views, previous / today / next, student and status filters.
+- Lesson: join the room, add to Google Calendar, complete (attendance, notes, strengths, improvements,
+  homework, skill scores), edit, cancel; completed lessons: edit or delete the record.
+- New lesson on any day; students' cancellation requests (approve / reject with a reply).
+"""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, GLib, Gtk, Pango
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, confirm, empty_state, label, open_uri, pill, scrolled, vbox
+from langspot_linux.ui.common import (Page, confirm, date_row, empty_state, form_dialog, label, open_uri, pill, scrolled,
+                                      student_names, text_view, vbox)
 from langspot_linux.worker import run_async
 
 STATUS_KIND = {'scheduled': 'accent', 'completed': 'success', 'cancelled': 'error'}
+STATUS_FILTERS = [('Todas as situações', None), ('Agendadas', 'scheduled'), ('Concluídas', 'completed'), ('Canceladas', 'cancelled')]
 
 
 class AgendaPage(Page):
@@ -19,71 +27,251 @@ class AgendaPage(Page):
 
     def __init__(self, window) -> None:
         super().__init__(window)
-        self.mode = 'upcoming'
+        self.view = window.app.prefs.get('calendarView', 'week')
+        self.anchor = date.today()
+        self.selected_day: date | None = None
         self.lessons: list[model.Lesson] = []
-        self.students: dict[str, str] = {}
+        self.students: dict[str, dict] = {}
+        self.requests: list[dict] = []
+        self.student_filter: str | None = None
+        self.status_filter: str | None = None
+
         toggle = Adw.ToggleGroup()
-        toggle.add(Adw.Toggle(label='Próximas', name='upcoming'))
-        toggle.add(Adw.Toggle(label='Anteriores', name='past'))
-        toggle.set_active_name('upcoming')
-        toggle.connect('notify::active-name', self._mode_changed)
+        for name, title in (('week', 'Semana'), ('month', 'Mês'), ('list', 'Lista')):
+            toggle.add(Adw.Toggle(label=title, name=name))
+        toggle.set_active_name(self.view)
+        toggle.connect('notify::active-name', self._view_changed)
         self.header.set_title_widget(toggle)
         new = Gtk.Button(icon_name='list-add-symbolic', tooltip_text='Nova aula')
         new.add_css_class('suggested-action')
-        new.connect('clicked', lambda *_: self.new_lesson())
+        new.connect('clicked', lambda *_: self.edit_lesson(None, self.selected_day or date.today()))
         self.header.pack_start(new)
+        self.requests_button = Gtk.Button(tooltip_text='Pedidos de cancelamento', visible=False)
+        self.requests_button.add_css_class('flat')
+        self.requests_button.connect('clicked', lambda *_: self.show_requests())
+        self.header.pack_end(self.requests_button)
 
-    def _mode_changed(self, toggle, _param) -> None:
-        self.mode = toggle.get_active_name()
+    # ------------------------------------------------------------------ data
+    def _view_changed(self, toggle, _param) -> None:
+        self.view = toggle.get_active_name()
+        self.window.app.prefs['calendarView'] = self.view
+        self.window.app._save_prefs()
         self.render()
 
     def refresh(self) -> None:
         self.show_loading()
         client = self.client
-        since = (datetime.now(timezone.utc) - timedelta(days=45)).isoformat()
+        since = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat()
 
         def work():
-            records = client.select('student_records', select='student_id,student:profiles!student_records_student_id_fkey(full_name)')
-            names = {row['student_id']: (row.get('student') or {}).get('full_name') or 'Aluno' for row in records}
-            rows = client.select('lessons', starts_at=f'gte.{since}', order='starts_at.asc')
-            return names, model.lessons_from_rows(rows, names)
+            students = student_names(client)
+            names = {key: value['name'] for key, value in students.items()}
+            lessons = model.lessons_from_rows(client.select('lessons', starts_at=f'gte.{since}', order='starts_at.asc'), names)
+            requests = client.select('cancellation_requests', select='*,lessons(starts_at,topic),student:profiles!cancellation_requests_student_id_fkey(full_name)',
+                                     status='eq.pending', order='created_at.asc')
+            return students, lessons, requests
 
         run_async(work, self._loaded, self.show_error)
 
     def _loaded(self, result) -> None:
-        self.students, self.lessons = result
+        self.students, self.lessons, self.requests = result
+        self.window.app.calendar_lessons(self.lessons)
+        count = len(self.requests)
+        self.requests_button.set_visible(count > 0)
+        self.requests_button.set_child(self._badge_label(f'{count} pedido' + ('' if count == 1 else 's') + ' de cancelamento'))
         self.render()
 
+    @staticmethod
+    def _badge_label(text: str) -> Gtk.Widget:
+        box = Gtk.Box(spacing=6)
+        box.append(Gtk.Image(icon_name='mail-unread-symbolic'))
+        box.append(Gtk.Label(label=text))
+        return box
+
+    def filtered(self) -> list[model.Lesson]:
+        return [lesson for lesson in self.lessons
+                if (not self.student_filter or lesson.student_id == self.student_filter) and (not self.status_filter or lesson.status == self.status_filter)]
+
+    # ------------------------------------------------------------------ layout
     def render(self) -> None:
-        now = datetime.now().astimezone()
-        if self.mode == 'upcoming':
-            lessons = [lesson for lesson in self.lessons if lesson.ends_at >= now and lesson.status != 'cancelled']
+        box = vbox(16)
+        box.append(self._toolbar())
+        lessons = self.filtered()
+        if self.view == 'week':
+            box.append(self._week(lessons))
+        elif self.view == 'month':
+            box.append(self._month(lessons))
+            if self.selected_day:
+                box.append(self._day_group(self.selected_day, [lesson for lesson in lessons if lesson.starts_at.date() == self.selected_day]))
         else:
-            lessons = list(reversed([lesson for lesson in self.lessons if lesson.ends_at < now or lesson.status == 'cancelled']))
+            box.append(self._list(lessons))
+        self.show_content(scrolled(box, maximum=1400))
+
+    def _toolbar(self) -> Gtk.Widget:
+        bar = Gtk.Box(spacing=8)
+        if self.view != 'list':
+            previous = Gtk.Button(icon_name='go-previous-symbolic', tooltip_text='Semana anterior' if self.view == 'week' else 'Mês anterior')
+            previous.connect('clicked', lambda *_: self._move(-1))
+            today = Gtk.Button(label='Hoje')
+            today.connect('clicked', lambda *_: self._go_today())
+            following = Gtk.Button(icon_name='go-next-symbolic', tooltip_text='Próxima semana' if self.view == 'week' else 'Próximo mês')
+            following.connect('clicked', lambda *_: self._move(1))
+            linked = Gtk.Box(css_classes=['linked'])
+            for widget in (previous, today, following):
+                linked.append(widget)
+            bar.append(linked)
+            bar.append(label(model.period_label(self.view, self.anchor), css=('title-3',), wrap=False))
+        else:
+            bar.append(label('Próximas aulas', css=('title-3',), wrap=False))
+        spacer = Gtk.Box(hexpand=True)
+        bar.append(spacer)
+        ids = sorted(self.students, key=lambda key: self.students[key]['name'].lower())
+        students = Gtk.DropDown.new_from_strings(['Todos os alunos'] + [self.students[key]['name'] for key in ids])
+        students.set_selected(ids.index(self.student_filter) + 1 if self.student_filter in ids else 0)
+        students.connect('notify::selected', lambda drop, _p: self._set_filters(ids[drop.get_selected() - 1] if drop.get_selected() else None, self.status_filter))
+        statuses = Gtk.DropDown.new_from_strings([title for title, _value in STATUS_FILTERS])
+        statuses.set_selected(next((index for index, (_t, value) in enumerate(STATUS_FILTERS) if value == self.status_filter), 0))
+        statuses.connect('notify::selected', lambda drop, _p: self._set_filters(self.student_filter, STATUS_FILTERS[drop.get_selected()][1]))
+        bar.append(students)
+        bar.append(statuses)
+        return bar
+
+    def _set_filters(self, student: str | None, status: str | None) -> None:
+        if (student, status) != (self.student_filter, self.status_filter):
+            self.student_filter, self.status_filter = student, status
+            GLib.idle_add(lambda: (self.render(), GLib.SOURCE_REMOVE)[1])
+
+    def _move(self, direction: int) -> None:
+        self.anchor = model.shift_period(self.view, self.anchor, direction)
+        self.selected_day = None
+        self.render()
+
+    def _go_today(self) -> None:
+        self.anchor = date.today()
+        self.selected_day = date.today() if self.view == 'month' else None
+        self.render()
+
+    # ------------------------------------------------------------------ week
+    def _week(self, lessons: list[model.Lesson]) -> Gtk.Widget:
+        grid = Gtk.Grid(column_homogeneous=True, column_spacing=8)
+        today = date.today()
+        for column, day in enumerate(model.week_days(self.anchor)):
+            day_box = vbox(6)
+            day_box.set_size_request(104, -1)
+            head = vbox(0)
+            head.add_css_class('ls-day-head')
+            if day == today:
+                head.add_css_class('today')
+            head.append(label(model.WEEKDAY_SHORT[day.weekday()], css=('caption-heading',), xalign=0.5))
+            head.append(label(str(day.day), css=('title-2',), xalign=0.5))
+            day_box.append(head)
+            day_lessons = [lesson for lesson in lessons if lesson.starts_at.date() == day]
+            for lesson in day_lessons:
+                day_box.append(self._card(lesson))
+            if not day_lessons:
+                day_box.append(label('Livre', css=('dim-label', 'caption'), xalign=0.5))
+            add = Gtk.Button(icon_name='list-add-symbolic', tooltip_text=f'Nova aula em {day:%d/%m}', halign=Gtk.Align.CENTER)
+            add.add_css_class('flat')
+            add.add_css_class('circular')
+            add.connect('clicked', lambda _b, d=day: self.edit_lesson(None, d))
+            day_box.append(add)
+            grid.attach(day_box, column, 0, 1, 1)
+        return Gtk.ScrolledWindow(child=grid, vscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True)
+
+    def _card(self, lesson: model.Lesson) -> Gtk.Widget:
+        student = self.students.get(lesson.student_id, {})
+        button = Gtk.Button()
+        button.add_css_class('ls-lesson')
+        button.add_css_class(lesson.status)
+        content = vbox(2)
+        content.append(label(f'{lesson.starts_at:%H:%M} · {lesson.duration} min', css=('caption', 'dim-label')))
+        name = label(lesson.student_name, css=('heading',))
+        name.set_ellipsize(Pango.EllipsizeMode.END)
+        content.append(name)
+        topic = label(' · '.join(filter(None, [student.get('level'), lesson.topic])), css=('caption',))
+        topic.set_ellipsize(Pango.EllipsizeMode.END)
+        topic.set_lines(2)
+        content.append(topic)
+        if lesson.status != 'scheduled':
+            content.append(pill(lesson.status_label, STATUS_KIND[lesson.status]))
+        button.set_child(content)
+        button.set_tooltip_text(f'{lesson.student_name} · {lesson.topic}')
+        button.connect('clicked', lambda *_: self.show_lesson(lesson))
+        return button
+
+    # ------------------------------------------------------------------ month
+    def _month(self, lessons: list[model.Lesson]) -> Gtk.Widget:
+        grid = Gtk.Grid(column_homogeneous=True, column_spacing=6, row_spacing=6)
+        for column, name in enumerate(model.WEEKDAY_SHORT):
+            grid.attach(label(name, css=('caption-heading', 'dim-label'), xalign=0.5), column, 0, 1, 1)
+        today = date.today()
+        by_day: dict[date, list[model.Lesson]] = {}
+        for lesson in lessons:
+            by_day.setdefault(lesson.starts_at.date(), []).append(lesson)
+        for index, day in enumerate(model.month_grid(self.anchor)):
+            cell = Gtk.Button()
+            cell.add_css_class('ls-month-cell')
+            if day.month != self.anchor.month:
+                cell.add_css_class('other-month')
+            if day == today:
+                cell.add_css_class('today')
+            if day == self.selected_day:
+                cell.add_css_class('selected')
+            content = vbox(2)
+            content.append(label(str(day.day), css=('heading',)))
+            day_lessons = by_day.get(day, [])
+            for lesson in day_lessons[:3]:
+                line = label(f'{lesson.starts_at:%H:%M} {lesson.student_name.split(" ")[0]}', css=('caption', f'ls-dot-{lesson.status}'), wrap=False)
+                line.set_ellipsize(Pango.EllipsizeMode.END)
+                content.append(line)
+            if len(day_lessons) > 3:
+                content.append(label(f'+{len(day_lessons) - 3} mais', css=('caption', 'dim-label')))
+            cell.set_child(content)
+            cell.connect('clicked', lambda _b, d=day: self._select_day(d))
+            grid.attach(cell, index % 7, index // 7 + 1, 1, 1)
+        return grid
+
+    def _select_day(self, day: date) -> None:
+        self.selected_day = None if self.selected_day == day else day
+        if day.month != self.anchor.month:
+            self.anchor = day.replace(day=1)
+        self.render()
+
+    def _day_group(self, day: date, lessons: list[model.Lesson]) -> Gtk.Widget:
+        group = Adw.PreferencesGroup(title=f'Aulas de {model.day_label(day).lower() if model.day_label(day) in ("Hoje", "Amanhã", "Ontem") else model.day_label(day)}')
+        for lesson in lessons:
+            group.add(self._row(lesson))
+        add = Adw.ButtonRow(title='Nova aula neste dia', start_icon_name='list-add-symbolic')
+        add.connect('activated', lambda *_: self.edit_lesson(None, day))
+        group.add(add)
+        return group
+
+    # ------------------------------------------------------------------ list
+    def _list(self, lessons: list[model.Lesson]) -> Gtk.Widget:
+        now = datetime.now().astimezone()
+        upcoming = [lesson for lesson in lessons if lesson.ends_at >= now and (self.status_filter or lesson.status != 'cancelled')]
         box = vbox(18)
-        if not lessons:
-            box.append(empty_state('x-office-calendar-symbolic', 'Nenhuma aula por aqui',
-                                   'Use o botão + para agendar uma aula.' if self.mode == 'upcoming' else 'As aulas dos últimos 45 dias aparecem aqui.'))
-        groups = model.group_by_day(lessons)
-        if self.mode == 'past':
-            groups = list(reversed(groups))
-        for day, day_lessons in groups:
+        if not upcoming:
+            box.append(empty_state('x-office-calendar-symbolic', 'Nenhuma aula agendada', 'Use o botão + para agendar uma aula.'))
+        for day, day_lessons in model.group_by_day(upcoming):
             group = Adw.PreferencesGroup(title=model.day_label(day))
             for lesson in day_lessons:
-                group.add(self._row(lesson, now))
+                group.add(self._row(lesson))
             box.append(group)
-        self.show_content(scrolled(box))
+        return box
 
-    def _row(self, lesson: model.Lesson, now: datetime) -> Adw.ActionRow:
+    def _row(self, lesson: model.Lesson) -> Adw.ActionRow:
+        now = datetime.now().astimezone()
+        student = self.students.get(lesson.student_id, {})
         row = Adw.ActionRow(title=GLib.markup_escape_text(f'{lesson.starts_at:%H:%M} · {lesson.student_name}'),
-                            subtitle=GLib.markup_escape_text(f'{lesson.topic} · {lesson.duration} min'), activatable=True)
+                            subtitle=GLib.markup_escape_text(' · '.join(filter(None, [student.get('level'), lesson.topic, f'{lesson.duration} min']))), activatable=True)
         row.add_prefix(Adw.Avatar(size=36, text=lesson.student_name, show_initials=True))
         happening = lesson.starts_at - timedelta(minutes=15) <= now <= lesson.ends_at and lesson.status == 'scheduled'
         if happening:
             row.add_suffix(pill('Agora', 'success'))
         elif lesson.status != 'scheduled':
             row.add_suffix(pill(lesson.status_label, STATUS_KIND.get(lesson.status, '')))
-        if lesson.online_url and lesson.status == 'scheduled' and lesson.starts_at.date() <= date.today() + timedelta(days=1):
+        if lesson.online_url and lesson.status == 'scheduled':
             join = Gtk.Button(label='Entrar', valign=Gtk.Align.CENTER)
             join.add_css_class('suggested-action' if happening else 'flat')
             join.connect('clicked', lambda *_: open_uri(self, lesson.online_url))
@@ -92,148 +280,260 @@ class AgendaPage(Page):
         row.connect('activated', lambda *_: self.show_lesson(lesson))
         return row
 
-    # ------------------------------------------------------------------ lesson details
+    # ------------------------------------------------------------------ lesson dialog
     def show_lesson(self, lesson: model.Lesson) -> None:
-        dialog = Adw.Dialog(title=lesson.topic, content_width=460)
+        student = self.students.get(lesson.student_id, {})
+        dialog = Adw.Dialog(title=lesson.topic, content_width=480)
         toolbar = Adw.ToolbarView()
         toolbar.add_top_bar(Adw.HeaderBar())
         page = Adw.PreferencesPage()
         info = Adw.PreferencesGroup()
-        for title, value in (('Aluno', lesson.student_name),
-                             ('Quando', f'{model.day_label(lesson.starts_at.date())}, {lesson.starts_at:%H:%M}–{lesson.ends_at:%H:%M}'),
-                             ('Duração', f'{lesson.duration} minutos'), ('Situação', lesson.status_label)):
+        rows = [('Aluno', ' · '.join(filter(None, [lesson.student_name, f'Nível {student["level"]}' if student.get('level') else '']))),
+                ('Quando', f'{model.day_label(lesson.starts_at.date())}, {lesson.starts_at:%H:%M}–{lesson.ends_at:%H:%M}'),
+                ('Duração', f'{lesson.duration} minutos'), ('Situação', lesson.status_label)]
+        if lesson.attendance:
+            rows.append(('Presença', model.ATTENDANCE_LABELS.get(lesson.attendance, lesson.attendance)))
+        for title, value in rows:
             row = Adw.ActionRow(title=title, subtitle=GLib.markup_escape_text(value))
             row.add_css_class('property')
             info.add(row)
         page.add(info)
-        if lesson.notes or lesson.homework:
+        if lesson.status == 'completed' and any((lesson.notes, lesson.strengths, lesson.improvements, lesson.homework)):
             record = Adw.PreferencesGroup(title='Registro da aula')
-            if lesson.notes:
-                record.add(self._text_row('Observações', lesson.notes))
-            if lesson.homework:
-                record.add(self._text_row('Tarefa de casa', lesson.homework))
+            for title, text in (('Resumo da aula', lesson.notes), ('Pontos fortes', lesson.strengths), ('Pontos a melhorar', lesson.improvements), ('Tarefa de casa', lesson.homework)):
+                if text.strip():
+                    row = Adw.ActionRow(title=title, subtitle=GLib.markup_escape_text(text), subtitle_selectable=True)
+                    row.add_css_class('property')
+                    record.add(row)
             page.add(record)
+
         actions = Adw.PreferencesGroup()
-        if lesson.online_url:
-            link = Adw.ButtonRow(title='Entrar na sala online', start_icon_name='camera-video-symbolic')
-            link.connect('activated', lambda *_: open_uri(self, lesson.online_url))
-            actions.add(link)
-        if lesson.status == 'scheduled' and lesson.starts_at > datetime.now().astimezone():
-            cancel = Adw.ButtonRow(title='Cancelar aula', start_icon_name='edit-delete-symbolic')
-            cancel.add_css_class('destructive-action')
-            cancel.connect('activated', lambda *_: confirm(dialog, 'Cancelar esta aula?', f'{lesson.student_name} será avisado do cancelamento.',
-                                                           'Cancelar aula', lambda: self._cancel(lesson, dialog), destructive=True))
-            actions.add(cancel)
-        record_row = Adw.ButtonRow(title='Registrar a aula no site', end_icon_name='adw-external-link-symbolic')
-        record_row.connect('activated', lambda *_: open_uri(self, self.window.app.config.web_url))
-        actions.add(record_row)
+
+        def add_action(title: str, icon: str, callback, *, destructive: bool = False, external: bool = False) -> None:
+            row = Adw.ButtonRow(title=title, start_icon_name=icon)
+            if external:
+                row.set_end_icon_name('adw-external-link-symbolic')
+            if destructive:
+                row.add_css_class('destructive-action')
+            row.connect('activated', lambda *_: callback())
+            actions.add(row)
+
+        if lesson.status != 'cancelled':
+            if lesson.online_url:
+                add_action('Abrir sala online', 'camera-video-symbolic', lambda: open_uri(self, lesson.online_url), external=True)
+            add_action('Adicionar ao Google Agenda', 'x-office-calendar-symbolic', lambda: open_uri(self, model.google_calendar_url(lesson)), external=True)
+        if lesson.status == 'scheduled':
+            add_action('Concluir aula', 'object-select-symbolic', lambda: (dialog.close(), self.record_lesson(lesson)))
+            add_action('Editar aula', 'document-edit-symbolic', lambda: (dialog.close(), self.edit_lesson(lesson, lesson.starts_at.date())))
+            add_action('Cancelar aula', 'action-unavailable-symbolic', lambda: confirm(dialog, 'Cancelar esta aula?', f'{lesson.student_name} será avisado do cancelamento.',
+                                                                                     'Cancelar aula', lambda: self._update(lesson, {'status': 'cancelled'}, 'Aula cancelada.', dialog),
+                                                                                     destructive=True), destructive=True)
+        elif lesson.status == 'completed':
+            add_action('Editar registro', 'document-edit-symbolic', lambda: (dialog.close(), self.record_lesson(lesson)))
+            add_action('Excluir registro', 'user-trash-symbolic', lambda: confirm(dialog, f'Excluir “{lesson.topic}”?',
+                                                                                 'O registro será removido do histórico do aluno. Esta ação não pode ser desfeita.',
+                                                                                 'Excluir registro', lambda: self._delete(lesson, dialog), destructive=True), destructive=True)
         page.add(actions)
         toolbar.set_content(page)
         dialog.set_child(toolbar)
         dialog.present(self.window)
 
+    def _update(self, lesson: model.Lesson, values: dict, message: str, dialog=None) -> None:
+        def done(_r) -> None:
+            if dialog:
+                dialog.close()
+            self.window.toast(message)
+            self.refresh()
+        run_async(lambda: self.client.update('lessons', values, id=f'eq.{lesson.id}'), done, lambda error: self.window.toast(str(error)))
+
+    def _delete(self, lesson: model.Lesson, dialog) -> None:
+        def done(_r) -> None:
+            dialog.close()
+            self.window.toast('Registro excluído.')
+            self.refresh()
+        run_async(lambda: self.client.delete('lessons', id=f'eq.{lesson.id}'), done, lambda error: self.window.toast(str(error)))
+
+    # ------------------------------------------------------------------ new / edit lesson
+    def _student_combo(self, selected: str | None) -> tuple[Adw.ComboRow, list[str]]:
+        ids = sorted(self.students, key=lambda key: self.students[key]['name'].lower())
+        names = [f'{self.students[key]["name"]} · {self.students[key]["level"]}' if self.students[key]['level'] else self.students[key]['name'] for key in ids]
+        combo = Adw.ComboRow(title='Aluno', model=Gtk.StringList.new(names), enable_search=True)
+        if selected in ids:
+            combo.set_selected(ids.index(selected))
+        elif self.student_filter in ids:
+            combo.set_selected(ids.index(self.student_filter))
+        return combo, ids
+
     @staticmethod
-    def _text_row(title: str, text: str) -> Adw.ActionRow:
-        row = Adw.ActionRow(title=title, subtitle=GLib.markup_escape_text(text), subtitle_selectable=True)
-        row.add_css_class('property')
+    def _time_rows(starts: datetime | None) -> tuple[Adw.SpinRow, Adw.SpinRow]:
+        hour = Adw.SpinRow.new_with_range(0, 23, 1)
+        hour.set_title('Hora')
+        hour.set_value(starts.hour if starts else 19)
+        minute = Adw.SpinRow.new_with_range(0, 55, 5)
+        minute.set_title('Minutos')
+        minute.set_value((starts.minute // 5) * 5 if starts else 0)
+        return hour, minute
+
+    @staticmethod
+    def _duration_row(current: int) -> Adw.ComboRow:
+        options = model.DURATIONS if current in model.DURATIONS else sorted({*model.DURATIONS, current})
+        row = Adw.ComboRow(title='Duração', model=Gtk.StringList.new([f'{value} minutos' for value in options]))
+        row.set_selected(options.index(current))
+        row.options = options  # type: ignore[attr-defined]
         return row
 
-    def _cancel(self, lesson: model.Lesson, dialog: Adw.Dialog) -> None:
-        client = self.client
-
-        def done(_result) -> None:
-            dialog.close()
-            self.window.toast('Aula cancelada.')
-            self.refresh()
-
-        run_async(lambda: client.update('lessons', {'status': 'cancelled'}, id=f'eq.{lesson.id}'), done, lambda error: self.window.toast(str(error)))
-
-    # ------------------------------------------------------------------ new lesson
-    def new_lesson(self) -> None:
+    def edit_lesson(self, lesson: model.Lesson | None, day: date) -> None:
         if not self.students:
             self.window.toast('Cadastre um aluno no site antes de agendar aulas.')
             return
-        dialog = Adw.Dialog(title='Nova aula', content_width=460)
-        toolbar = Adw.ToolbarView()
-        header = Adw.HeaderBar(show_end_title_buttons=False, show_start_title_buttons=False)
-        cancel = Gtk.Button(label='Cancelar')
-        cancel.connect('clicked', lambda *_: dialog.close())
-        header.pack_start(cancel)
-        save = Gtk.Button(label='Agendar')
-        save.add_css_class('suggested-action')
-        header.pack_end(save)
-        toolbar.add_top_bar(header)
-
-        page = Adw.PreferencesPage()
+        dialog, page, save = form_dialog(self.window, 'Editar aula' if lesson else 'Nova aula', 'Salvar' if lesson else 'Agendar')
         group = Adw.PreferencesGroup()
-        ids = sorted(self.students, key=lambda student_id: self.students[student_id].lower())
-        student = Adw.ComboRow(title='Aluno', model=Gtk.StringList.new([self.students[student_id] for student_id in ids]), enable_search=True)
-        group.add(student)
-
-        chosen = {'day': date.today() + timedelta(days=1)}
-        day_row = Adw.ActionRow(title='Data', subtitle=model.day_label(chosen['day']))
-        calendar = Gtk.Calendar()
-        popover = Gtk.Popover(child=calendar)
-        day_button = Gtk.MenuButton(icon_name='x-office-calendar-symbolic', popover=popover, valign=Gtk.Align.CENTER, tooltip_text='Escolher a data')
-        day_button.add_css_class('flat')
-
-        def picked(cal):
-            value = cal.get_date()
-            chosen['day'] = date(value.get_year(), value.get_month(), value.get_day_of_month())
-            day_row.set_subtitle(model.day_label(chosen['day']))
-            popover.popdown()
-        calendar.connect('day-selected', picked)
-        tomorrow = GLib.DateTime.new_local(chosen['day'].year, chosen['day'].month, chosen['day'].day, 0, 0, 0)
-        calendar.select_day(tomorrow)
-        day_row.add_suffix(day_button)
-        day_row.set_activatable_widget(day_button)
-        group.add(day_row)
-
-        hour = Adw.SpinRow.new_with_range(6, 23, 1)
-        hour.set_title('Hora')
-        hour.set_value(19)
-        minute = Adw.SpinRow.new_with_range(0, 55, 5)
-        minute.set_title('Minutos')
-        duration = Adw.SpinRow.new_with_range(15, 180, 15)
-        duration.set_title('Duração (minutos)')
-        duration.set_value(60)
-        topic = Adw.EntryRow(title='Tema da aula')
-        link = Adw.EntryRow(title='Link da sala online (opcional)', input_purpose=Gtk.InputPurpose.URL)
-        for row in (hour, minute, duration, topic, link):
+        student, ids = self._student_combo(lesson.student_id if lesson else None)
+        topic = Adw.EntryRow(title='Tema da aula', text=lesson.topic if lesson else '')
+        when, when_value = date_row('Data', day)
+        hour, minute = self._time_rows(lesson.starts_at if lesson else None)
+        duration = self._duration_row(lesson.duration if lesson else 60)
+        link = Adw.EntryRow(title='Link da sala online (opcional)', text=lesson.online_url if lesson else '', input_purpose=Gtk.InputPurpose.URL)
+        for row in (student, topic, when, hour, minute, duration, link):
             group.add(row)
         page.add(group)
-        error = label('', css=('error',))
-        error.set_visible(False)
-        error.set_margin_start(12)
-        page_box = vbox(6)
-        page_box.append(page)
-        page_box.append(error)
-        toolbar.set_content(page_box)
-        dialog.set_child(toolbar)
 
         def submit(*_):
             if not topic.get_text().strip():
-                error.set_text('Escreva o tema da aula.')
-                error.set_visible(True)
+                dialog.show_error('Escreva o tema da aula.')
                 return
-            day = chosen['day']
-            starts = datetime(day.year, day.month, day.day, int(hour.get_value()), int(minute.get_value())).astimezone()
-            values = {'teacher_id': self.window.profile['id'], 'student_id': ids[student.get_selected()], 'starts_at': starts.isoformat(),
-                      'duration_minutes': int(duration.get_value()), 'topic': topic.get_text().strip(),
-                      'online_url': link.get_text().strip() or None, 'status': 'scheduled'}
+            chosen = when_value()
+            starts = datetime(chosen.year, chosen.month, chosen.day, int(hour.get_value()), int(minute.get_value())).astimezone()
+            values = {'student_id': ids[student.get_selected()], 'starts_at': starts.isoformat(), 'duration_minutes': duration.options[duration.get_selected()],
+                      'topic': topic.get_text().strip(), 'online_url': link.get_text().strip() or None}
             save.set_sensitive(False)
 
-            def done(_row) -> None:
+            def work():
+                if lesson:
+                    self.client.update('lessons', values, id=f'eq.{lesson.id}')
+                else:
+                    self.client.insert('lessons', {**values, 'teacher_id': self.window.profile['id'], 'status': 'scheduled'})
+
+            def done(_r) -> None:
                 dialog.close()
-                self.window.toast('Aula agendada.')
+                self.window.toast('Aula atualizada.' if lesson else 'Aula agendada.')
+                self.anchor = chosen
                 self.refresh()
-
-            def failed(problem: Exception) -> None:
-                save.set_sensitive(True)
-                error.set_text(str(problem))
-                error.set_visible(True)
-
-            run_async(lambda: self.client.insert('lessons', values), done, failed)
-
+            run_async(work, done, lambda error: dialog.show_error(str(error)))
         save.connect('clicked', submit)
         dialog.present(self.window)
+
+    # ------------------------------------------------------------------ complete / edit record
+    def record_lesson(self, lesson: model.Lesson) -> None:
+        student = self.students.get(lesson.student_id, {})
+        completing = lesson.status == 'scheduled'
+        dialog, page, save = form_dialog(self.window, f'{"Concluir aula" if completing else "Editar registro"} · {lesson.student_name}',
+                                         'Concluir e registrar' if completing else 'Salvar registro', width=560)
+        group = Adw.PreferencesGroup()
+        when, when_value = date_row('Data', lesson.starts_at.date())
+        hour, minute = self._time_rows(lesson.starts_at)
+        duration = self._duration_row(lesson.duration)
+        topic = Adw.EntryRow(title='Tema da aula', text=lesson.topic)
+        link = Adw.EntryRow(title='Link da sala online', text=lesson.online_url)
+        attendance_values = list(model.ATTENDANCE_LABELS)
+        attendance = Adw.ComboRow(title='Presença', model=Gtk.StringList.new(list(model.ATTENDANCE_LABELS.values())))
+        attendance.set_selected(attendance_values.index(lesson.attendance) if lesson.attendance in attendance_values else 0)
+        for row in (when, hour, minute, duration, topic, link, attendance):
+            group.add(row)
+        page.add(group)
+
+        texts = {}
+        for key, title, current in (('notes', 'Resumo da aula', lesson.notes), ('strengths', 'Pontos fortes', lesson.strengths),
+                                    ('improvements', 'Pontos a melhorar', lesson.improvements), ('homework', 'Tarefa de casa', lesson.homework)):
+            text_group = Adw.PreferencesGroup(title=title)
+            frame, value = text_view(current if current.strip() else model.RECORD_TEMPLATES[key], 140)
+            text_group.add(frame)
+            page.add(text_group)
+            texts[key] = value
+
+        skills_group = Adw.PreferencesGroup(title='Habilidades nesta aula', description='Atualiza também o perfil do aluno (0 a 100).')
+        base = {**{skill: 50 for skill in model.SKILLS}, **{key: float(value) for key, value in (student.get('skills') or {}).items() if key in model.SKILLS},
+                **{key: float(value) for key, value in (lesson.skill_scores or {}).items() if key in model.SKILLS}}
+        scales = {}
+        for skill in model.SKILLS:
+            row = Adw.ActionRow(title=skill)
+            scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+            scale.set_value(base[skill])
+            scale.set_size_request(220, -1)
+            scale.set_draw_value(True)
+            scale.set_digits(0)
+            scale.set_value_pos(Gtk.PositionType.RIGHT)
+            row.add_suffix(scale)
+            scales[skill] = scale
+            skills_group.add(row)
+        page.add(skills_group)
+
+        def submit(*_):
+            if not topic.get_text().strip():
+                dialog.show_error('Escreva o tema da aula.')
+                return
+            chosen = when_value()
+            starts = datetime(chosen.year, chosen.month, chosen.day, int(hour.get_value()), int(minute.get_value())).astimezone()
+            skills = {skill: round(scale.get_value()) for skill, scale in scales.items()}
+            values = model.lesson_record_values(starts, duration.options[duration.get_selected()], topic.get_text().strip(), link.get_text().strip(),
+                                                attendance_values[attendance.get_selected()], {key: value() for key, value in texts.items()}, skills)
+            save.set_sensitive(False)
+
+            def work():
+                # Same as the web app: the record updates the lesson and the student's skills.
+                self.client.update('lessons', values, id=f'eq.{lesson.id}')
+                self.client.update('student_records', {'skills': skills}, student_id=f'eq.{lesson.student_id}', teacher_id=f'eq.{self.window.profile["id"]}')
+
+            def done(_r) -> None:
+                dialog.close()
+                self.window.toast('Aula concluída e registrada.' if completing else 'Registro atualizado.')
+                self.refresh()
+            run_async(work, done, lambda error: dialog.show_error(str(error)))
+        save.connect('clicked', submit)
+        dialog.present(self.window)
+
+    # ------------------------------------------------------------------ cancellation requests
+    def show_requests(self) -> None:
+        dialog = Adw.Dialog(title='Pedidos de cancelamento', content_width=520)
+        toolbar = Adw.ToolbarView()
+        toolbar.add_top_bar(Adw.HeaderBar())
+        page = Adw.PreferencesPage()
+        for request in self.requests:
+            lesson = request.get('lessons') or {}
+            starts = model.parse_time(lesson.get('starts_at'))
+            when = f'{model.day_label(model.local(starts).date())}, {model.local(starts):%H:%M}' if starts else ''
+            group = Adw.PreferencesGroup(title=GLib.markup_escape_text((request.get('student') or {}).get('full_name') or 'Aluno'),
+                                         description=GLib.markup_escape_text(f'{lesson.get("topic") or "Aula"} · {when}'))
+            reason = Adw.ActionRow(title='Motivo', subtitle=GLib.markup_escape_text(request.get('reason') or ''), subtitle_selectable=True)
+            reason.add_css_class('property')
+            group.add(reason)
+            reply = Adw.EntryRow(title='Resposta ao aluno (opcional)')
+            group.add(reply)
+            buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END, margin_top=8)
+            reject = Gtk.Button(label='Recusar')
+            reject.add_css_class('pill')
+            approve = Gtk.Button(label='Aprovar e cancelar a aula')
+            approve.add_css_class('pill')
+            approve.add_css_class('destructive-action')
+            reject.connect('clicked', lambda _b, r=request, e=reply: self._resolve(r, 'rejected', e.get_text().strip(), dialog))
+            approve.connect('clicked', lambda _b, r=request, e=reply: self._resolve(r, 'approved', e.get_text().strip(), dialog))
+            buttons.append(reject)
+            buttons.append(approve)
+            group.add(buttons)
+            page.add(group)
+        toolbar.set_content(page)
+        dialog.set_child(toolbar)
+        dialog.present(self.window)
+
+    def _resolve(self, request: dict, status: str, response: str, dialog) -> None:
+        def work():
+            self.client.update('cancellation_requests', {'status': status, 'teacher_response': response, 'resolved_at': datetime.now(timezone.utc).isoformat()},
+                               id=f'eq.{request["id"]}')
+            if status == 'approved':
+                self.client.update('lessons', {'status': 'cancelled'}, id=f'eq.{request["lesson_id"]}')
+
+        def done(_r) -> None:
+            dialog.close()
+            self.window.toast('Pedido aprovado e aula cancelada.' if status == 'approved' else 'Pedido recusado.')
+            self.refresh()
+        run_async(work, done, lambda error: self.window.toast(str(error)))

@@ -19,7 +19,7 @@ refresh_menus() {
 }
 
 if [ "${1:-}" = "--uninstall" ]; then
-    rm -f "$BIN/langspot-linux" "$APPS/app.langspot.Teacher.desktop" "$ICONS/app.langspot.Teacher.svg"
+    rm -f "$BIN/langspot-linux" "$APPS/app.langspot.Teacher.desktop" "$ICONS/app.langspot.Teacher.svg" "$ICONS/langspot-money-symbolic.svg"
     [ -f "$TAURI_ENTRY" ] && sed -i 's/^Name=LangSpot (Web)$/Name=LangSpot/' "$TAURI_ENTRY"
     refresh_menus
     echo "LangSpot para Linux removido."
@@ -69,7 +69,7 @@ chmod +x "$BIN/langspot-linux"
 
 echo ":: Adicionando ao menu de aplicativos"
 sed "s|^Exec=langspot-linux|Exec=$BIN/langspot-linux|" "$SRC/data/app.langspot.Teacher.desktop" >"$APPS/app.langspot.Teacher.desktop"
-cp "$SRC/data/icons/hicolor/scalable/apps/app.langspot.Teacher.svg" "$ICONS/"
+cp "$SRC"/data/icons/hicolor/scalable/apps/*.svg "$ICONS/"
 # The Tauri (web) app keeps working, under a distinct name.
 [ -f "$TAURI_ENTRY" ] && sed -i 's/^Name=LangSpot$/Name=LangSpot (Web)/' "$TAURI_ENTRY"
 refresh_menus

@@ -60,13 +60,47 @@ class State:
             {'id': 'l1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'starts_at': at(0, 18), 'duration_minutes': 60, 'topic': 'Conditionals in real life', 'online_url': 'https://meet.example.com/ana', 'status': 'scheduled', 'notes': '', 'homework': ''},
             {'id': 'l2', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'starts_at': at(0, 20), 'duration_minutes': 45, 'topic': 'Job interview practice', 'online_url': '', 'status': 'scheduled', 'notes': '', 'homework': ''},
             {'id': 'l3', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'starts_at': at(1, 19), 'duration_minutes': 60, 'topic': 'IELTS Writing Task 2', 'online_url': 'https://meet.example.com/carla', 'status': 'scheduled', 'notes': '', 'homework': ''},
-            {'id': 'l4', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'starts_at': at(-2, 18), 'duration_minutes': 60, 'topic': 'Past simple vs past continuous', 'online_url': '', 'status': 'completed', 'notes': 'Boa evolução nos verbos irregulares.', 'homework': 'Escrever uma história de 80 palavras.'},
+            {'id': 'l4', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'starts_at': at(-2, 18), 'duration_minutes': 60, 'topic': 'Past simple vs past continuous', 'online_url': '', 'status': 'completed', 'notes': 'Boa evolução nos verbos irregulares.', 'homework': 'Escrever uma história de 80 palavras.', 'attendance': 'presente', 'skill_scores': {'Speaking': 64}},
         ]
         self.notifications = [
             {'id': 'n1', 'user_id': TEACHER, 'kind': 'assessment', 'title': 'Avaliação enviada', 'description': 'Ana Souza enviou "Level Check - B1".', 'target': 'Avaliações', 'urgent': True, 'scheduled_for': iso(-30), 'read_at': None, 'created_at': iso(-30)},
             {'id': 'n2', 'user_id': TEACHER, 'kind': 'lesson', 'title': 'Aula confirmada', 'description': 'Bruno Lima confirmou a aula de hoje às 20:00.', 'target': 'Agenda', 'urgent': False, 'scheduled_for': iso(-180), 'read_at': None, 'created_at': iso(-180)},
             {'id': 'n3', 'user_id': TEACHER, 'kind': 'payment', 'title': 'Pagamento recebido', 'description': 'Carla Mendes pagou a mensalidade de novembro.', 'target': 'Financeiro', 'urgent': False, 'scheduled_for': iso(-1500), 'read_at': iso(-1400), 'created_at': iso(-1500)},
         ]
+        self.materials = [
+            {'id': 'm1', 'teacher_id': TEACHER, 'title': 'Phrasal verbs for plans', 'type': 'PDF', 'level': 'B1', 'skill': 'Vocabulary', 'url': '',
+             'description': 'Lista com exemplos e exercícios.', 'storage_path': f'{TEACHER}/m1-phrasal.pdf', 'file_name': 'phrasal.pdf', 'file_size': 120000,
+             'mime_type': 'application/pdf', 'material_source': 'upload', 'created_at': iso(-3000)},
+            {'id': 'm2', 'teacher_id': TEACHER, 'title': 'BBC 6 Minute English: Travel', 'type': 'Áudio', 'level': 'A2', 'skill': 'Listening',
+             'url': 'https://www.example.com/6-minute-english', 'description': '', 'storage_path': None, 'file_name': None, 'file_size': None,
+             'mime_type': None, 'material_source': 'link', 'created_at': iso(-6000)},
+        ]
+        self.material_assignments = [{'material_id': 'm1', 'student_id': 'st-ana'}]
+        self.assignments = [
+            {'id': 'a1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'material_id': 'm1', 'title': 'Write about your weekend', 'instructions': 'Write 80–100 words using the past simple.',
+             'due_date': (NOW + timedelta(days=-1)).date().isoformat(), 'status': 'submitted', 'assignment_type': 'regular',
+             'submission_text': 'Last weekend I went to the beach with my family. We swam and ate fish. On Sunday I studied for my exam and watched a film.',
+             'submitted_at': iso(-200), 'submission_file_path': None, 'submission_file_name': None, 'feedback': '', 'grade': None, 'text_comments': [], 'created_at': iso(-4000)},
+            {'id': 'a2', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'material_id': None, 'title': 'Interview questions', 'instructions': 'Prepare answers to 5 common questions.',
+             'due_date': (NOW + timedelta(days=3)).date().isoformat(), 'status': 'pending', 'assignment_type': 'regular', 'submission_text': '', 'submitted_at': None,
+             'submission_file_path': None, 'submission_file_name': None, 'feedback': '', 'grade': None, 'text_comments': [], 'created_at': iso(-1000)},
+            {'id': 'a3', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'material_id': None, 'title': 'IELTS Task 2 essay', 'instructions': 'Write 250 words.',
+             'due_date': (NOW + timedelta(days=-8)).date().isoformat(), 'status': 'reviewed', 'assignment_type': 'regular', 'submission_text': 'Essay…', 'submitted_at': iso(-12000),
+             'submission_file_path': None, 'submission_file_name': None, 'feedback': 'Great structure.', 'grade': 85, 'text_comments': [], 'created_at': iso(-15000)},
+            {'id': 'q1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'title': 'Quiz: irregular verbs', 'instructions': '', 'due_date': (NOW + timedelta(days=2)).date().isoformat(),
+             'status': 'pending', 'assignment_type': 'interactive', 'submission_text': '', 'created_at': iso(-500)},
+        ]
+        today = NOW.date()
+        self.payments = [
+            {'id': 'p1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'description': 'Mensalidade de novembro', 'amount': 320, 'due_date': today.replace(day=5).isoformat(), 'status': 'paid', 'paid_at': iso(-9000), 'created_at': iso(-20000)},
+            {'id': 'p2', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'description': 'Mensalidade de novembro', 'amount': 280, 'due_date': (today - timedelta(days=4)).isoformat(), 'status': 'pending', 'paid_at': None, 'created_at': iso(-20000)},
+            {'id': 'p3', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'description': 'Pacote IELTS (4 aulas)', 'amount': 480, 'due_date': (today + timedelta(days=10)).isoformat(), 'status': 'pending', 'paid_at': None, 'created_at': iso(-3000)},
+        ]
+        self.cancellation_requests = [
+            {'id': 'cr1', 'lesson_id': 'l3', 'student_id': 'st-carla', 'teacher_id': TEACHER, 'reason': 'Tenho uma consulta médica nesse horário.', 'status': 'pending',
+             'teacher_response': '', 'created_at': iso(-60), 'resolved_at': None},
+        ]
+        self.uploads: dict[str, bytes] = {}
         self.reviewed: dict[str, dict] = {}
         self.finalized: set[str] = set()
 
@@ -176,6 +210,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         url = urllib.parse.urlparse(self.path)
         query = dict(urllib.parse.parse_qsl(url.query))
+        if url.path.startswith('/storage/v1/object/') and not url.path.startswith('/storage/v1/object/sign/'):
+            if not self._authorized():
+                return None
+            length = int(self.headers.get('Content-Length') or 0)
+            STATE.uploads[urllib.parse.unquote(url.path.split('/storage/v1/object/', 1)[1])] = self.rfile.read(length)
+            return self._json(200, {'Key': url.path})
         body = self._body()
         if url.path == '/auth/v1/token':
             if query.get('grant_type') == 'password':
@@ -197,6 +237,20 @@ class Handler(BaseHTTPRequestHandler):
             row = {'id': f'l{len(STATE.lessons) + 1}', 'teacher_id': TEACHER, 'status': 'scheduled', 'notes': '', 'homework': '', **body}
             STATE.lessons.append(row)
             return self._json(201, [row])
+        tables = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments}
+        table = url.path.removeprefix('/rest/v1/')
+        if table in tables:
+            rows = body if isinstance(body, list) else [body]
+            created = []
+            for row in rows:
+                if table == 'material_assignments':
+                    if row not in STATE.material_assignments:
+                        STATE.material_assignments.append(dict(row))
+                    continue
+                item = {'id': f'{table[0]}{len(tables[table]) + 10}', 'created_at': iso(), **row}
+                tables[table].append(item)
+                created.append(item)
+            return self._json(201, created)
         return self._json(404, {'message': 'not found'})
 
     def _rpc(self, name: str, body: dict) -> None:
@@ -237,6 +291,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, sorted(STATE.lessons, key=lambda row: row['starts_at']))
         if table == 'notifications':
             return self._json(200, sorted(STATE.notifications, key=lambda row: row['scheduled_for'], reverse=True))
+        if table == 'cancellation_requests':
+            lessons = {row['id']: row for row in STATE.lessons}
+            names = {row['student_id']: row['student']['full_name'] for row in STATE.students}
+            return self._json(200, [{**row, 'lessons': {'starts_at': lessons[row['lesson_id']]['starts_at'], 'topic': lessons[row['lesson_id']]['topic']},
+                                     'student': {'full_name': names.get(row['student_id'])}} for row in STATE.cancellation_requests if row['status'] == 'pending'])
+        if table in ('materials', 'material_assignments', 'assignments', 'payments'):
+            return self._json(200, [row for row in getattr(STATE, table) if _matches(row, url.query)])
         if table == 'profiles':
             return self._json(200, [{'id': TEACHER, 'role': 'teacher', 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com'}])
         return self._json(404, {'message': 'not found'})
@@ -248,13 +309,57 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         query = dict(urllib.parse.parse_qsl(url.query))
         table = url.path.removeprefix('/rest/v1/')
-        rows = {'notifications': STATE.notifications, 'lessons': STATE.lessons}.get(table, [])
-        selector = query.get('id', '')
-        ids = selector[4:-1].split(',') if selector.startswith('in.(') else [selector.removeprefix('eq.')]
-        for row in rows:
-            if row['id'] in ids:
-                row.update(body)
+        rows = {'notifications': STATE.notifications, 'lessons': STATE.lessons, 'assignments': STATE.assignments, 'payments': STATE.payments,
+                'cancellation_requests': STATE.cancellation_requests, 'student_records': STATE.students}.get(table, [])
+        if 'id' in query:
+            selector = query['id']
+            ids = selector[4:-1].split(',') if selector.startswith('in.(') else [selector.removeprefix('eq.')]
+            matches = [row for row in rows if row.get('id') in ids]
+        else:
+            matches = [row for row in rows if all(str(row.get(key)) == value.removeprefix('eq.') for key, value in query.items())]
+        for row in matches:
+            row.update(body)
         self.send_response(204); self.end_headers()
+
+
+def _matches(row: dict, query: str) -> bool:
+    """Minimal PostgREST eq./neq. filtering (select/order are ignored)."""
+    for key, value in urllib.parse.parse_qsl(query):
+        if key in ('select', 'order', 'limit'):
+            continue
+        if value.startswith('eq.') and str(row.get(key)) != value[3:]:
+            return False
+        if value.startswith('neq.') and str(row.get(key)) == value[4:]:
+            return False
+    return True
+
+
+def _delete(self) -> None:
+    url = urllib.parse.urlparse(self.path)
+    if not self._authorized():
+        return
+    if url.path.startswith('/storage/v1/object/'):
+        for prefix in self._body().get('prefixes', []):
+            STATE.uploads.pop(url.path.split('/storage/v1/object/', 1)[1] + '/' + prefix, None)
+            STATE.removed_files.append(prefix)
+        self._json(200, [])
+        return
+    query = dict(urllib.parse.parse_qsl(url.query))
+    table = url.path.removeprefix('/rest/v1/')
+    rows = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
+            'lessons': STATE.lessons}.get(table)
+    if rows is None:
+        self._json(404, {'message': 'not found'})
+        return
+    def matches(row):
+        return all(str(row.get(key)) == value.removeprefix('eq.') for key, value in query.items())
+    rows[:] = [row for row in rows if not matches(row)]
+    self.send_response(204)
+    self.end_headers()
+
+
+Handler.do_DELETE = _delete
+STATE.removed_files = []
 
 
 def serve(port: int = 0) -> ThreadingHTTPServer:

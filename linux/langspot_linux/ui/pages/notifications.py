@@ -10,7 +10,7 @@ from langspot_linux.ui.common import Page, empty_state, scrolled, vbox
 from langspot_linux.worker import run_async
 
 ICONS = {'lesson': 'x-office-calendar-symbolic', 'assignment': 'checkbox-checked-symbolic', 'quiz': 'dialog-question-symbolic',
-         'assessment': 'document-properties-symbolic', 'payment': 'wallet-symbolic', 'mission': 'starred-symbolic',
+         'assessment': 'document-properties-symbolic', 'payment': 'langspot-money-symbolic', 'mission': 'starred-symbolic',
          'cancellation': 'dialog-warning-symbolic', 'system': 'preferences-system-notifications-symbolic'}
 TARGET_PAGES = {'Avaliações': 'review', 'Agenda': 'agenda', 'Aulas': 'agenda', 'Alunos': 'students'}
 

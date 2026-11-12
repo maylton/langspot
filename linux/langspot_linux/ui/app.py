@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import gi
@@ -12,13 +12,14 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
-from langspot_linux import APP_ID, VERSION, session_store  # noqa: E402
+from langspot_linux import APP_ID, VERSION, calendar_sync, model, session_store  # noqa: E402
 from langspot_linux.config import ConfigError, config_path, load_config  # noqa: E402
 from langspot_linux.supabase import AuthError, Session, SupabaseClient  # noqa: E402
 from langspot_linux.ui.common import action, open_uri  # noqa: E402
 from langspot_linux.worker import run_async  # noqa: E402
 
 POLL_SECONDS = 60
+CALENDAR_EVERY = 5  # polls between calendar file refreshes
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / 'data'
 
 
@@ -33,6 +34,7 @@ class LangSpotApp(Adw.Application):
         self._seen_attempts: set[str] | None = None
         self._poll_source = 0
         self._held = False
+        self._polls = 0
         self.prefs = self._load_prefs()
 
     # ------------------------------------------------------------------ setup
@@ -54,6 +56,9 @@ class LangSpotApp(Adw.Application):
         background = Gio.SimpleAction.new_stateful('background', None, GLib.Variant.new_boolean(self.prefs.get('background', False)))
         background.connect('activate', self._toggle_background)
         self.add_action(background)
+        calendar = Gio.SimpleAction.new_stateful('calendar-sync', None, GLib.Variant.new_boolean(self.prefs.get('calendarSync', False)))
+        calendar.connect('activate', self._toggle_calendar)
+        self.add_action(calendar)
         self.set_accels_for_action('app.quit', ['<Control>q'])
         self.add_action(action('quit', lambda *_: self.quit()))
         self.set_accels_for_action('win.refresh', ['F5', '<Control>r'])
@@ -124,6 +129,8 @@ class LangSpotApp(Adw.Application):
         self._seen_attempts = None
         self.window.show_main(profile)
         self.poll()
+        if self.prefs.get('calendarSync'):
+            self._sync_calendar(connect=True)
         if not self._poll_source:
             self._poll_source = GLib.timeout_add_seconds(POLL_SECONDS, self._poll_tick)
 
@@ -135,6 +142,9 @@ class LangSpotApp(Adw.Application):
         run_async(client.sign_out, lambda _r: None, lambda _e: None)
         session_store.clear_refresh_token()
         self.profile = None
+        if self.prefs.get('calendarSync'):
+            # Another teacher may sign in next: leave the calendar empty, not with these lessons.
+            run_async(lambda: calendar_sync.write_ics([]), lambda _r: None, lambda _e: None)
         self.window.show_login('Você saiu da conta.', error=False)
 
     def open_page(self, key: str) -> None:
@@ -152,6 +162,9 @@ class LangSpotApp(Adw.Application):
     def _poll_tick(self) -> bool:
         if self.profile:
             self.poll()
+            self._polls += 1
+            if self.prefs.get('calendarSync') and self._polls % CALENDAR_EVERY == 0:
+                self._sync_calendar()
         return GLib.SOURCE_CONTINUE
 
     def poll(self) -> None:
@@ -163,17 +176,19 @@ class LangSpotApp(Adw.Application):
                                           read_at='is.null', scheduled_for=f'lte.{now}', order='scheduled_for.desc', limit='50')
             active = client.rpc('list_active_teacher_attempts') or []
             queue = client.rpc('list_assessment_review_queue') or {}
-            return notifications, active, queue
+            submitted = client.select('assignments', select='id', status='eq.submitted', assignment_type='neq.interactive')
+            return notifications, active, queue, submitted
 
         run_async(work, self._polled, lambda _error: None)
 
     def _polled(self, result) -> None:
-        notifications, active, queue = result
+        notifications, active, queue, submitted = result
         if not self.window or not self.window.split:
             return
         self.window.set_count('notifications', len(notifications))
         self.window.set_count('live', len(active))
         self.window.set_count('review', len(queue.get('items') or []) + len(queue.get('readyToFinalize') or []))
+        self.window.set_count('tasks', len(submitted))
         if self._seen_notifications is not None:
             for item in notifications:
                 if item['id'] not in self._seen_notifications:
@@ -192,6 +207,63 @@ class LangSpotApp(Adw.Application):
         notification.set_icon(Gio.ThemedIcon.new(APP_ID))
         notification.set_default_action_and_target_value('app.open-page', GLib.Variant.new_string(page))
         self.send_notification(notification_id, notification)
+
+    # ------------------------------------------------------------------ desktop calendar
+    def _fetch_lessons(self) -> list[model.Lesson]:
+        from langspot_linux.ui.common import student_names
+        since = (datetime.now(timezone.utc) - timedelta(days=calendar_sync.PAST_DAYS)).isoformat()
+        names = {key: value['name'] for key, value in student_names(self.client).items()}
+        return model.lessons_from_rows(self.client.select('lessons', starts_at=f'gte.{since}', status='neq.cancelled', order='starts_at.asc'), names)
+
+    def _sync_calendar(self, connect: bool = False, announce: bool = False) -> None:
+        """Refresh the calendar file; with connect=True also (re)attach GNOME/KDE."""
+        instance = self.prefs.get('akonadiResource')
+
+        def work():
+            lessons = self._fetch_lessons()
+            if connect:
+                return calendar_sync.enable(lessons, instance)
+            calendar_sync.write_ics(lessons)
+            return None
+
+        def done(result) -> None:
+            if result is None:
+                return
+            connected, akonadi = result
+            if akonadi != instance:
+                self.prefs['akonadiResource'] = akonadi
+                self._save_prefs()
+            if announce and self.window:
+                where = ', '.join(connected)
+                self.window.toast(f'Aulas no calendário do sistema ({where}).' if connected else
+                                  f'Calendário salvo em {calendar_sync.ics_path()}. Adicione-o ao seu app de calendário.')
+
+        def failed(error: Exception) -> None:
+            if announce and self.window:
+                self.window.toast(f'Não foi possível sincronizar o calendário: {error}')
+        run_async(work, done, failed)
+
+    def calendar_lessons(self, lessons: list[model.Lesson]) -> None:
+        """Called by the agenda after it loads: keeps the desktop calendar in step right away."""
+        if self.prefs.get('calendarSync') and self.profile:
+            run_async(lambda: calendar_sync.write_ics(lessons), lambda _r: None, lambda _e: None)
+
+    def _toggle_calendar(self, item: Gio.SimpleAction, _param) -> None:
+        enabled = not item.get_state().get_boolean()
+        item.set_state(GLib.Variant.new_boolean(enabled))
+        self.prefs['calendarSync'] = enabled
+        self._save_prefs()
+        if enabled:
+            if self.profile:
+                self._sync_calendar(connect=True, announce=True)
+            return
+        instance = self.prefs.pop('akonadiResource', None)
+        self._save_prefs()
+
+        def done(_r) -> None:
+            if self.window:
+                self.window.toast('As aulas saíram do calendário do sistema.')
+        run_async(lambda: calendar_sync.disable(instance), done, lambda error: self.window and self.window.toast(str(error)))
 
     # ------------------------------------------------------------------ preferences
     @staticmethod
@@ -232,8 +304,8 @@ class LangSpotApp(Adw.Application):
     def about(self) -> None:
         dialog = Adw.AboutDialog(application_name='LangSpot', application_icon=APP_ID, version=VERSION,
                                  developer_name='Maylton Fernandes', website=self.config.web_url if self.config else '',
-                                 comments='Aplicativo nativo do LangSpot para professores no Linux: agenda, alunos, correção, '
-                                          'acompanhamento de provas ao vivo e notificações.',
+                                 comments='Aplicativo nativo do LangSpot para professores no Linux: agenda, alunos, tarefas, correção, '
+                                          'provas ao vivo, materiais, financeiro, relatórios e notificações.',
                                  license_type=Gtk.License.CUSTOM, license='Uso interno do LangSpot.')
         dialog.present(self.window)
 
