@@ -120,6 +120,10 @@ class Lesson:
     status: str
     notes: str = ''
     homework: str = ''
+    attendance: str = ''
+    skill_scores: dict = field(default_factory=dict)
+    strengths: str = ''
+    improvements: str = ''
 
     @property
     def ends_at(self) -> datetime:
@@ -139,7 +143,9 @@ def lessons_from_rows(rows: list[dict], names: dict[str, str]) -> list[Lesson]:
         lessons.append(Lesson(id=row['id'], student_id=row.get('student_id') or '', student_name=names.get(row.get('student_id') or '', 'Aluno'),
                               starts_at=local(starts), duration=int(row.get('duration_minutes') or 60), topic=row.get('topic') or 'Aula',
                               online_url=row.get('online_url') or '', status=row.get('status') or 'scheduled',
-                              notes=row.get('notes') or '', homework=row.get('homework') or ''))
+                              notes=row.get('notes') or '', homework=row.get('homework') or '',
+                              attendance=row.get('attendance') or '', skill_scores=row.get('skill_scores') or {},
+                              strengths=row.get('strengths') or '', improvements=row.get('improvements') or ''))
     return sorted(lessons, key=lambda lesson: lesson.starts_at)
 
 
@@ -282,3 +288,216 @@ def event_detail(event: dict) -> str:
     if isinstance(length, (int, float)) and length > 0:
         return f'{int(length)} caracteres'
     return ''
+
+
+# ---------------------------------------------------------------- money and tasks
+def money(value: float) -> str:
+    """12345.5 → 'R$ 12.345,50'"""
+    text = f'{value:,.2f}'.replace(',', '#').replace('.', ',').replace('#', '.')
+    return f'R$ {text}'
+
+
+PAYMENT_LABELS = {'pending': 'Pendente', 'paid': 'Paga', 'overdue': 'Atrasada'}
+
+
+def payment_status(row: dict, today: date | None = None) -> str:
+    """Same rule as the web app: a pending charge past its due date is overdue."""
+    today = today or date.today()
+    status = row.get('status') or 'pending'
+    if status == 'pending' and (row.get('due_date') or '9999-12-31') < today.isoformat():
+        return 'overdue'
+    return status
+
+
+def payment_totals(rows: list[dict], today: date | None = None) -> dict:
+    totals = {'paid': 0.0, 'open': 0.0, 'overdue': 0.0, 'count': len(rows)}
+    for row in rows:
+        amount = float(row.get('amount') or 0)
+        status = payment_status(row, today)
+        if status == 'paid':
+            totals['paid'] += amount
+        else:
+            totals['open'] += amount
+            if status == 'overdue':
+                totals['overdue'] += amount
+    return totals
+
+
+def short_date(value: str | None) -> str:
+    """'2026-11-12' → '12/11/2026'"""
+    if not value:
+        return '—'
+    year, month, day = value[:10].split('-')
+    return f'{day}/{month}/{year}'
+
+
+TASK_LABELS = {'pending': 'Pendente', 'submitted': 'Entregue', 'reviewed': 'Corrigida'}
+MATERIAL_TYPES = ['PDF', 'Documento', 'Apresentação', 'Imagem', 'Vídeo', 'Áudio', 'Link', 'Atividade']
+MATERIAL_LEVELS = ['Todos', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+SKILLS = ['Speaking', 'Listening', 'Reading', 'Writing', 'Grammar', 'Vocabulary', 'Pronunciation']
+UPLOAD_EXTENSIONS = {'.pdf': ('application/pdf', 'PDF'),
+                     '.docx': ('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Documento'),
+                     '.pptx': ('application/vnd.openxmlformats-officedocument.presentationml.presentation', 'Apresentação'),
+                     '.jpg': ('image/jpeg', 'Imagem'), '.jpeg': ('image/jpeg', 'Imagem'), '.png': ('image/png', 'Imagem'),
+                     '.webp': ('image/webp', 'Imagem'), '.gif': ('image/gif', 'Imagem')}
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+
+
+def upload_kind(filename: str, size: int) -> tuple[str, str]:
+    """(mime type, material type) for an allowed upload; raises ValueError otherwise."""
+    suffix = '.' + filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if suffix not in UPLOAD_EXTENSIONS:
+        raise ValueError('Escolha um PDF, DOCX, PPTX ou imagem.')
+    if size > MAX_UPLOAD_SIZE:
+        raise ValueError('O arquivo passa de 10 MB.')
+    return UPLOAD_EXTENSIONS[suffix]
+
+
+def safe_filename(filename: str) -> str:
+    """Same as the web app: drop accents, then any other character becomes '-'."""
+    import unicodedata
+    plain = ''.join(char for char in unicodedata.normalize('NFD', filename) if unicodedata.category(char) != 'Mn')
+    return re.sub(r'[^a-zA-Z0-9._-]', '-', plain)
+
+
+# ---------------------------------------------------------------- reports (same formulas as the web app)
+def percent(part: int, whole: int) -> int:
+    return round(part / whole * 100) if whole else 0
+
+
+@dataclass
+class PeriodStats:
+    lessons: int
+    completed: int
+    scheduled: int
+    cancelled: int
+    completion_rate: int
+    attendance_rate: int
+    tasks: int
+    delivered: int
+    task_rate: int
+    average_grade: int | None
+    study_minutes: int
+
+
+def period_stats(lessons: list[Lesson], tasks: list[dict]) -> PeriodStats:
+    completed = [lesson for lesson in lessons if lesson.status == 'completed']
+    marked = [lesson for lesson in completed if lesson.attendance in ('presente', 'ausente')]
+    delivered = [task for task in tasks if (task.get('status') or 'pending') != 'pending']
+    graded = [float(task['grade']) for task in tasks if task.get('grade') is not None]
+    return PeriodStats(
+        lessons=len(lessons), completed=len(completed), scheduled=sum(1 for lesson in lessons if lesson.status == 'scheduled'),
+        cancelled=sum(1 for lesson in lessons if lesson.status == 'cancelled'), completion_rate=percent(len(completed), len(lessons)),
+        attendance_rate=percent(sum(1 for lesson in marked if lesson.attendance == 'presente'), len(marked)),
+        tasks=len(tasks), delivered=len(delivered), task_rate=percent(len(delivered), len(tasks)),
+        average_grade=round(sum(graded) / len(graded)) if graded else None, study_minutes=sum(lesson.duration for lesson in completed))
+
+
+def lessons_in_period(lessons: list[Lesson], start: date, end: date) -> list[Lesson]:
+    return [lesson for lesson in lessons if start <= lesson.starts_at.date() <= end]
+
+
+def tasks_in_period(tasks: list[dict], start: date, end: date) -> list[dict]:
+    """Web rule: created on or before the end, due on or after the start."""
+    return [task for task in tasks if (task.get('created_at') or '')[:10] <= end.isoformat() and (task.get('due_date') or '') >= start.isoformat()]
+
+
+def study_time(minutes: int) -> str:
+    if not minutes:
+        return '0h'
+    hours, rest = divmod(minutes, 60)
+    return f'{hours}h {rest}min' if rest else f'{hours}h'
+
+
+def skill_extremes(skills: dict) -> tuple[str, str] | None:
+    values = {skill: float(skills[skill]) for skill in SKILLS if skill in skills}
+    if not values:
+        return None
+    return max(values, key=values.get), min(values, key=values.get)
+
+
+def report_text(name: str, level: str, goal: str, skills: dict, start: date, end: date, stats: PeriodStats, notes: list[str]) -> str:
+    """Plain-text summary to paste in WhatsApp or e-mail."""
+    lines = [f'Relatório de progresso — {name}', f'Período: {start:%d/%m/%Y} a {end:%d/%m/%Y}', f'Nível: {level or "—"}']
+    if goal:
+        lines.append(f'Objetivo: {goal}')
+    extremes = skill_extremes(skills)
+    if extremes:
+        best, attention = extremes
+        lines += [f'Habilidade destaque: {best} ({round(float(skills[best]))}%)', f'Ponto de atenção: {attention} ({round(float(skills[attention]))}%)']
+    lines += [f'Aulas concluídas no período: {stats.completed}', f'Frequência: {stats.attendance_rate}%',
+              f'Tempo de estudo: {study_time(stats.study_minutes)}', f'Tarefas entregues: {stats.delivered}/{stats.tasks}']
+    if stats.average_grade is not None:
+        lines.append(f'Média das tarefas: {stats.average_grade}')
+    if notes:
+        lines.append('Observações das aulas: ' + ' | '.join(notes[-3:]))
+    return '\n'.join(lines)
+
+
+def month_range(today: date | None = None) -> tuple[date, date]:
+    today = today or date.today()
+    start = today.replace(day=1)
+    following = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    return start, following - timedelta(days=1)
+
+
+# ---------------------------------------------------------------- calendar (same as the web agenda)
+MONTH_NAMES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+ATTENDANCE_LABELS = {'presente': 'Presente', 'ausente': 'Ausente', 'remarcada': 'Remarcada'}
+DURATIONS = [30, 45, 50, 60, 90]
+RECORD_TEMPLATES = {
+    'notes': 'Conteúdo trabalhado:\n- \n\nAtividades realizadas:\n- \n\nParticipação e comportamento durante a aula:\n- ',
+    'strengths': 'O aluno demonstrou bom desempenho em:\n- \n\nEvoluções percebidas:\n- \n\nExemplos observados na aula:\n- ',
+    'improvements': 'Pontos que precisam de reforço:\n- \n\nEstratégia sugerida para as próximas aulas:\n- \n\nObservações para acompanhamento:\n- ',
+    'homework': 'Atividade para casa:\n- \n\nObjetivo da tarefa:\n- \n\nOrientações para entrega ou prática:\n- ',
+}
+
+
+def week_start(day: date) -> date:
+    return day - timedelta(days=day.weekday())
+
+
+def week_days(day: date) -> list[date]:
+    start = week_start(day)
+    return [start + timedelta(days=offset) for offset in range(7)]
+
+
+def month_grid(day: date) -> list[date]:
+    """42 days (6 weeks from Monday) covering the month, like the web calendar."""
+    start = week_start(day.replace(day=1))
+    return [start + timedelta(days=offset) for offset in range(42)]
+
+
+def period_label(view: str, day: date) -> str:
+    if view == 'month':
+        return f'{MONTH_NAMES[day.month - 1].capitalize()} de {day.year}'
+    days = week_days(day)
+    first, last = days[0], days[-1]
+    if first.month == last.month:
+        return f'{first.day}–{last.day} de {MONTH_NAMES[last.month - 1]} de {last.year}'
+    return f'{first.day} {MONTHS[first.month - 1]} – {last.day} {MONTHS[last.month - 1]} {last.year}'
+
+
+def shift_period(view: str, day: date, direction: int) -> date:
+    if view == 'week':
+        return day + timedelta(days=7 * direction)
+    month = day.month - 1 + direction
+    return date(day.year + month // 12, month % 12 + 1, 1)
+
+
+def google_calendar_url(lesson: Lesson) -> str:
+    import urllib.parse
+    def stamp(moment: datetime) -> str:
+        return moment.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    details = 'Aula de idiomas no LangSpot.' + (f'\n\nLink da aula: {lesson.online_url}' if lesson.online_url else '')
+    params = {'action': 'TEMPLATE', 'text': f'{lesson.topic} · {lesson.student_name}', 'dates': f'{stamp(lesson.starts_at)}/{stamp(lesson.ends_at)}',
+              'details': details, 'location': lesson.online_url or ''}
+    return 'https://calendar.google.com/calendar/render?' + urllib.parse.urlencode(params)
+
+
+def lesson_record_values(starts: datetime, duration: int, topic: str, online_url: str, attendance: str, texts: dict, skills: dict) -> dict:
+    """Same payload as the web app's lessonRecordToDb (completes or edits a lesson record)."""
+    return {'starts_at': starts.isoformat(), 'duration_minutes': duration, 'topic': topic, 'online_url': online_url or None, 'status': 'completed',
+            'notes': texts.get('notes', ''), 'strengths': texts.get('strengths', ''), 'improvements': texts.get('improvements', ''),
+            'homework': texts.get('homework', ''), 'attendance': attendance, 'skill_scores': {key: int(value) for key, value in skills.items()}}

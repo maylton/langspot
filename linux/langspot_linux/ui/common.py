@@ -170,3 +170,88 @@ def action(name: str, callback: Callable[..., None], parameter: str | None = Non
     item = Gio.SimpleAction.new(name, GLib.VariantType.new(parameter) if parameter else None)
     item.connect('activate', callback)
     return item
+
+
+def date_row(title: str, initial, on_change: Callable | None = None):
+    """Adw.ActionRow with a calendar popover. Returns (row, getter) where getter() → datetime.date."""
+    from datetime import date as _date
+
+    from langspot_linux import model
+
+    chosen = {'day': initial}
+    row = Adw.ActionRow(title=title, subtitle=model.day_label(initial) if abs((initial - _date.today()).days) < 7 else initial.strftime('%d/%m/%Y'))
+    calendar = Gtk.Calendar()
+    calendar.select_day(GLib.DateTime.new_local(initial.year, initial.month, initial.day, 0, 0, 0))
+    popover = Gtk.Popover(child=calendar)
+    button = Gtk.MenuButton(icon_name='x-office-calendar-symbolic', popover=popover, valign=Gtk.Align.CENTER, tooltip_text='Escolher a data')
+    button.add_css_class('flat')
+
+    def picked(cal) -> None:
+        value = cal.get_date()
+        chosen['day'] = _date(value.get_year(), value.get_month(), value.get_day_of_month())
+        day = chosen['day']
+        row.set_subtitle(model.day_label(day) if abs((day - _date.today()).days) < 7 else day.strftime('%d/%m/%Y'))
+        popover.popdown()
+        if on_change:
+            on_change(day)
+    calendar.connect('day-selected', picked)
+    row.add_suffix(button)
+    row.set_activatable_widget(button)
+    return row, lambda: chosen['day']
+
+
+def student_names(client) -> dict[str, dict]:
+    """student_id → {'name', 'phone', 'level', 'goal', 'skills'} for the teacher's students."""
+    rows = client.select('student_records', select='student_id,level,goal,skills,notes,student:profiles!student_records_student_id_fkey(full_name,email,whatsapp_phone)')
+    result = {}
+    for row in rows:
+        profile = row.get('student') or {}
+        result[row['student_id']] = {'name': profile.get('full_name') or 'Aluno', 'email': profile.get('email') or '',
+                                     'phone': ''.join(ch for ch in (profile.get('whatsapp_phone') or '') if ch.isdigit()),
+                                     'level': row.get('level') or '', 'goal': row.get('goal') or '', 'skills': row.get('skills') or {}, 'notes': row.get('notes') or ''}
+    return result
+
+
+def form_dialog(parent: Gtk.Widget, title: str, action_label: str, *, width: int = 480):
+    """Dialog with Cancel / action buttons. Returns (dialog, page, action_button, error_label)."""
+    dialog = Adw.Dialog(title=title, content_width=width)
+    toolbar = Adw.ToolbarView()
+    header = Adw.HeaderBar(show_end_title_buttons=False, show_start_title_buttons=False)
+    cancel = Gtk.Button(label='Cancelar')
+    cancel.connect('clicked', lambda *_: dialog.close())
+    header.pack_start(cancel)
+    action_button = Gtk.Button(label=action_label)
+    action_button.add_css_class('suggested-action')
+    header.pack_end(action_button)
+    toolbar.add_top_bar(header)
+    page = Adw.PreferencesPage()
+    error = label('', css=('error',))
+    error.set_visible(False)
+    error.set_margin_start(18)
+    error.set_margin_end(18)
+    error.set_margin_bottom(12)
+    box = vbox(0)
+    box.append(page)
+    box.append(error)
+    page.set_vexpand(True)
+    toolbar.set_content(box)
+    dialog.set_child(toolbar)
+
+    def show_error(message: str) -> None:
+        error.set_text(message)
+        error.set_visible(bool(message))
+        action_button.set_sensitive(True)
+    dialog.show_error = show_error  # type: ignore[attr-defined]
+    return dialog, page, action_button
+
+
+def text_view(text: str = '', height: int = 110) -> tuple[Gtk.Frame, Callable[[], str]]:
+    view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=10, bottom_margin=10, left_margin=12, right_margin=12, height_request=height)
+    view.get_buffer().set_text(text)
+    frame = Gtk.Frame(child=view)
+    frame.add_css_class('card')
+
+    def value() -> str:
+        buffer = view.get_buffer()
+        return buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False).strip()
+    return frame, value

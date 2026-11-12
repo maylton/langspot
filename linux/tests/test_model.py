@@ -117,3 +117,73 @@ class LiveTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MoneyTasksReportsTest(unittest.TestCase):
+    def test_money_and_dates(self):
+        self.assertEqual(model.money(12345.5), 'R$ 12.345,50')
+        self.assertEqual(model.money(80), 'R$ 80,00')
+        self.assertEqual(model.short_date('2026-11-05'), '05/11/2026')
+
+    def test_payments(self):
+        today = date(2026, 11, 12)
+        rows = [{'amount': 200, 'status': 'paid', 'due_date': '2026-11-05'}, {'amount': 150, 'status': 'pending', 'due_date': '2026-11-10'},
+                {'amount': 100, 'status': 'pending', 'due_date': '2026-11-20'}]
+        self.assertEqual([model.payment_status(row, today) for row in rows], ['paid', 'overdue', 'pending'])
+        self.assertEqual(model.payment_totals(rows, today), {'paid': 200.0, 'open': 250.0, 'overdue': 150.0, 'count': 3})
+
+    def test_uploads(self):
+        self.assertEqual(model.upload_kind('Aula 3.PDF', 1000), ('application/pdf', 'PDF'))
+        self.assertEqual(model.upload_kind('slides.pptx', 1000)[1], 'Apresentação')
+        with self.assertRaisesRegex(ValueError, 'PDF, DOCX'):
+            model.upload_kind('notes.txt', 10)
+        with self.assertRaisesRegex(ValueError, '10 MB'):
+            model.upload_kind('big.pdf', 11 * 1024 * 1024)
+        self.assertEqual(model.safe_filename('Ação 1 — revisão.pdf'), 'Acao-1---revisao.pdf')
+
+    def test_period_stats_match_the_web_formulas(self):
+        def lesson(status, attendance='', duration=60, day=10):
+            return model.Lesson(id=status + attendance, student_id='s', student_name='Ana', starts_at=datetime(2026, 11, day, 18, tzinfo=timezone.utc),
+                                duration=duration, topic='t', online_url='', status=status, attendance=attendance)
+        lessons = [lesson('completed', 'presente'), lesson('completed', 'ausente', 45), lesson('completed', 'presente', 30), lesson('cancelled'), lesson('scheduled')]
+        tasks = [{'status': 'reviewed', 'grade': 80, 'created_at': '2026-11-01', 'due_date': '2026-11-08'},
+                 {'status': 'submitted', 'grade': None, 'created_at': '2026-11-02', 'due_date': '2026-11-15'},
+                 {'status': 'pending', 'created_at': '2026-11-03', 'due_date': '2026-11-20'}]
+        stats = model.period_stats(lessons, tasks)
+        self.assertEqual((stats.lessons, stats.completed, stats.cancelled, stats.scheduled), (5, 3, 1, 1))
+        self.assertEqual((stats.completion_rate, stats.attendance_rate, stats.task_rate, stats.average_grade), (60, 67, 67, 80))
+        self.assertEqual(model.study_time(stats.study_minutes), '2h 15min')
+        self.assertEqual(len(model.tasks_in_period(tasks, date(2026, 11, 10), date(2026, 11, 30))), 2)
+        self.assertEqual(len(model.lessons_in_period(lessons, date(2026, 11, 10), date(2026, 11, 10))), 5)
+
+    def test_report_text_and_month(self):
+        stats = model.period_stats([], [])
+        text = model.report_text('Ana Souza', 'B1', 'Viagens', {'Speaking': 70, 'Writing': 40}, date(2026, 11, 1), date(2026, 11, 30), stats, ['Boa aula'])
+        self.assertIn('Habilidade destaque: Speaking (70%)', text)
+        self.assertIn('Ponto de atenção: Writing (40%)', text)
+        self.assertIn('Período: 01/11/2026 a 30/11/2026', text)
+        self.assertEqual(model.month_range(date(2026, 2, 14)), (date(2026, 2, 1), date(2026, 2, 28)))
+
+
+class CalendarTest(unittest.TestCase):
+    def test_week_and_month_grids(self):
+        day = date(2026, 11, 12)  # Thursday
+        self.assertEqual(model.week_start(day), date(2026, 11, 9))
+        self.assertEqual(model.week_days(day)[-1], date(2026, 11, 15))
+        grid = model.month_grid(day)
+        self.assertEqual((len(grid), grid[0], grid[-1]), (42, date(2026, 10, 26), date(2026, 12, 6)))
+        self.assertEqual(model.period_label('week', day), '9–15 de novembro de 2026')
+        self.assertEqual(model.period_label('week', date(2026, 12, 30)), '28 dez – 3 jan 2027')
+        self.assertEqual(model.period_label('month', day), 'Novembro de 2026')
+        self.assertEqual(model.shift_period('month', date(2026, 12, 20), 1), date(2027, 1, 1))
+        self.assertEqual(model.shift_period('month', date(2026, 1, 20), -1), date(2025, 12, 1))
+        self.assertEqual(model.shift_period('week', day, -1), date(2026, 11, 5))
+
+    def test_google_calendar_and_record(self):
+        lesson = model.Lesson(id='l', student_id='s', student_name='Ana Souza', starts_at=datetime(2026, 11, 12, 21, 0, tzinfo=timezone.utc),
+                              duration=60, topic='Conditionals', online_url='https://meet.example.com/x', status='scheduled')
+        url = model.google_calendar_url(lesson)
+        self.assertIn('dates=20261112T210000Z%2F20261112T220000Z', url)
+        self.assertIn('text=Conditionals+%C2%B7+Ana+Souza', url)
+        values = model.lesson_record_values(lesson.starts_at, 45, 'Conditionals', '', 'presente', {'notes': 'ok'}, {'Speaking': 70.0})
+        self.assertEqual((values['status'], values['online_url'], values['attendance'], values['skill_scores']), ('completed', None, 'presente', {'Speaking': 70}))

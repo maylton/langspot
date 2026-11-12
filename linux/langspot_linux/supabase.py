@@ -159,6 +159,42 @@ class SupabaseClient:
                                                   headers={'Prefer': 'return=representation'}))
         return rows[0] if isinstance(rows, list) and rows else rows
 
+    def delete(self, table: str, **filters: str) -> None:
+        if not filters:
+            raise ValueError('delete() needs a filter')
+        self._authed(lambda: self._request('DELETE', f'/rest/v1/{table}', query=filters, headers={'Prefer': 'return=minimal'}))
+
+    def upsert(self, table: str, values: dict | list, on_conflict: str) -> None:
+        self._authed(lambda: self._request('POST', f'/rest/v1/{table}', body=values, query={'on_conflict': on_conflict},
+                                           headers={'Prefer': 'resolution=merge-duplicates,return=minimal'}))
+
+    def insert_many(self, table: str, rows: list[dict]) -> None:
+        if rows:
+            self._authed(lambda: self._request('POST', f'/rest/v1/{table}', body=rows, headers={'Prefer': 'return=minimal'}))
+
+    def upload(self, bucket: str, path: str, data: bytes, content_type: str) -> None:
+        quoted = urllib.parse.quote(path)
+
+        def call():
+            request = urllib.request.Request(f'{self.url}/storage/v1/object/{bucket}/{quoted}', data=data, method='POST')
+            request.add_header('apikey', self.anon_key)
+            request.add_header('Authorization', f'Bearer {self._access_token()}')
+            request.add_header('Content-Type', content_type or 'application/octet-stream')
+            request.add_header('x-upsert', 'false')
+            try:
+                with urllib.request.urlopen(request, timeout=max(self.timeout, 120)) as response:
+                    response.read()
+            except urllib.error.HTTPError as error:
+                raise self._error(error) from None
+            except urllib.error.URLError as error:
+                raise ApiError('Sem conexão com o LangSpot. Verifique a internet.') from error
+
+        self._authed(call)
+
+    def remove_files(self, bucket: str, paths: list[str]) -> None:
+        if paths:
+            self._authed(lambda: self._request('DELETE', f'/storage/v1/object/{bucket}', body={'prefixes': paths}))
+
     def rpc(self, function: str, **params: Any) -> Any:
         return self._authed(lambda: self._request('POST', f'/rest/v1/rpc/{function}', body=params))
 

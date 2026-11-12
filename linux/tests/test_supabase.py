@@ -55,6 +55,22 @@ class ClientTest(unittest.TestCase):
         restored.refresh(client.session.refresh_token)
         self.assertTrue(restored.select('student_records'))
 
+    def test_delete_upsert_and_files(self):
+        client, _ = self.client()
+        client.sign_in('professor@exemplo.com', 'demo123')
+        state = fake_supabase.STATE
+        client.upsert('material_assignments', {'material_id': 'm2', 'student_id': 'st-bruno'}, on_conflict='material_id,student_id')
+        client.upsert('material_assignments', {'material_id': 'm2', 'student_id': 'st-bruno'}, on_conflict='material_id,student_id')
+        self.assertEqual(state.material_assignments.count({'material_id': 'm2', 'student_id': 'st-bruno'}), 1)
+        client.delete('material_assignments', material_id='eq.m2')
+        self.assertFalse(any(row['material_id'] == 'm2' for row in state.material_assignments))
+        client.upload('materials', 'teacher-0001/x-aula.pdf', b'%PDF-1.4', 'application/pdf')
+        self.assertEqual(state.uploads['materials/teacher-0001/x-aula.pdf'], b'%PDF-1.4')
+        client.remove_files('materials', ['teacher-0001/x-aula.pdf'])
+        self.assertIn('teacher-0001/x-aula.pdf', state.removed_files)
+        with self.assertRaises(ValueError):
+            client.delete('payments')
+
     def test_errors(self):
         client, _ = self.client()
         with self.assertRaises(AuthError):
