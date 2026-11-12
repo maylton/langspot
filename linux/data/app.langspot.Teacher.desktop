@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=LangSpot
+GenericName=Painel do professor
+Comment=Agenda, alunos, correção e provas ao vivo do LangSpot
+Exec=langspot-linux
+Icon=app.langspot.Teacher
+Terminal=false
+Categories=Education;GTK;
+Keywords=aulas;alunos;inglês;correção;provas;
+StartupNotify=true
+StartupWMClass=app.langspot.Teacher
+DBusActivatable=false
