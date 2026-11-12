@@ -115,6 +115,23 @@ class LiveTest(unittest.TestCase):
         self.assertEqual(model.event_detail({'type': 'paste_detected', 'metadata': {'pasteLength': 80}}), '80 caracteres')
 
 
+class StudentsTest(unittest.TestCase):
+    def test_skills_and_progress(self) -> None:
+        self.assertEqual(model.normalize_skills({'Speaking': 120, 'Writing': 'x'})['Speaking'], 100.0)
+        self.assertEqual(model.normalize_skills(None)['Grammar'], 50.0)
+        self.assertEqual(model.progress_of({'Speaking': 64, 'Writing': 36}), 50)
+        self.assertEqual(model.skill_average([{'Speaking': 60}, {'Speaking': 81}], 'Speaking'), 70)
+        self.assertEqual(model.skill_average([], 'Speaking'), 0)
+
+    def test_streak(self) -> None:
+        today = date(2026, 11, 12)
+        self.assertEqual(model.calculate_streak([], today), (0, 0))
+        self.assertEqual(model.calculate_streak(['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-12'], today), (3, 3))
+        self.assertEqual(model.calculate_streak(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-11'], today), (1, 4))
+        self.assertEqual(model.calculate_streak(['2026-11-01', '2026-11-02'], today), (0, 2))
+        self.assertEqual(model.achievements(7), 2)
+
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -128,7 +128,8 @@ def run_steps() -> bool:
 
 steps += [
     (2500, lambda: None),
-    (1500, shot('01-agenda-semana')),
+    (1500, shot('00-visao-geral')),
+    (500, page('agenda')), (1500, shot('01-agenda-semana')),
     (500, lambda: app.window.pages['agenda'].header.get_title_widget().set_active_name('month')), (1200, shot('02-agenda-mes')),
     (500, lambda: app.window.pages['agenda']._select_day(__import__('datetime').date.today())), (1200, shot('03-agenda-mes-dia')),
     (500, lambda: app.window.pages['agenda'].record_lesson(app.window.pages['agenda'].lessons[0])), (1500, shot('04-agenda-concluir-aula')),
@@ -137,6 +138,8 @@ steps += [
     (500, lambda: app.window.pages['agenda'].header.get_title_widget().set_active_name('week')),
     (1500, page('students')), (1200, shot('06-alunos')),
     (1500, first_row_of('students', '3 alunos')), (1500, shot('07-aluno-detalhe')), (300, back('students')),
+    (500, lambda: app.window.pages['students'].create_student()), (1200, shot('07b-aluno-novo')), (300, close_dialogs),
+    (500, lambda: app.window.pages['students'].show_access('Diego Rocha', 'diego@exemplo.com', 'Temp-1234')), (1200, shot('07c-aluno-acesso')), (300, close_dialogs),
     (1500, page('tasks')), (1500, shot('08-tarefas')),
     (1500, first_row_of('tasks', 'Para corrigir')), (1500, shot('09-tarefa-correcao')), (300, back('tasks')),
     (1500, page('review')), (1200, shot('10-correcao-fila')),
@@ -150,7 +153,10 @@ steps += [
     (1500, page('finance')), (1500, shot('17-financeiro')),
     (1500, page('reports')), (1500, shot('18-relatorio-resumo')),
     (500, lambda: app.window.pages['reports']._open_individual('st-ana')), (1500, shot('19-relatorio-individual')),
+    (1500, page('progress')), (1500, shot('19b-progresso')),
     (1500, page('notifications')), (1200, shot('20-notificacoes')),
+    (1500, page('settings')), (1500, shot('20b-configuracoes')),
+    (500, lambda: app.window.pages['settings'].manage_teachers()), (1500, shot('20c-gerenciar-professores')), (300, close_dialogs),
     (800, logout), (1200, shot('21-login')),
 ]
 

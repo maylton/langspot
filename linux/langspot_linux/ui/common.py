@@ -54,6 +54,21 @@ def confirm(parent: Gtk.Widget, heading: str, body: str, action: str, on_confirm
     dialog.present(parent)
 
 
+def confirm_typed(parent: Gtk.Widget, heading: str, body: str, expected: str, action: str, on_confirm: Callable[[], None]) -> None:
+    """Destructive confirmation that needs the user to type `expected` (the website's confirmByTyping)."""
+    dialog = Adw.AlertDialog(heading=heading, body=f'{body}\n\nDigite {expected} para confirmar.')
+    entry = Gtk.Entry(placeholder_text=expected)
+    dialog.set_extra_child(entry)
+    dialog.add_response('cancel', 'Cancelar')
+    dialog.add_response('ok', action)
+    dialog.set_response_appearance('ok', Adw.ResponseAppearance.DESTRUCTIVE)
+    dialog.set_response_enabled('ok', False)
+    dialog.set_default_response('cancel')
+    entry.connect('changed', lambda item: dialog.set_response_enabled('ok', item.get_text().strip() == expected))
+    dialog.connect('response', lambda _dialog, response: on_confirm() if response == 'ok' and entry.get_text().strip() == expected else None)
+    dialog.present(parent)
+
+
 def ask_text(parent: Gtk.Widget, heading: str, body: str, placeholder: str, action: str, on_text: Callable[[str], None]) -> None:
     dialog = Adw.AlertDialog(heading=heading, body=body)
     entry = Gtk.Entry(placeholder_text=placeholder, activates_default=True)

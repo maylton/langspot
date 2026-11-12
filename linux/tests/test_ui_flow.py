@@ -94,6 +94,11 @@ def confirm_dialog():
     dialogs[0].force_close()
 
 
+def close_dialogs():
+    for dialog in walk(app.window, Adw.Dialog):
+        dialog.force_close()
+
+
 def mark_all_read():
     app.window.pages['notifications'].read_all()
 
@@ -202,6 +207,67 @@ def mark_first_paid():
     menu.activate_action('payment.paid', None)
 
 
+def students_page():
+    return app.window.pages['students']
+
+
+def fill_new_student():
+    dialog = last_dialog()
+    entry(dialog, 'Nome completo').set_text('Diego Rocha')
+    entry(dialog, 'E-mail').set_text('diego@exemplo.com')
+    entry(dialog, 'Objetivo').set_text('Conversação')
+    next(row for row in walk(dialog, Adw.SwitchRow) if row.get_title() == 'Agendar a primeira aula').set_active(True)
+    buttons(dialog, 'Criar acesso')[0].emit('clicked')
+
+
+def fill_invite():
+    dialog = last_dialog()
+    entry(dialog, 'Nome completo').set_text('Elisa Prado')
+    entry(dialog, 'E-mail').set_text('elisa@exemplo.com')
+    buttons(dialog, 'Enviar convite')[0].emit('clicked')
+
+
+def edit_bruno():
+    students_page().edit_student(students_page().record('st-bruno'))
+
+
+def fill_edit():
+    dialog = last_dialog()
+    entry(dialog, 'Nome completo').set_text('Bruno Lima Souza')
+    entry(dialog, 'WhatsApp').set_text('5581999990002')
+    buttons(dialog, 'Salvar')[0].emit('clicked')
+
+
+def change_skills():
+    page = visible_page('students')
+    scales = walk(page, Gtk.Scale)
+    scales[0].set_value(77)
+    buttons(page, 'Salvar habilidades')[0].emit('clicked')
+
+
+def fill_record():
+    dialog = last_dialog()
+    entry(dialog, 'Tema da aula').set_text('Small talk at work')
+    buttons(dialog, 'Registrar aula')[0].emit('clicked')
+
+
+def save_teacher_profile():
+    page = app.window.pages['settings']
+    entry(page.nav, 'Nome da escola ou marca').set_text('Maylton English')
+    buttons(page.nav, 'Salvar perfil')[0].emit('clicked')
+
+
+def fill_teacher_invite():
+    dialog = last_dialog()
+    entry(dialog, 'Nome completo').set_text('Paula Reis')
+    entry(dialog, 'E-mail').set_text('paula@exemplo.com')
+    buttons(dialog, 'Gerar convite')[0].emit('clicked')
+
+
+def suspend_teacher():
+    buttons(last_dialog(), 'Suspender')[0].emit('clicked')
+
+
 def individual_report():
     app.window.pages['reports'].header.get_title_widget().set_active_name('individual')
 
@@ -254,6 +320,31 @@ steps += [
     # Reports
     (300, lambda: app.window.open_page('reports')), (1500, individual_report),
     (800, lambda: check(bool(buttons(app.window.pages['reports'].nav, 'Copiar resumo')), 'Individual report rendered')),
+    # Students
+    (300, lambda: app.window.open_page('students')), (1500, lambda: students_page().create_student()), (800, fill_new_student),
+    (2000, lambda: check(any(row['student'].get('email') == 'diego@exemplo.com' for row in STATE.students)
+                         and any(row.get('student_id') == 'st-new-1' and row.get('status') == 'scheduled' for row in STATE.lessons),
+                         'Student created with a temporary password and a first lesson')),
+    (100, lambda: check(bool(buttons(app.window, 'Copiar tutorial de acesso')), 'Temporary access tutorial shown')),
+    (300, close_dialogs), (300, lambda: students_page().invite_student()), (800, fill_invite),
+    (1500, lambda: check(STATE.invites and STATE.invites[-1]['email'] == 'elisa@exemplo.com' and STATE.invites[-1]['origin'], 'Invitation sent with the site address')),
+    (300, edit_bruno), (800, fill_edit),
+    (1500, lambda: check(row_with(STATE.students, 'student_id', 'st-bruno')['student']['full_name'] == 'Bruno Lima Souza', 'Student profile edited')),
+    (300, lambda: app.window.open_student('st-ana')), (1500, change_skills),
+    (1500, lambda: check(row_with(STATE.students, 'student_id', 'st-ana')['skills'].get('Speaking') == 77, 'Skills saved from the profile')),
+    (300, lambda: students_page().new_record(students_page().record('st-ana'))), (800, fill_record),
+    (1500, lambda: check(any(row.get('topic') == 'Small talk at work' and row['status'] == 'completed' and row['student_id'] == 'st-ana' for row in STATE.lessons),
+                         'Lesson registered from the profile')),
+    (300, lambda: students_page().delete_student(students_page().record('st-new-1'))), (500, confirm_dialog),
+    (1500, lambda: check(not row_with(STATE.students, 'student_id', 'st-new-1'), 'Student deleted')),
+    # Settings
+    (300, lambda: app.window.open_page('settings')), (1500, save_teacher_profile),
+    (1500, lambda: check(STATE.profile['school_name'] == 'Maylton English' and app.window.footer_email.get_text() == 'Maylton English', 'Teacher profile saved')),
+    (300, lambda: app.window.pages['settings'].invite_teacher()), (1000, fill_teacher_invite),
+    (1500, lambda: check(STATE.teacher_invitations[0]['email'] == 'paula@exemplo.com', 'Teacher invitation created')),
+    (300, close_dialogs), (300, lambda: app.window.pages['settings'].manage_teachers()), (1500, suspend_teacher),
+    (1500, lambda: check(row_with(STATE.teachers, 'id', 'teacher-0002')['status'] == 'expired', 'Teacher access suspended')),
+    (300, close_dialogs),
     # Desktop calendar
     (100, lambda: app.activate_action('calendar-sync', None)),
     (2500, lambda: check(calendar_file().exists() and 'UID:lesson-l2@langspot.app' in calendar_file().read_text()

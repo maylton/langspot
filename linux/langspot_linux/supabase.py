@@ -212,3 +212,11 @@ class SupabaseClient:
                 return response.read()
         except urllib.error.URLError as error:
             raise ApiError('Não foi possível baixar o arquivo.') from error
+
+    def invoke(self, function: str, body: dict, *, origin: str | None = None) -> Any:
+        """POST /functions/v1/<function> (Edge Function) as the signed-in user.
+
+        `origin` is sent as the Origin header: functions build their links from it (the web app's address).
+        """
+        headers = {'Origin': origin} if origin else None
+        return self._authed(lambda: self._request('POST', f'/functions/v1/{function}', body=body, headers=headers))

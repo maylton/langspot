@@ -501,3 +501,92 @@ def lesson_record_values(starts: datetime, duration: int, topic: str, online_url
     return {'starts_at': starts.isoformat(), 'duration_minutes': duration, 'topic': topic, 'online_url': online_url or None, 'status': 'completed',
             'notes': texts.get('notes', ''), 'strengths': texts.get('strengths', ''), 'improvements': texts.get('improvements', ''),
             'homework': texts.get('homework', ''), 'attendance': attendance, 'skill_scores': {key: int(value) for key, value in skills.items()}}
+
+
+# ---------------------------------------------------------------------- students: skills, progress, streaks
+STREAK_MILESTONES = [(3, 'Primeiros passos'), (7, 'Uma semana firme'), (14, 'Ritmo consistente'), (30, 'Hábito de estudo'), (100, 'Centenário')]
+
+
+def normalize_skills(value) -> dict[str, float]:
+    """Same as the web app: every skill present, 50 when missing, clamped to 0–100."""
+    skills = {skill: 50.0 for skill in SKILLS}
+    if isinstance(value, dict):
+        for skill in SKILLS:
+            try:
+                skills[skill] = max(0.0, min(100.0, float(value[skill])))
+            except (KeyError, TypeError, ValueError):
+                pass
+    return skills
+
+
+def progress_of(skills) -> int:
+    """A student's overall progress: the rounded mean of the normalised skills."""
+    values = normalize_skills(skills)
+    return round(sum(values.values()) / len(values))
+
+
+def calculate_streak(dates: list[str], today: date | None = None) -> tuple[int, int]:
+    """(current, best) study streak in days from ISO dates (activities and protected days), as the web app."""
+    days = sorted({date.fromisoformat(str(value)[:10]) for value in dates if value})
+    if not days:
+        return 0, 0
+    best = running = 1
+    for previous, current in zip(days, days[1:]):
+        running = running + 1 if (current - previous).days == 1 else 1
+        best = max(best, running)
+    today = today or date.today()
+    if (today - days[-1]).days > 1:
+        return 0, best
+    current = 1
+    for index in range(len(days) - 1, 0, -1):
+        if (days[index] - days[index - 1]).days != 1:
+            break
+        current += 1
+    return current, best
+
+
+def achievements(best_streak: int) -> int:
+    return sum(1 for days, _title in STREAK_MILESTONES if best_streak >= days)
+
+
+def skill_average(skill_sets: list[dict], skill: str) -> int:
+    return round(sum(normalize_skills(skills)[skill] for skills in skill_sets) / len(skill_sets)) if skill_sets else 0
+
+
+# ---------------------------------------------------------------------- account
+def subscription_active(subscription: dict | None, now: datetime | None = None) -> bool:
+    if not subscription:
+        return False
+    now = now or datetime.now(timezone.utc)
+    if subscription.get('plan') == 'owner' or subscription.get('status') == 'active':
+        return True
+    ends = parse_time(subscription.get('trial_ends_at'))
+    return subscription.get('status') == 'trialing' and ends is not None and ends > now
+
+
+def account_access(subscription: dict | None, now: datetime | None = None) -> tuple[str, str, str] | None:
+    """(label, description, kind) like the website's account status card; kind is success / accent / error."""
+    if not subscription:
+        return None
+    now = now or datetime.now(timezone.utc)
+    active = subscription_active(subscription, now)
+    if subscription.get('plan') == 'owner':
+        return 'Acesso permanente', 'Sua conta tem acesso completo ao LangSpot, sem data de expiração.', 'success'
+    status = subscription.get('status')
+    if status == 'trialing':
+        ends = parse_time(subscription.get('trial_ends_at'))
+        days = max(0, -(-int((ends - now).total_seconds()) // 86400)) if ends else 0
+        title = f'Teste gratuito · {days} dia(s) restante(s)'
+    else:
+        title = {'active': 'Plano ativo', 'pending_confirmation': 'Confirmação pendente'}.get(status, 'Acesso expirado')
+    if status == 'pending_confirmation':
+        description = 'Confirme seu e-mail para iniciar os 30 dias de teste gratuito.'
+    elif active:
+        description = 'Todos os recursos do LangSpot estão liberados para esta conta.'
+    else:
+        description = 'Seus dados continuam disponíveis, mas novas alterações exigem uma assinatura ativa.'
+    return title, description, 'accent' if active else 'error'
+
+
+def teacher_active(teacher: dict, now: datetime | None = None) -> bool:
+    return subscription_active({'plan': teacher.get('plan'), 'status': teacher.get('status'), 'trial_ends_at': teacher.get('trial_ends_at')}, now)

@@ -101,6 +101,20 @@ class State:
              'teacher_response': '', 'created_at': iso(-60), 'resolved_at': None},
         ]
         self.uploads: dict[str, bytes] = {}
+        self.profile = {'id': TEACHER, 'role': 'teacher', 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com', 'school_name': 'Demo English',
+                        'avatar_url': '', 'whatsapp_phone': ''}
+        self.subscription = {'teacher_id': TEACHER, 'plan': 'owner', 'status': 'active', 'trial_ends_at': None}
+        today = NOW.date()
+        self.study_activities = [{'student_id': 'st-ana', 'activity_date': (today - timedelta(days=offset)).isoformat()} for offset in range(4)]
+        self.streak_freezes = [{'student_id': 'st-ana', 'protected_date': (today - timedelta(days=4)).isoformat()}]
+        self.teacher_invitations = [{'id': 'inv-1', 'email': 'nova@exemplo.com', 'full_name': 'Nova Professora', 'token': 'tok123', 'used': False,
+                                     'expires_at': iso(600), 'created_at': iso(-60)}]
+        self.teachers = [{'id': TEACHER, 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com', 'school_name': 'Demo English', 'created_at': iso(-90000),
+                          'plan': 'owner', 'status': 'active', 'trial_ends_at': None, 'student_count': 3, 'is_owner': True},
+                         {'id': 'teacher-0002', 'full_name': 'Rita Alves', 'email': 'rita@exemplo.com', 'school_name': '', 'created_at': iso(-30000),
+                          'plan': 'trial', 'status': 'trialing', 'trial_ends_at': iso(20000), 'student_count': 1, 'is_owner': False}]
+        self.invites: list[dict] = []
+        self.created_accounts: list[dict] = []
         self.reviewed: dict[str, dict] = {}
         self.finalized: set[str] = set()
 
@@ -231,6 +245,8 @@ class Handler(BaseHTTPRequestHandler):
             return None
         if url.path.startswith('/storage/v1/object/sign/'):
             return self._json(200, {'signedURL': '/object/sign/' + url.path.split('/object/sign/', 1)[1] + '?token=demo'})
+        if url.path.startswith('/functions/v1/'):
+            return self._function(url.path.rsplit('/', 1)[1], body)
         if url.path.startswith('/rest/v1/rpc/'):
             return self._rpc(url.path.rsplit('/', 1)[1], body)
         if url.path == '/rest/v1/lessons':
@@ -253,6 +269,38 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(201, created)
         return self._json(404, {'message': 'not found'})
 
+    def _function(self, name: str, body: dict) -> None:
+        if name == 'invite-student':
+            if body.get('action') == 'create-with-password':
+                if any((row['student'].get('email') == body['email']) for row in STATE.students):
+                    return self._json(400, {'error': 'A user with this email address has already been registered'})
+                student_id = f'st-new-{len(STATE.created_accounts) + 1}'
+                STATE.students.append({'student_id': student_id, 'teacher_id': TEACHER, 'level': body.get('level'), 'goal': body.get('goal'), 'age': body.get('age'),
+                                       'notes': body.get('notes', ''), 'skills': {}, 'created_at': iso(),
+                                       'student': {'id': student_id, 'full_name': body['fullName'], 'email': body['email'], 'whatsapp_phone': body.get('whatsappPhone', '')}})
+                STATE.created_accounts.append(body)
+                return self._json(200, {'ok': True, 'temporaryPassword': 'Temp-1234', 'studentId': student_id})
+            STATE.invites.append({**body, 'origin': self.headers.get('Origin')})
+            return self._json(200, {'ok': True})
+        if name == 'invite-teacher':
+            token = f'tok{len(STATE.teacher_invitations) + 1}'
+            STATE.teacher_invitations.insert(0, {'id': f'inv-{len(STATE.teacher_invitations) + 1}', 'email': body['email'], 'full_name': body['full_name'], 'token': token,
+                                                 'used': False, 'expires_at': iso(1440), 'created_at': iso()})
+            origin = self.headers.get('Origin') or 'http://localhost:1420'
+            return self._json(200, {'ok': True, 'invitation_link': f'{origin}/accept-invite?token={token}&email={urllib.parse.quote(body["email"])}'})
+        if name == 'admin-teachers':
+            if body.get('action') == 'list':
+                return self._json(200, {'teachers': STATE.teachers})
+            teacher = next((row for row in STATE.teachers if row['id'] == body.get('teacher_id')), None)
+            if not teacher or teacher['is_owner']:
+                return self._json(400, {'error': 'A conta administrativa não pode ser alterada'})
+            if body['action'] == 'set-access':
+                teacher.update({'plan': 'professional', 'status': 'active', 'trial_ends_at': None} if body['enabled'] else {'status': 'expired'})
+            elif body['action'] == 'delete':
+                STATE.teachers.remove(teacher)
+            return self._json(200, {'ok': True})
+        return self._json(404, {'error': f'function {name} not found'})
+
     def _rpc(self, name: str, body: dict) -> None:
         if name == 'list_assessment_review_queue':
             return self._json(200, STATE.queue())
@@ -271,6 +319,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, STATE.active())
         if name == 'get_attempt_live_status':
             return self._json(200, STATE.live_status())
+        if name == 'ensure_teacher_subscription':
+            return self._json(200, STATE.subscription)
         if name == 'get_assessment_progress':
             return self._json(200, STATE.progress(body.get('p_student_id', '')))
         return self._json(404, {'message': f'function {name} not found'})
@@ -288,7 +338,9 @@ class Handler(BaseHTTPRequestHandler):
         if table == 'student_records':
             return self._json(200, STATE.students)
         if table == 'lessons':
-            return self._json(200, sorted(STATE.lessons, key=lambda row: row['starts_at']))
+            return self._json(200, sorted([row for row in STATE.lessons if _matches(row, url.query)], key=lambda row: row['starts_at']))
+        if table in ('study_activities', 'streak_freezes', 'teacher_invitations'):
+            return self._json(200, [row for row in getattr(STATE, table) if _matches(row, url.query)])
         if table == 'notifications':
             return self._json(200, sorted(STATE.notifications, key=lambda row: row['scheduled_for'], reverse=True))
         if table == 'cancellation_requests':
@@ -299,7 +351,7 @@ class Handler(BaseHTTPRequestHandler):
         if table in ('materials', 'material_assignments', 'assignments', 'payments'):
             return self._json(200, [row for row in getattr(STATE, table) if _matches(row, url.query)])
         if table == 'profiles':
-            return self._json(200, [{'id': TEACHER, 'role': 'teacher', 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com'}])
+            return self._json(200, [dict(STATE.profile)])
         return self._json(404, {'message': 'not found'})
 
     def do_PATCH(self) -> None:
@@ -309,6 +361,15 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         query = dict(urllib.parse.parse_qsl(url.query))
         table = url.path.removeprefix('/rest/v1/')
+        if table == 'profiles':
+            target = query.get('id', '').removeprefix('eq.')
+            if target == TEACHER:
+                STATE.profile.update(body)
+            for row in STATE.students:
+                if row['student_id'] == target:
+                    row['student'].update(body)
+            self.send_response(204); self.end_headers()
+            return None
         rows = {'notifications': STATE.notifications, 'lessons': STATE.lessons, 'assignments': STATE.assignments, 'payments': STATE.payments,
                 'cancellation_requests': STATE.cancellation_requests, 'student_records': STATE.students}.get(table, [])
         if 'id' in query:
@@ -323,7 +384,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def _matches(row: dict, query: str) -> bool:
-    """Minimal PostgREST eq./neq. filtering (select/order are ignored)."""
+    """Minimal PostgREST filtering: eq, neq, is.null, lt/lte/gt/gte on strings (select/order are ignored)."""
     for key, value in urllib.parse.parse_qsl(query):
         if key in ('select', 'order', 'limit'):
             continue
@@ -331,6 +392,11 @@ def _matches(row: dict, query: str) -> bool:
             return False
         if value.startswith('neq.') and str(row.get(key)) == value[4:]:
             return False
+        if value == 'is.null' and row.get(key) is not None:
+            return False
+        for operator, test in (('lt.', lambda a, b: a < b), ('lte.', lambda a, b: a <= b), ('gt.', lambda a, b: a > b), ('gte.', lambda a, b: a >= b)):
+            if value.startswith(operator) and (row.get(key) is None or not test(str(row.get(key)), value[len(operator):])):
+                return False
     return True
 
 
@@ -347,7 +413,7 @@ def _delete(self) -> None:
     query = dict(urllib.parse.parse_qsl(url.query))
     table = url.path.removeprefix('/rest/v1/')
     rows = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
-            'lessons': STATE.lessons}.get(table)
+            'lessons': STATE.lessons, 'student_records': STATE.students, 'teacher_invitations': STATE.teacher_invitations}.get(table)
     if rows is None:
         self._json(404, {'message': 'not found'})
         return

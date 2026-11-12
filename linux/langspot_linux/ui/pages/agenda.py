@@ -13,7 +13,8 @@ from gi.repository import Adw, GLib, Gtk, Pango
 
 from langspot_linux import model
 from langspot_linux.ui.common import (Page, confirm, date_row, empty_state, form_dialog, label, open_uri, pill, scrolled,
-                                      student_names, text_view, vbox)
+                                      student_names, vbox)
+from langspot_linux.ui.lesson_forms import duration_row, lesson_defaults, record_lesson, time_rows
 from langspot_linux.worker import run_async
 
 STATUS_KIND = {'scheduled': 'accent', 'completed': 'success', 'cancelled': 'error'}
@@ -325,9 +326,13 @@ class AgendaPage(Page):
         if lesson.status == 'scheduled':
             add_action('Concluir aula', 'object-select-symbolic', lambda: (dialog.close(), self.record_lesson(lesson)))
             add_action('Editar aula', 'document-edit-symbolic', lambda: (dialog.close(), self.edit_lesson(lesson, lesson.starts_at.date())))
-            add_action('Cancelar aula', 'action-unavailable-symbolic', lambda: confirm(dialog, 'Cancelar esta aula?', f'{lesson.student_name} será avisado do cancelamento.',
-                                                                                     'Cancelar aula', lambda: self._update(lesson, {'status': 'cancelled'}, 'Aula cancelada.', dialog),
-                                                                                     destructive=True), destructive=True)
+            def cancel() -> None:
+                run = lambda: self._update(lesson, {'status': 'cancelled'}, 'Aula cancelada.', dialog)  # noqa: E731
+                if self.window.app.prefs.get('confirmCancellations', True):
+                    confirm(dialog, 'Cancelar esta aula?', f'{lesson.student_name} será avisado do cancelamento.', 'Cancelar aula', run, destructive=True)
+                else:
+                    run()
+            add_action('Cancelar aula', 'action-unavailable-symbolic', cancel, destructive=True)
         elif lesson.status == 'completed':
             add_action('Editar registro', 'document-edit-symbolic', lambda: (dialog.close(), self.record_lesson(lesson)))
             add_action('Excluir registro', 'user-trash-symbolic', lambda: confirm(dialog, f'Excluir “{lesson.topic}”?',
@@ -364,36 +369,19 @@ class AgendaPage(Page):
             combo.set_selected(ids.index(self.student_filter))
         return combo, ids
 
-    @staticmethod
-    def _time_rows(starts: datetime | None) -> tuple[Adw.SpinRow, Adw.SpinRow]:
-        hour = Adw.SpinRow.new_with_range(0, 23, 1)
-        hour.set_title('Hora')
-        hour.set_value(starts.hour if starts else 19)
-        minute = Adw.SpinRow.new_with_range(0, 55, 5)
-        minute.set_title('Minutos')
-        minute.set_value((starts.minute // 5) * 5 if starts else 0)
-        return hour, minute
-
-    @staticmethod
-    def _duration_row(current: int) -> Adw.ComboRow:
-        options = model.DURATIONS if current in model.DURATIONS else sorted({*model.DURATIONS, current})
-        row = Adw.ComboRow(title='Duração', model=Gtk.StringList.new([f'{value} minutos' for value in options]))
-        row.set_selected(options.index(current))
-        row.options = options  # type: ignore[attr-defined]
-        return row
-
     def edit_lesson(self, lesson: model.Lesson | None, day: date) -> None:
         if not self.students:
-            self.window.toast('Cadastre um aluno no site antes de agendar aulas.')
+            self.window.toast('Cadastre um aluno antes de agendar aulas.')
             return
         dialog, page, save = form_dialog(self.window, 'Editar aula' if lesson else 'Nova aula', 'Salvar' if lesson else 'Agendar')
         group = Adw.PreferencesGroup()
         student, ids = self._student_combo(lesson.student_id if lesson else None)
         topic = Adw.EntryRow(title='Tema da aula', text=lesson.topic if lesson else '')
         when, when_value = date_row('Data', day)
-        hour, minute = self._time_rows(lesson.starts_at if lesson else None)
-        duration = self._duration_row(lesson.duration if lesson else 60)
-        link = Adw.EntryRow(title='Link da sala online (opcional)', text=lesson.online_url if lesson else '', input_purpose=Gtk.InputPurpose.URL)
+        hour, minute = time_rows(lesson.starts_at if lesson else None)
+        default_duration, default_link = lesson_defaults(self.window)
+        duration = duration_row(lesson.duration if lesson else default_duration)
+        link = Adw.EntryRow(title='Link da sala online (opcional)', text=lesson.online_url if lesson else default_link, input_purpose=Gtk.InputPurpose.URL)
         for row in (student, topic, when, hour, minute, duration, link):
             group.add(row)
         page.add(group)
@@ -425,72 +413,7 @@ class AgendaPage(Page):
 
     # ------------------------------------------------------------------ complete / edit record
     def record_lesson(self, lesson: model.Lesson) -> None:
-        student = self.students.get(lesson.student_id, {})
-        completing = lesson.status == 'scheduled'
-        dialog, page, save = form_dialog(self.window, f'{"Concluir aula" if completing else "Editar registro"} · {lesson.student_name}',
-                                         'Concluir e registrar' if completing else 'Salvar registro', width=560)
-        group = Adw.PreferencesGroup()
-        when, when_value = date_row('Data', lesson.starts_at.date())
-        hour, minute = self._time_rows(lesson.starts_at)
-        duration = self._duration_row(lesson.duration)
-        topic = Adw.EntryRow(title='Tema da aula', text=lesson.topic)
-        link = Adw.EntryRow(title='Link da sala online', text=lesson.online_url)
-        attendance_values = list(model.ATTENDANCE_LABELS)
-        attendance = Adw.ComboRow(title='Presença', model=Gtk.StringList.new(list(model.ATTENDANCE_LABELS.values())))
-        attendance.set_selected(attendance_values.index(lesson.attendance) if lesson.attendance in attendance_values else 0)
-        for row in (when, hour, minute, duration, topic, link, attendance):
-            group.add(row)
-        page.add(group)
-
-        texts = {}
-        for key, title, current in (('notes', 'Resumo da aula', lesson.notes), ('strengths', 'Pontos fortes', lesson.strengths),
-                                    ('improvements', 'Pontos a melhorar', lesson.improvements), ('homework', 'Tarefa de casa', lesson.homework)):
-            text_group = Adw.PreferencesGroup(title=title)
-            frame, value = text_view(current if current.strip() else model.RECORD_TEMPLATES[key], 140)
-            text_group.add(frame)
-            page.add(text_group)
-            texts[key] = value
-
-        skills_group = Adw.PreferencesGroup(title='Habilidades nesta aula', description='Atualiza também o perfil do aluno (0 a 100).')
-        base = {**{skill: 50 for skill in model.SKILLS}, **{key: float(value) for key, value in (student.get('skills') or {}).items() if key in model.SKILLS},
-                **{key: float(value) for key, value in (lesson.skill_scores or {}).items() if key in model.SKILLS}}
-        scales = {}
-        for skill in model.SKILLS:
-            row = Adw.ActionRow(title=skill)
-            scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
-            scale.set_value(base[skill])
-            scale.set_size_request(220, -1)
-            scale.set_draw_value(True)
-            scale.set_digits(0)
-            scale.set_value_pos(Gtk.PositionType.RIGHT)
-            row.add_suffix(scale)
-            scales[skill] = scale
-            skills_group.add(row)
-        page.add(skills_group)
-
-        def submit(*_):
-            if not topic.get_text().strip():
-                dialog.show_error('Escreva o tema da aula.')
-                return
-            chosen = when_value()
-            starts = datetime(chosen.year, chosen.month, chosen.day, int(hour.get_value()), int(minute.get_value())).astimezone()
-            skills = {skill: round(scale.get_value()) for skill, scale in scales.items()}
-            values = model.lesson_record_values(starts, duration.options[duration.get_selected()], topic.get_text().strip(), link.get_text().strip(),
-                                                attendance_values[attendance.get_selected()], {key: value() for key, value in texts.items()}, skills)
-            save.set_sensitive(False)
-
-            def work():
-                # Same as the web app: the record updates the lesson and the student's skills.
-                self.client.update('lessons', values, id=f'eq.{lesson.id}')
-                self.client.update('student_records', {'skills': skills}, student_id=f'eq.{lesson.student_id}', teacher_id=f'eq.{self.window.profile["id"]}')
-
-            def done(_r) -> None:
-                dialog.close()
-                self.window.toast('Aula concluída e registrada.' if completing else 'Registro atualizado.')
-                self.refresh()
-            run_async(work, done, lambda error: dialog.show_error(str(error)))
-        save.connect('clicked', submit)
-        dialog.present(self.window)
+        record_lesson(self.window, lesson, self.students.get(lesson.student_id, {}), self.refresh)
 
     # ------------------------------------------------------------------ cancellation requests
     def show_requests(self) -> None:
