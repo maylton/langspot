@@ -132,6 +132,45 @@ class StudentsTest(unittest.TestCase):
         self.assertEqual(model.achievements(7), 2)
 
 
+class QuizTest(unittest.TestCase):
+    def test_manual_questions(self) -> None:
+        mc = model.new_question('multiple_choice', ' I ___ been to Canada. ', options=['have', 'did', '', ''], answer='A', explanation='Experiência.')
+        self.assertEqual((mc['options'], mc['answer'], mc['explanation']), (['have', 'did'], 'have', 'Experiência.'))
+        with self.assertRaises(ValueError):
+            model.new_question('multiple_choice', 'x', options=['have', '', '', ''], answer='A')
+        with self.assertRaises(ValueError):
+            model.new_question('multiple_choice', 'x', options=['have', 'did', '', ''], answer='C')
+        tf = model.new_question('true_false', 'Paris is in France.', answer='Falso')
+        self.assertEqual((tf['options'], tf['answer']), (['Verdadeiro', 'Falso'], 'Falso'))
+        order = model.new_question('ordering', 'Order it.', answer='If / I / study, / I / will pass', shuffle=lambda items: items.reverse())
+        self.assertEqual(order['answer'], 'If / I / study, / I / will pass')
+        self.assertEqual(order['options'], ['will pass', 'I', 'study,', 'I', 'If'])
+        self.assertEqual(model.display_answer(order), 'If I study, I will pass')
+        self.assertEqual(model.split_ordering('a, b, c'), ['a', 'b', 'c'])
+        with self.assertRaises(ValueError):
+            model.new_question('fill_blank', 'I ___ here.', answer=' ')
+        content = model.quiz_content([tf], 0, 'after_last')
+        self.assertEqual(content['settings'], {'maxAttempts': 0, 'revealAnswers': 'after_last'})
+        self.assertEqual(model.quiz_summary({'score': 4, 'total': 5, 'percentage': 80}), '4/5 acertos (80%)')
+
+    def test_bank(self) -> None:
+        row = {'question_type': 'fill_blank', 'prompt': 'I ___ tired.', 'options': [], 'answer': 'am', 'explanation': None}
+        question = model.bank_to_question(row)
+        self.assertEqual((question['type'], question['answer']), ('fill_blank', 'am'))
+        self.assertNotIn('explanation', question)
+        values = model.bank_values('B1', 'Grammar', question, skill='language_use', subskill=' ')
+        self.assertEqual((values['question_type'], values['subskill'], values['quality_status']), ('fill_blank', None, 'draft'))
+
+    def test_comment_offsets_match_javascript(self) -> None:
+        text = 'Hi 😀 there, café'
+        start = text.index('there')
+        comment = model.text_comment(text, start, start + 5, ' Nice ')
+        self.assertEqual((comment['start'], comment['end'], comment['text'], comment['comment']), (6, 11, 'there', 'Nice'))
+        self.assertEqual(model.comment_span(text, comment), (start, start + 5))
+        self.assertIsNone(model.comment_span(text, {'start': 3, 'end': 99}))
+        self.assertIsNone(model.comment_span(text, {'start': 5, 'end': 5}))
+
+
 if __name__ == '__main__':
     unittest.main()
 

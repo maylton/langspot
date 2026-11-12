@@ -87,8 +87,15 @@ class State:
             {'id': 'a3', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'material_id': None, 'title': 'IELTS Task 2 essay', 'instructions': 'Write 250 words.',
              'due_date': (NOW + timedelta(days=-8)).date().isoformat(), 'status': 'reviewed', 'assignment_type': 'regular', 'submission_text': 'Essay…', 'submitted_at': iso(-12000),
              'submission_file_path': None, 'submission_file_name': None, 'feedback': 'Great structure.', 'grade': 85, 'text_comments': [], 'created_at': iso(-15000)},
-            {'id': 'q1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'title': 'Quiz: irregular verbs', 'instructions': '', 'due_date': (NOW + timedelta(days=2)).date().isoformat(),
-             'status': 'pending', 'assignment_type': 'interactive', 'submission_text': '', 'created_at': iso(-500)},
+            {'id': 'q1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'title': 'Quiz: irregular verbs', 'instructions': 'Responda às questões abaixo.',
+             'due_date': (NOW + timedelta(days=2)).date().isoformat(), 'status': 'submitted', 'assignment_type': 'interactive', 'submission_text': '',
+             'submitted_at': iso(-90), 'feedback': '', 'grade': None, 'text_comments': [], 'created_at': iso(-500),
+             'interactive_content': {'settings': {'maxAttempts': 2, 'revealAnswers': 'after_each'}, 'questions': [
+                 {'id': 'qq1', 'type': 'multiple_choice', 'prompt': 'Yesterday I ___ to the cinema.', 'options': ['go', 'went', 'gone'], 'answer': 'went',
+                  'explanation': 'Past simple of go.'},
+                 {'id': 'qq2', 'type': 'fill_blank', 'prompt': 'She ___ (buy) a new phone last week.', 'options': [], 'answer': 'bought'},
+                 {'id': 'qq3', 'type': 'ordering', 'prompt': 'Order the words.', 'options': ['ate', 'We', 'pizza'], 'answer': 'We / ate / pizza'}]},
+             'interactive_result': {'answers': {}, 'score': 2, 'total': 3, 'percentage': 67, 'attempts': [{'score': 1}, {'score': 2}]}},
         ]
         today = NOW.date()
         self.payments = [
@@ -114,6 +121,16 @@ class State:
                          {'id': 'teacher-0002', 'full_name': 'Rita Alves', 'email': 'rita@exemplo.com', 'school_name': '', 'created_at': iso(-30000),
                           'plan': 'trial', 'status': 'trialing', 'trial_ends_at': iso(20000), 'student_count': 1, 'is_owner': False}]
         self.invites: list[dict] = []
+        self.question_bank = [
+            {'id': 'qb1', 'teacher_id': TEACHER, 'source_origin': 'teacher', 'level': 'A2', 'category': 'Grammar', 'question_type': 'multiple_choice',
+             'prompt': 'They ___ football every Sunday.', 'options': ['play', 'plays', 'playing'], 'answer': 'play', 'explanation': None, 'skill': 'language_use',
+             'subskill': 'present simple', 'quality_status': 'reviewed', 'usage_count': 3, 'restricted': False, 'created_at': iso(-5000)},
+            {'id': 'qb2', 'teacher_id': None, 'source_origin': 'cefr_pilot', 'external_id': 'LU-A2-001', 'level': 'A2', 'category': 'Grammar', 'question_type': 'true_false',
+             'prompt': '"He don\'t like tea" is correct.', 'options': ['Verdadeiro', 'Falso'], 'answer': 'Falso', 'explanation': None, 'skill': 'language_use',
+             'subskill': None, 'quality_status': 'approved_for_pilot', 'usage_count': 9, 'restricted': False, 'created_at': iso(-9000)},
+            {'id': 'qb3', 'teacher_id': TEACHER, 'source_origin': 'teacher', 'level': 'A1', 'category': 'Grammar', 'question_type': 'fill_blank',
+             'prompt': 'I ___ a student.', 'options': [], 'answer': 'am', 'explanation': None, 'skill': 'language_use', 'subskill': None,
+             'quality_status': 'draft', 'usage_count': 0, 'restricted': False, 'created_at': iso(-3000)}]
         self.created_accounts: list[dict] = []
         self.reviewed: dict[str, dict] = {}
         self.finalized: set[str] = set()
@@ -253,7 +270,8 @@ class Handler(BaseHTTPRequestHandler):
             row = {'id': f'l{len(STATE.lessons) + 1}', 'teacher_id': TEACHER, 'status': 'scheduled', 'notes': '', 'homework': '', **body}
             STATE.lessons.append(row)
             return self._json(201, [row])
-        tables = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments}
+        tables = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
+                  'question_bank': STATE.question_bank}
         table = url.path.removeprefix('/rest/v1/')
         if table in tables:
             rows = body if isinstance(body, list) else [body]
@@ -288,6 +306,10 @@ class Handler(BaseHTTPRequestHandler):
                                                  'used': False, 'expires_at': iso(1440), 'created_at': iso()})
             origin = self.headers.get('Origin') or 'http://localhost:1420'
             return self._json(200, {'ok': True, 'invitation_link': f'{origin}/accept-invite?token={token}&email={urllib.parse.quote(body["email"])}'})
+        if name == 'generate-quiz':
+            count = int(body.get('count') or 5)
+            return self._json(200, {'questions': [{'type': 'multiple_choice', 'prompt': f'{body["topic"]} #{index + 1}: I ___ visited Rome.',
+                                                    'options': ['have', 'has', 'had'], 'answer': 'have', 'explanation': 'Present perfect.'} for index in range(count)]})
         if name == 'admin-teachers':
             if body.get('action') == 'list':
                 return self._json(200, {'teachers': STATE.teachers})
@@ -339,7 +361,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, STATE.students)
         if table == 'lessons':
             return self._json(200, sorted([row for row in STATE.lessons if _matches(row, url.query)], key=lambda row: row['starts_at']))
-        if table in ('study_activities', 'streak_freezes', 'teacher_invitations'):
+        if table in ('study_activities', 'streak_freezes', 'teacher_invitations', 'question_bank'):
             return self._json(200, [row for row in getattr(STATE, table) if _matches(row, url.query)])
         if table == 'notifications':
             return self._json(200, sorted(STATE.notifications, key=lambda row: row['scheduled_for'], reverse=True))
@@ -413,7 +435,8 @@ def _delete(self) -> None:
     query = dict(urllib.parse.parse_qsl(url.query))
     table = url.path.removeprefix('/rest/v1/')
     rows = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
-            'lessons': STATE.lessons, 'student_records': STATE.students, 'teacher_invitations': STATE.teacher_invitations}.get(table)
+            'lessons': STATE.lessons, 'student_records': STATE.students, 'teacher_invitations': STATE.teacher_invitations,
+            'question_bank': STATE.question_bank}.get(table)
     if rows is None:
         self._json(404, {'message': 'not found'})
         return

@@ -178,7 +178,7 @@ class LangSpotApp(Adw.Application):
                                           read_at='is.null', scheduled_for=f'lte.{now}', order='scheduled_for.desc', limit='50')
             active = client.rpc('list_active_teacher_attempts') or []
             queue = client.rpc('list_assessment_review_queue') or {}
-            submitted = client.select('assignments', select='id', status='eq.submitted', assignment_type='neq.interactive')
+            submitted = client.select('assignments', select='id,assignment_type', status='eq.submitted')
             return notifications, active, queue, submitted
 
         run_async(work, self._polled, lambda _error: None)
@@ -190,7 +190,8 @@ class LangSpotApp(Adw.Application):
         self.window.set_count('notifications', len(notifications))
         self.window.set_count('live', len(active))
         self.window.set_count('review', len(queue.get('items') or []) + len(queue.get('readyToFinalize') or []))
-        self.window.set_count('tasks', len(submitted))
+        self.window.set_count('tasks', sum(1 for row in submitted if row.get('assignment_type') != 'interactive'))
+        self.window.set_count('quiz', sum(1 for row in submitted if row.get('assignment_type') == 'interactive'))
         if self._seen_notifications is not None:
             for item in notifications:
                 if item['id'] not in self._seen_notifications:

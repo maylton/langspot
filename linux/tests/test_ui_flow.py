@@ -160,12 +160,74 @@ def review_task():
     tasks.show_task(next(task for task in tasks.tasks if task['id'] == 'a1'))
 
 
+def answer_alert(text):
+    def run():
+        dialog = walk(app.window, Adw.AlertDialog)[0]
+        walk(dialog, Gtk.TextView)[0].get_buffer().set_text(text)
+        dialog.emit('response', 'ok')
+        dialog.force_close()
+    return run
+
+
+def select_in_submission():
+    page = visible_page('tasks')
+    view = next(item for item in walk(page, Gtk.Label) if item.has_css_class('ls-submission'))
+    start = view.get_label().index('went to the beach')
+    view.select_region(start, start + len('went to the beach'))
+    buttons(page, 'Comentar trecho selecionado')[0].emit('clicked')
+
+
 def grade_task():
     page = visible_page('tasks')
     next(row for row in walk(page, Adw.SwitchRow) if row.get_title() == 'Dar nota').set_active(True)
     walk(page, Adw.SpinRow)[0].set_value(90)
-    walk(page, Gtk.TextView)[0].get_buffer().set_text('Good use of the past simple.')
+    walk(page, Gtk.TextView)[-1].get_buffer().set_text('Good use of the past simple.')
     buttons(page, 'Salvar correção')[0].emit('clicked')
+
+
+def quiz_page():
+    return app.window.pages['quiz']
+
+
+def build_quiz():
+    dialog = last_dialog()
+    entry(dialog, 'Título (ex.: Present Perfect Quiz)').set_text('Present perfect check')
+    level = next(row for row in walk(dialog, Adw.ComboRow) if row.get_title() == 'Nível')
+    level.set_selected(2)  # A2: the bank has two Grammar items there
+
+
+def add_bank_and_ai():
+    dialog = last_dialog()
+    buttons(dialog, 'Montar')[0].emit('clicked')
+    entry(dialog, 'Tema para a IA (ex.: Present perfect with travel)').set_text('Travel')
+    next(row for row in walk(dialog, Adw.SpinRow) if row.get_title() == 'Questões geradas com IA').set_value(2)
+    buttons(dialog, 'Gerar com IA')[0].emit('clicked')
+
+
+def open_manual_question():
+    dialog = walk(app.window, Adw.Dialog)[-1]
+    next(row for row in walk(dialog, Adw.ButtonRow) if row.get_title() == 'Adicionar questão manual').emit('activated')
+
+
+def fill_manual_question(button_label='Adicionar'):
+    def run():
+        dialog = last_dialog()
+        kind = next(row for row in walk(dialog, Adw.ComboRow) if row.get_title() == 'Tipo da pergunta')
+        kind.set_selected(1)  # fill_blank
+        entry(dialog, 'Enunciado').set_text('I have ___ (be) to Japan.')
+        entry(dialog, 'Resposta correta').set_text('been')
+        buttons(dialog, button_label)[0].emit('clicked')
+    return run
+
+
+def create_quiz():
+    dialog = walk(app.window, Adw.Dialog)[-1]
+    buttons(dialog, 'Criar quiz')[0].emit('clicked')
+
+
+def new_bank_question():
+    dialog = last_dialog()
+    next(button for button in walk(dialog, Gtk.Button) if button.get_tooltip_text() == 'Nova questão').emit('clicked')
 
 
 def fill_task():
@@ -268,6 +330,11 @@ def suspend_teacher():
     buttons(last_dialog(), 'Suspender')[0].emit('clicked')
 
 
+def question_bank_dialog():
+    from langspot_linux.ui.quiz_builder import question_bank
+    question_bank(app.window)
+
+
 def individual_report():
     app.window.pages['reports'].header.get_title_widget().set_active_name('individual')
 
@@ -301,12 +368,27 @@ steps += [
     (1500, lambda: check(row_with(STATE.cancellation_requests, 'id', 'cr1').get('status') == 'approved'
                          and row_with(STATE.lessons, 'id', 'l3').get('status') == 'cancelled', 'Cancellation request approved, lesson cancelled')),
     # Tasks
-    (300, lambda: app.window.open_page('tasks')), (1500, review_task), (800, grade_task),
+    (300, lambda: app.window.open_page('tasks')), (1500, review_task), (800, select_in_submission), (600, answer_alert('Use "went to the beach" — good past simple!')), (500, grade_task),
     (1500, lambda: check(row_with(STATE.assignments, 'id', 'a1').get('status') == 'reviewed' and row_with(STATE.assignments, 'id', 'a1').get('grade') == 90,
                          'Task reviewed with grade 90')),
     (300, lambda: app.window.pages['tasks'].new_task()), (800, fill_task),
     (1500, lambda: check(any(row.get('title') == 'Describe your city' and row.get('material_id') for row in STATE.assignments), 'Task created with material')),
     (100, lambda: check(len(STATE.material_assignments) >= 2, 'Task material shared with the student')),
+    (100, lambda: check(len(row_with(STATE.assignments, 'id', 'a1').get('text_comments') or []) == 1
+                        and row_with(STATE.assignments, 'id', 'a1')['text_comments'][0]['text'] == 'went to the beach'
+                        and row_with(STATE.assignments, 'id', 'a1')['text_comments'][0]['start'] == 15, 'Comment on part of the text saved with web offsets')),
+    # Quiz
+    (300, lambda: app.window.open_page('quiz')), (1500, lambda: check(app.window.rows['quiz'].badge.get_text() == '1', 'Quiz badge counts submitted quizzes')),
+    (100, lambda: quiz_page().new_task()), (1500, build_quiz), (1500, add_bank_and_ai), (1500, open_manual_question), (800, fill_manual_question()),
+    (800, create_quiz),
+    (2000, lambda: check(any(row.get('title') == 'Present perfect check' and row.get('assignment_type') == 'interactive'
+                             and len(row['interactive_content']['questions']) == 5
+                             and row['interactive_content']['questions'][-1]['answer'] == 'been' for row in STATE.assignments),
+                         'Quiz created from the bank (2), AI (2) and a manual question')),
+    (300, lambda: question_bank_dialog()), (1500, new_bank_question), (800, fill_manual_question('Salvar questão')),
+    (1500, lambda: check(any(row.get('prompt') == 'I have ___ (be) to Japan.' and row.get('teacher_id') == 'teacher-0001' and row.get('quality_status') == 'draft'
+                             for row in STATE.question_bank), 'Question saved in the bank')),
+    (300, close_dialogs),
     # Materials
     (300, lambda: app.window.open_page('materials')), (1500, lambda: app.window.pages['materials'].new_material()), (800, fill_link_material),
     (1500, lambda: check(any(row.get('url') == 'https://www.example.com/podcast' and row.get('material_source') == 'link' for row in STATE.materials), 'Link material saved')),

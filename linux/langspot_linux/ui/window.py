@@ -8,7 +8,6 @@ from langspot_linux.ui.login import LoginView
 
 WEB_SECTIONS = [
     ('Construtor de provas', 'document-properties-symbolic'),
-    ('Quiz interativo', 'dialog-question-symbolic'),
 ]
 
 
@@ -78,10 +77,10 @@ class MainWindow(Adw.ApplicationWindow):
         from langspot_linux.ui.pages.review import ReviewPage
         from langspot_linux.ui.pages.settings import SettingsPage
         from langspot_linux.ui.pages.students import StudentsPage
-        from langspot_linux.ui.pages.tasks import TasksPage
+        from langspot_linux.ui.pages.tasks import QuizPage, TasksPage
 
         self.profile = profile
-        for page_class in (OverviewPage, AgendaPage, StudentsPage, TasksPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ProgressPage,
+        for page_class in (OverviewPage, AgendaPage, StudentsPage, TasksPage, QuizPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ProgressPage,
                            ReportsPage, NotificationsPage, SettingsPage):
             self.pages[page_class.key] = page_class(self)
 

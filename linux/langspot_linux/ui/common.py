@@ -69,6 +69,29 @@ def confirm_typed(parent: Gtk.Widget, heading: str, body: str, expected: str, ac
     dialog.present(parent)
 
 
+def ask_long_text(parent: Gtk.Widget, heading: str, body: str, initial: str, action: str, on_text: Callable[[str], None]) -> None:
+    """Alert with a multi-line text box (comments); calls on_text with the stripped text when not empty."""
+    dialog = Adw.AlertDialog(heading=heading, body=body)
+    view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=8, bottom_margin=8, left_margin=10, right_margin=10)
+    view.get_buffer().set_text(initial)
+    frame = Gtk.ScrolledWindow(child=view, min_content_height=110, max_content_height=220, propagate_natural_height=True, width_request=360)
+    frame.add_css_class('card')
+    dialog.set_extra_child(frame)
+    dialog.add_response('cancel', 'Cancelar')
+    dialog.add_response('ok', action)
+    dialog.set_response_appearance('ok', Adw.ResponseAppearance.SUGGESTED)
+    dialog.set_default_response('ok')
+
+    def response(_dialog, value):
+        buffer = view.get_buffer()
+        text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False).strip()
+        if value == 'ok' and text:
+            on_text(text)
+    dialog.connect('response', response)
+    dialog.present(parent)
+    view.grab_focus()
+
+
 def ask_text(parent: Gtk.Widget, heading: str, body: str, placeholder: str, action: str, on_text: Callable[[str], None]) -> None:
     dialog = Adw.AlertDialog(heading=heading, body=body)
     entry = Gtk.Entry(placeholder_text=placeholder, activates_default=True)
