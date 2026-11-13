@@ -44,6 +44,8 @@ class LangSpotApp(Adw.Application):
         provider = Gtk.CssProvider()
         provider.load_from_path(str(Path(__file__).with_name('style.css')))
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        from langspot_linux.ui import blur
+        blur.lift_flat_cards(Gdk.Display.get_default())
         icons = DATA_DIR / 'icons'
         if icons.is_dir():
             Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(str(icons))
@@ -58,6 +60,9 @@ class LangSpotApp(Adw.Application):
         background = Gio.SimpleAction.new_stateful('background', None, GLib.Variant.new_boolean(self.prefs.get('background', False)))
         background.connect('activate', self._toggle_background)
         self.add_action(background)
+        blur_action = Gio.SimpleAction.new_stateful('compositor-blur', None, GLib.Variant.new_boolean(self.prefs.get('compositorBlur', True)))
+        blur_action.connect('activate', self._toggle_blur)
+        self.add_action(blur_action)
         calendar = Gio.SimpleAction.new_stateful('calendar-sync', None, GLib.Variant.new_boolean(self.prefs.get('calendarSync', False)))
         calendar.connect('activate', self._toggle_calendar)
         self.add_action(calendar)
@@ -87,6 +92,7 @@ class LangSpotApp(Adw.Application):
         refresh.connect('activate', lambda *_: self._refresh_current())
         self.window.add_action(refresh)
         self._apply_background()
+        self.apply_blur()
         self.window.present()
         self._restore()
 
@@ -295,6 +301,17 @@ class LangSpotApp(Adw.Application):
         self._apply_background()
         if self.window:
             self.window.toast('O LangSpot continua avisando você com a janela fechada.' if enabled else 'Fechar a janela encerra o LangSpot.')
+
+    def _toggle_blur(self, item: Gio.SimpleAction, _param) -> None:
+        enabled = not item.get_state().get_boolean()
+        item.set_state(GLib.Variant.new_boolean(enabled))
+        self.prefs['compositorBlur'] = enabled
+        self._save_prefs()
+        self.apply_blur()
+
+    def apply_blur(self) -> bool:
+        from langspot_linux.ui import blur
+        return bool(self.window) and blur.apply(self.window, self.prefs.get('compositorBlur', True))
 
     def _apply_background(self) -> None:
         enabled = bool(self.prefs.get('background'))

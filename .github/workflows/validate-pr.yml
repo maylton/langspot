@@ -44,7 +44,7 @@ jobs:
 
       - name: Linux app tests
         # Pure logic and the Supabase client against a local fake server (no GTK needed).
-        run: cd linux && python3 -m unittest tests.test_model tests.test_supabase tests.test_calendar_sync tests.test_assessments 2>&1 | tee ../linux-tests.log
+        run: cd linux && python3 -m unittest tests.test_model tests.test_supabase tests.test_calendar_sync tests.test_assessments tests.test_blur 2>&1 | tee ../linux-tests.log
 
       - name: Validate CEFR pilot bank
         run: npm run test:cefr:pilot 2>&1 | tee validation-pilot.log

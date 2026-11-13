@@ -46,7 +46,12 @@ class MainWindow(Adw.ApplicationWindow):
         self.login = LoginView(self)
         self.stack.add_named(self.login, 'login')
         self.toasts.set_child(self.stack)
-        self.set_content(self.toasts)
+        # An empty layer under everything where blur.py asks the compositor for its blur:
+        # nothing changes in it, so GTK only redraws what changes above it.
+        layers = Gtk.Overlay(child=Gtk.Box(css_classes=['ls-blur-layer']))
+        layers.add_overlay(self.toasts)
+        layers.set_measure_overlay(self.toasts, True)
+        self.set_content(layers)
         self.split: Adw.NavigationSplitView | None = None
 
     # ------------------------------------------------------------------ states
@@ -86,6 +91,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.split = Adw.NavigationSplitView(min_sidebar_width=230, max_sidebar_width=280)
         self.split.set_sidebar(self._sidebar(profile))
         self.content = Adw.NavigationPage(title='LangSpot')
+        self.content.add_css_class('ls-main')
         self.split.set_content(self.content)
         breakpoint = Adw.Breakpoint.new(Adw.BreakpointCondition.parse('max-width: 680sp'))
         breakpoint.add_setter(self.split, 'collapsed', True)
@@ -155,7 +161,9 @@ class MainWindow(Adw.ApplicationWindow):
         box.append(footer)
         self.update_identity()
         toolbar.set_content(Gtk.ScrolledWindow(child=box, hscrollbar_policy=Gtk.PolicyType.NEVER))
-        return Adw.NavigationPage(title='LangSpot', child=toolbar)
+        page = Adw.NavigationPage(title='LangSpot', child=toolbar)
+        page.add_css_class('ls-side')
+        return page
 
     def open_page(self, key: str) -> None:
         page = self.pages.get(key)

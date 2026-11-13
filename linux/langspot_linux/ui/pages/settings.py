@@ -220,6 +220,13 @@ class SettingsPage(Page):
             apply_theme(keys[row.get_selected()])
         theme.connect('notify::selected', chosen)
         group.add(theme)
+        from langspot_linux.ui import blur
+        blur_row = Adw.ActionRow(title='Desfoque do compositor', subtitle='A janela fica translúcida e o compositor desfoca o que está atrás dela (Hyprland/Caelestia).'
+                                 if blur.available() else 'O compositor atual não oferece desfoque por trás das janelas.')
+        blur_switch = Gtk.Switch(valign=Gtk.Align.CENTER, action_name='app.compositor-blur', sensitive=blur.available())
+        blur_row.add_suffix(blur_switch)
+        blur_row.set_activatable_widget(blur_switch)
+        group.add(blur_row)
         for title, subtitle, action in (('Continuar em segundo plano ao fechar', 'Avisos de provas e notificações com a janela fechada.', 'app.background'),
                                         ('Mostrar as aulas no calendário do sistema', 'GNOME, KDE, Caelestia ou qualquer app que leia arquivos .ics.', 'app.calendar-sync')):
             row = Adw.ActionRow(title=title, subtitle=subtitle)
