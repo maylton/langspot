@@ -87,8 +87,15 @@ class State:
             {'id': 'a3', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'material_id': None, 'title': 'IELTS Task 2 essay', 'instructions': 'Write 250 words.',
              'due_date': (NOW + timedelta(days=-8)).date().isoformat(), 'status': 'reviewed', 'assignment_type': 'regular', 'submission_text': 'Essay…', 'submitted_at': iso(-12000),
              'submission_file_path': None, 'submission_file_name': None, 'feedback': 'Great structure.', 'grade': 85, 'text_comments': [], 'created_at': iso(-15000)},
-            {'id': 'q1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'title': 'Quiz: irregular verbs', 'instructions': '', 'due_date': (NOW + timedelta(days=2)).date().isoformat(),
-             'status': 'pending', 'assignment_type': 'interactive', 'submission_text': '', 'created_at': iso(-500)},
+            {'id': 'q1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'title': 'Quiz: irregular verbs', 'instructions': 'Responda às questões abaixo.',
+             'due_date': (NOW + timedelta(days=2)).date().isoformat(), 'status': 'submitted', 'assignment_type': 'interactive', 'submission_text': '',
+             'submitted_at': iso(-90), 'feedback': '', 'grade': None, 'text_comments': [], 'created_at': iso(-500),
+             'interactive_content': {'settings': {'maxAttempts': 2, 'revealAnswers': 'after_each'}, 'questions': [
+                 {'id': 'qq1', 'type': 'multiple_choice', 'prompt': 'Yesterday I ___ to the cinema.', 'options': ['go', 'went', 'gone'], 'answer': 'went',
+                  'explanation': 'Past simple of go.'},
+                 {'id': 'qq2', 'type': 'fill_blank', 'prompt': 'She ___ (buy) a new phone last week.', 'options': [], 'answer': 'bought'},
+                 {'id': 'qq3', 'type': 'ordering', 'prompt': 'Order the words.', 'options': ['ate', 'We', 'pizza'], 'answer': 'We / ate / pizza'}]},
+             'interactive_result': {'answers': {}, 'score': 2, 'total': 3, 'percentage': 67, 'attempts': [{'score': 1}, {'score': 2}]}},
         ]
         today = NOW.date()
         self.payments = [
@@ -101,6 +108,76 @@ class State:
              'teacher_response': '', 'created_at': iso(-60), 'resolved_at': None},
         ]
         self.uploads: dict[str, bytes] = {}
+        self.profile = {'id': TEACHER, 'role': 'teacher', 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com', 'school_name': 'Demo English',
+                        'avatar_url': '', 'whatsapp_phone': ''}
+        self.subscription = {'teacher_id': TEACHER, 'plan': 'owner', 'status': 'active', 'trial_ends_at': None}
+        today = NOW.date()
+        self.study_activities = [{'student_id': 'st-ana', 'activity_date': (today - timedelta(days=offset)).isoformat()} for offset in range(4)]
+        self.streak_freezes = [{'student_id': 'st-ana', 'protected_date': (today - timedelta(days=4)).isoformat()}]
+        self.teacher_invitations = [{'id': 'inv-1', 'email': 'nova@exemplo.com', 'full_name': 'Nova Professora', 'token': 'tok123', 'used': False,
+                                     'expires_at': iso(600), 'created_at': iso(-60)}]
+        self.teachers = [{'id': TEACHER, 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com', 'school_name': 'Demo English', 'created_at': iso(-90000),
+                          'plan': 'owner', 'status': 'active', 'trial_ends_at': None, 'student_count': 3, 'is_owner': True},
+                         {'id': 'teacher-0002', 'full_name': 'Rita Alves', 'email': 'rita@exemplo.com', 'school_name': '', 'created_at': iso(-30000),
+                          'plan': 'trial', 'status': 'trialing', 'trial_ends_at': iso(20000), 'student_count': 1, 'is_owner': False}]
+        self.invites: list[dict] = []
+        self.assessments = [
+            {'id': 'as-d1', 'teacher_id': TEACHER, 'title': 'Unit 4 Progress Test', 'description': 'Past tenses', 'type': 'unit', 'status': 'draft', 'framework': 'none',
+             'time_limit_minutes': 30, 'version': 1, 'preset_id': None, 'generated_for_student_id': None, 'updated_at': iso(-20)},
+            {'id': 'as-1', 'teacher_id': TEACHER, 'title': 'Level Check - B1', 'description': '', 'type': 'placement', 'status': 'published', 'framework': 'cefr',
+             'time_limit_minutes': None, 'version': 1, 'preset_id': 'pr-b1', 'generated_for_student_id': 'st-ana', 'updated_at': iso(-3000)},
+            {'id': 'as-live', 'teacher_id': TEACHER, 'title': 'Speaking check A2', 'description': '', 'type': 'progress', 'status': 'published', 'framework': 'none',
+             'time_limit_minutes': 20, 'version': 1, 'preset_id': None, 'generated_for_student_id': None, 'updated_at': iso(-4000)}]
+        self.presets = [{'id': 'pr-b1', 'name': 'Level Check B1', 'purpose': 'Confirmar se o aluno está no B1.', 'target_level': 'B1', 'floor_level': 'A2',
+                         'ceiling_level': 'B2', 'form_version': 'LC-B1', 'preset_version': '1', 'estimated_duration_min_minutes': 60,
+                         'estimated_duration_max_minutes': 80, 'active': True}]
+        writing = {'id': 'w1', 'type': 'writing', 'prompt': 'Write about a day when your plans changed.', 'options': [], 'answer': '', 'cefr': 'B1', 'skill': 'writing',
+                   'subskill': 'narrative', 'taskType': 'story', 'qualityStatus': 'approved_for_pilot', 'rubric': [dict(item) for item in WRITING_RUBRIC]}
+        self.drafts = {'as-d1': {'id': 'as-d1', 'title': 'Unit 4 Progress Test', 'description': 'Past tenses', 'type': 'unit', 'framework': 'none',
+                                 'assessmentMode': 'fixed', 'navigationMode': 'free', 'levelMin': None, 'levelMax': None, 'timeLimitMinutes': 30, 'maxAttempts': 1,
+                                 'randomizeQuestions': False, 'randomizeOptions': False, 'showResults': 'after_teacher_review', 'adaptiveInitialAbility': 5,
+                                 'adaptiveMinItems': 4, 'adaptiveMaxItems': 10, 'adaptiveConfidenceThreshold': 0.65, 'formVersion': 'GENERIC-1.0',
+                                 'decisionRuleVersion': 'objective-v1', 'routingRuleVersion': 'none', 'reportModelVersion': 'standard-report-v1',
+                                 'sections': [{'id': 'sec-1', 'title': 'Grammar', 'skill': 'grammar', 'instructions': '', 'weight': 1, 'drawCount': None,
+                                               'questions': [{'id': 'dq1', 'questionBankId': None, 'weight': 1, 'required': True,
+                                                              'snapshot': {'id': 'sq1', 'type': 'multiple_choice', 'prompt': 'Yesterday I ___ home.',
+                                                                           'options': ['go', 'went'], 'answer': 'went'}}]}]}}
+        self.writing_snapshot = writing
+        self.saved_drafts: list[dict] = []
+        self.published: list[str] = []
+        self.generated: list[dict] = []
+        self.assessment_assignments: list[dict] = [
+            {'id': 'aa-1', 'assessment_id': 'as-1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'available_from': None, 'due_at': None, 'attempt_limit': 1,
+             'status': 'grading', 'created_at': iso(-4000)},
+            {'id': 'aa-2', 'assessment_id': 'as-live', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'available_from': None, 'due_at': iso(60 * 24 * 3),
+             'attempt_limit': 1, 'status': 'assigned', 'created_at': iso(-600)},
+            {'id': 'aa-3', 'assessment_id': 'as-live', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'available_from': iso(60 * 24), 'due_at': None,
+             'attempt_limit': 2, 'status': 'assigned', 'created_at': iso(-300)},
+            {'id': 'aa-4', 'assessment_id': 'as-1', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'available_from': None, 'due_at': iso(-60 * 24),
+             'attempt_limit': 1, 'status': 'available', 'created_at': iso(-9000)}]
+        self.deleted_assessments: list[str] = []
+        self.report_notes: dict[str, dict] = {}
+        self.overrides: list[dict] = []
+        self.confirmed_levels: list[dict] = []
+        self.live_session = {'attempt': {'id': 'at-ls', 'status': 'in_progress', 'studentId': 'st-bruno', 'studentName': 'Bruno Lima', 'startedAt': iso(-5),
+                                         'submittedAt': None, 'studentStarted': False},
+                             'assessment': {'id': 'as-live', 'title': 'Speaking check A2', 'framework': 'none'}, 'studentQuestionCount': 0,
+                             'questions': [{'id': 'lq1', 'sectionTitle': 'Spoken Interaction', 'skill': 'spoken_interaction', 'type': 'speaking',
+                                            'prompt': 'Plan a **Saturday** outing with the examiner.', 'cefr': 'A2', 'taskType': 'negotiation',
+                                            'estimatedDurationLabel': '4–5 min', 'preparationSeconds': 30, 'recordingSeconds': 180, 'maxScore': 11,
+                                            'primaryEvidence': 'Suggests, agrees and disagrees politely.', 'rubric': [dict(item) for item in SPEAKING_RUBRIC],
+                                            'gradingStatus': 'pending', 'score': None, 'rubricScores': {}, 'notes': '', 'teacherFeedback': '', 'durationSeconds': 0}]}
+        self.question_bank = [
+            {'id': 'qb1', 'teacher_id': TEACHER, 'source_origin': 'teacher', 'level': 'A2', 'category': 'Grammar', 'question_type': 'multiple_choice',
+             'prompt': 'They ___ football every Sunday.', 'options': ['play', 'plays', 'playing'], 'answer': 'play', 'explanation': None, 'skill': 'language_use',
+             'subskill': 'present simple', 'quality_status': 'reviewed', 'usage_count': 3, 'restricted': False, 'created_at': iso(-5000)},
+            {'id': 'qb2', 'teacher_id': None, 'source_origin': 'cefr_pilot', 'external_id': 'LU-A2-001', 'level': 'A2', 'category': 'Grammar', 'question_type': 'true_false',
+             'prompt': '"He don\'t like tea" is correct.', 'options': ['Verdadeiro', 'Falso'], 'answer': 'Falso', 'explanation': None, 'skill': 'language_use',
+             'subskill': None, 'quality_status': 'approved_for_pilot', 'usage_count': 9, 'restricted': False, 'created_at': iso(-9000)},
+            {'id': 'qb3', 'teacher_id': TEACHER, 'source_origin': 'teacher', 'level': 'A1', 'category': 'Grammar', 'question_type': 'fill_blank',
+             'prompt': 'I ___ a student.', 'options': [], 'answer': 'am', 'explanation': None, 'skill': 'language_use', 'subskill': None,
+             'quality_status': 'draft', 'usage_count': 0, 'restricted': False, 'created_at': iso(-3000)}]
+        self.created_accounts: list[dict] = []
         self.reviewed: dict[str, dict] = {}
         self.finalized: set[str] = set()
 
@@ -138,9 +215,22 @@ class State:
                               'responseId': response['responseId'], 'gradingStatus': 'reviewed' if review else 'manual_review',
                               'score': review['score'] if review else None, 'teacherFeedback': review['feedback'] if review else '',
                               'rubricScores': review['rubric'] if review else None})
-        return {'attempt': {'id': 'at-1', 'studentId': 'st-ana', 'studentName': 'Ana Souza', 'status': 'completed' if 'at-1' in self.finalized else 'grading', 'startedAt': iso(-120), 'submittedAt': iso(-30)},
-                'assessment': {'id': 'as-1', 'title': 'Level Check - B1'}, 'sections': [], 'questions': questions,
-                'integrity': {'events': [{'type': 'recording_discarded', 'occurredAt': iso(-50), 'metadata': {'questionId': 'q-s', 'durationMs': 30000}}]}}
+        questions.insert(0, {'id': 'q-r1', 'sectionId': 'reading', 'prompt': 'Where is the **Lost & Found** office now?', 'type': 'multiple_choice',
+                             'options': ['across from the cafeteria', 'next to the elevators'], 'answer': 'across from the cafeteria',
+                             'correctAnswer': 'across from the cafeteria', 'maxScore': 1, 'score': 1, 'responseId': 'r-r1', 'gradingStatus': 'auto',
+                             'teacherFeedback': '', 'timeSpentMs': 41000})
+        done = 'at-1' in self.finalized
+        return {'attempt': {'id': 'at-1', 'studentId': 'st-ana', 'studentName': 'Ana Souza', 'status': 'completed' if done else 'grading', 'startedAt': iso(-120),
+                            'submittedAt': iso(-30), 'scaledScore': 66, 'estimatedCefr': 'B1', 'reviewedAt': iso(-5) if done else None, 'scoringModelVersion': 'cefr-v1',
+                            'integrityStatus': 'unusual_activity'},
+                'assessment': {'id': 'as-1', 'title': 'Level Check - B1', 'type': 'placement', 'version': 1, 'framework': 'cefr'},
+                'sections': [{'id': 's-r', 'title': 'Reading', 'skill': 'reading', 'score': 7, 'maxScore': 8, 'percentage': 87.5},
+                             {'id': 's-lu', 'title': 'Language Use', 'skill': 'language_use', 'score': 14, 'maxScore': 20, 'percentage': 70},
+                             {'id': 's-w', 'title': 'Writing', 'skill': 'writing', 'score': 5, 'maxScore': 11, 'percentage': 45.5}],
+                'questions': questions,
+                'integrity': {'status': 'unusual_activity', 'windowExits': 2, 'timeOutsideMs': 14000, 'pasteEvents': 0, 'sessionConflicts': 0,
+                              'events': [{'id': 'e1', 'type': 'tab_blur', 'occurredAt': iso(-90), 'metadata': {}},
+                                         {'id': 'e2', 'type': 'recording_discarded', 'occurredAt': iso(-50), 'metadata': {'questionId': 'q-s', 'durationMs': 30000}}]}}
 
     def live_status(self) -> dict:
         return {
@@ -231,13 +321,16 @@ class Handler(BaseHTTPRequestHandler):
             return None
         if url.path.startswith('/storage/v1/object/sign/'):
             return self._json(200, {'signedURL': '/object/sign/' + url.path.split('/object/sign/', 1)[1] + '?token=demo'})
+        if url.path.startswith('/functions/v1/'):
+            return self._function(url.path.rsplit('/', 1)[1], body)
         if url.path.startswith('/rest/v1/rpc/'):
             return self._rpc(url.path.rsplit('/', 1)[1], body)
         if url.path == '/rest/v1/lessons':
             row = {'id': f'l{len(STATE.lessons) + 1}', 'teacher_id': TEACHER, 'status': 'scheduled', 'notes': '', 'homework': '', **body}
             STATE.lessons.append(row)
             return self._json(201, [row])
-        tables = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments}
+        tables = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
+                  'question_bank': STATE.question_bank, 'assessment_assignments': STATE.assessment_assignments}
         table = url.path.removeprefix('/rest/v1/')
         if table in tables:
             rows = body if isinstance(body, list) else [body]
@@ -252,6 +345,42 @@ class Handler(BaseHTTPRequestHandler):
                 created.append(item)
             return self._json(201, created)
         return self._json(404, {'message': 'not found'})
+
+    def _function(self, name: str, body: dict) -> None:
+        if name == 'invite-student':
+            if body.get('action') == 'create-with-password':
+                if any((row['student'].get('email') == body['email']) for row in STATE.students):
+                    return self._json(400, {'error': 'A user with this email address has already been registered'})
+                student_id = f'st-new-{len(STATE.created_accounts) + 1}'
+                STATE.students.append({'student_id': student_id, 'teacher_id': TEACHER, 'level': body.get('level'), 'goal': body.get('goal'), 'age': body.get('age'),
+                                       'notes': body.get('notes', ''), 'skills': {}, 'created_at': iso(),
+                                       'student': {'id': student_id, 'full_name': body['fullName'], 'email': body['email'], 'whatsapp_phone': body.get('whatsappPhone', '')}})
+                STATE.created_accounts.append(body)
+                return self._json(200, {'ok': True, 'temporaryPassword': 'Temp-1234', 'studentId': student_id})
+            STATE.invites.append({**body, 'origin': self.headers.get('Origin')})
+            return self._json(200, {'ok': True})
+        if name == 'invite-teacher':
+            token = f'tok{len(STATE.teacher_invitations) + 1}'
+            STATE.teacher_invitations.insert(0, {'id': f'inv-{len(STATE.teacher_invitations) + 1}', 'email': body['email'], 'full_name': body['full_name'], 'token': token,
+                                                 'used': False, 'expires_at': iso(1440), 'created_at': iso()})
+            origin = self.headers.get('Origin') or 'http://localhost:1420'
+            return self._json(200, {'ok': True, 'invitation_link': f'{origin}/accept-invite?token={token}&email={urllib.parse.quote(body["email"])}'})
+        if name == 'generate-quiz':
+            count = int(body.get('count') or 5)
+            return self._json(200, {'questions': [{'type': 'multiple_choice', 'prompt': f'{body["topic"]} #{index + 1}: I ___ visited Rome.',
+                                                    'options': ['have', 'has', 'had'], 'answer': 'have', 'explanation': 'Present perfect.'} for index in range(count)]})
+        if name == 'admin-teachers':
+            if body.get('action') == 'list':
+                return self._json(200, {'teachers': STATE.teachers})
+            teacher = next((row for row in STATE.teachers if row['id'] == body.get('teacher_id')), None)
+            if not teacher or teacher['is_owner']:
+                return self._json(400, {'error': 'A conta administrativa não pode ser alterada'})
+            if body['action'] == 'set-access':
+                teacher.update({'plan': 'professional', 'status': 'active', 'trial_ends_at': None} if body['enabled'] else {'status': 'expired'})
+            elif body['action'] == 'delete':
+                STATE.teachers.remove(teacher)
+            return self._json(200, {'ok': True})
+        return self._json(404, {'error': f'function {name} not found'})
 
     def _rpc(self, name: str, body: dict) -> None:
         if name == 'list_assessment_review_queue':
@@ -271,6 +400,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, STATE.active())
         if name == 'get_attempt_live_status':
             return self._json(200, STATE.live_status())
+        if name in ASSESSMENT_RPCS:
+            return self._json(200, ASSESSMENT_RPCS[name](body))
+        if name == 'ensure_teacher_subscription':
+            return self._json(200, STATE.subscription)
         if name == 'get_assessment_progress':
             return self._json(200, STATE.progress(body.get('p_student_id', '')))
         return self._json(404, {'message': f'function {name} not found'})
@@ -288,7 +421,22 @@ class Handler(BaseHTTPRequestHandler):
         if table == 'student_records':
             return self._json(200, STATE.students)
         if table == 'lessons':
-            return self._json(200, sorted(STATE.lessons, key=lambda row: row['starts_at']))
+            return self._json(200, sorted([row for row in STATE.lessons if _matches(row, url.query)], key=lambda row: row['starts_at']))
+        if table == 'assessment_assignments':
+            return self._json(200, [row for row in STATE.assessment_assignments if _matches(row, url.query)])
+        if table == 'assessments':
+            return self._json(200, sorted(STATE.assessments, key=lambda row: row['updated_at'], reverse=True))
+        if table == 'cefr_level_check_presets':
+            return self._json(200, STATE.presets)
+        if table == 'assessment_questions':
+            return self._json(200, [{'assessment_id': 'as-live'}])
+        if table == 'assessment_feature_flags':
+            return self._json(200, [{'key': 'listening', 'enabled': False}])
+        if table == 'assessment_attempts':
+            return self._json(200, [{'id': 'at-1', 'assessment_id': 'as-1', 'student_id': 'st-ana', 'status': 'grading', 'started_at': iso(-120),
+                                     'scaled_score': 66, 'estimated_cefr': 'B1'}] if 'as-1' in url.query else [])
+        if table in ('study_activities', 'streak_freezes', 'teacher_invitations', 'question_bank'):
+            return self._json(200, [row for row in getattr(STATE, table) if _matches(row, url.query)])
         if table == 'notifications':
             return self._json(200, sorted(STATE.notifications, key=lambda row: row['scheduled_for'], reverse=True))
         if table == 'cancellation_requests':
@@ -299,7 +447,7 @@ class Handler(BaseHTTPRequestHandler):
         if table in ('materials', 'material_assignments', 'assignments', 'payments'):
             return self._json(200, [row for row in getattr(STATE, table) if _matches(row, url.query)])
         if table == 'profiles':
-            return self._json(200, [{'id': TEACHER, 'role': 'teacher', 'full_name': 'Professor Demo', 'email': 'professor@exemplo.com'}])
+            return self._json(200, [dict(STATE.profile)])
         return self._json(404, {'message': 'not found'})
 
     def do_PATCH(self) -> None:
@@ -309,6 +457,20 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         query = dict(urllib.parse.parse_qsl(url.query))
         table = url.path.removeprefix('/rest/v1/')
+        if table == 'assessment_assignments':
+            changed = [row for row in STATE.assessment_assignments if _matches(row, url.query)]
+            for row in changed:
+                row.update(body)
+            return self._json(200, [{'id': row['id']} for row in changed])
+        if table == 'profiles':
+            target = query.get('id', '').removeprefix('eq.')
+            if target == TEACHER:
+                STATE.profile.update(body)
+            for row in STATE.students:
+                if row['student_id'] == target:
+                    row['student'].update(body)
+            self.send_response(204); self.end_headers()
+            return None
         rows = {'notifications': STATE.notifications, 'lessons': STATE.lessons, 'assignments': STATE.assignments, 'payments': STATE.payments,
                 'cancellation_requests': STATE.cancellation_requests, 'student_records': STATE.students}.get(table, [])
         if 'id' in query:
@@ -322,8 +484,114 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204); self.end_headers()
 
 
+
+def _save_draft(body: dict) -> str:
+    draft = dict(body['p_draft'])
+    if not draft.get('id'):
+        draft['id'] = f'as-new-{len(STATE.drafts) + 1}'
+        STATE.assessments.append({'id': draft['id'], 'teacher_id': TEACHER, 'title': draft['title'], 'description': draft.get('description', ''),
+                                  'type': draft['type'], 'status': 'draft', 'framework': draft.get('framework'), 'time_limit_minutes': draft.get('timeLimitMinutes'),
+                                  'version': 1, 'preset_id': None, 'generated_for_student_id': None, 'updated_at': iso()})
+    STATE.drafts[draft['id']] = draft
+    STATE.saved_drafts.append(draft)
+    for row in STATE.assessments:
+        if row['id'] == draft['id']:
+            row.update(title=draft['title'], updated_at=iso(), framework=draft.get('framework'))
+    return draft['id']
+
+
+def _generate(body: dict) -> str:
+    STATE.generated.append(body)
+    assessment_id = f'as-gen-{len(STATE.generated)}'
+    bank = [{'id': f'g{index}', 'questionBankId': row['id'], 'weight': 1, 'required': True,
+             'snapshot': {'id': row['id'], 'externalId': f'LU-{index}', 'type': row['question_type'], 'prompt': row['prompt'], 'options': row['options'],
+                          'answer': row['answer'], 'cefr': 'B1', 'skill': 'language_use', 'subskill': 'grammar', 'taskType': 'gap', 'qualityStatus': 'approved_for_pilot'}}
+            for index, row in enumerate(STATE.question_bank[:2])]
+    STATE.drafts[assessment_id] = {**STATE.drafts['as-d1'], 'id': assessment_id, 'title': 'Level Check - B1', 'type': 'placement', 'framework': 'cefr',
+                                   'formVersion': 'LC-B1', 'sections': [
+                                       {'id': 'gs1', 'title': 'Language Use B1', 'skill': 'language_use', 'instructions': '', 'weight': 1, 'drawCount': None,
+                                        'cefrLevel': 'B1', 'construct': 'grammar', 'taskletKind': 'primary', 'questions': bank},
+                                       {'id': 'gs2', 'title': 'Writing B1', 'skill': 'writing', 'instructions': '', 'weight': 1, 'drawCount': None, 'cefrLevel': 'B1',
+                                        'construct': 'writing', 'taskletKind': 'primary',
+                                        'questions': [{'id': 'gw', 'questionBankId': 'w1', 'weight': 1, 'required': True, 'snapshot': dict(STATE.writing_snapshot)}]}]}
+    STATE.assessments.append({'id': assessment_id, 'teacher_id': TEACHER, 'title': 'Level Check - B1', 'description': '', 'type': 'placement', 'status': 'draft',
+                              'framework': 'cefr', 'time_limit_minutes': None, 'version': 1, 'preset_id': body['p_preset_id'],
+                              'generated_for_student_id': body.get('p_student_id'), 'updated_at': iso()})
+    return assessment_id
+
+
+def _publish(body: dict) -> None:
+    STATE.published.append(body['p_assessment_id'])
+    for row in STATE.assessments:
+        if row['id'] == body['p_assessment_id']:
+            row['status'] = 'published'
+
+
+def _delete_assessment(body: dict) -> None:
+    STATE.deleted_assessments.append(body['p_assessment_id'])
+    STATE.assessments[:] = [row for row in STATE.assessments if row['id'] != body['p_assessment_id']]
+
+
+def _score_live(body: dict) -> None:
+    for question in STATE.live_session['questions']:
+        if question['id'] == body['p_question_id']:
+            question.update(gradingStatus='reviewed', score=body['p_score'], rubricScores=body['p_rubric_scores'], notes=body['p_notes'],
+                            teacherFeedback=body['p_feedback'], durationSeconds=body.get('p_duration_seconds') or 0)
+
+
+def _draft_metadata(body: dict):
+    draft = STATE.drafts.get(body['p_assessment_id']) or {}
+    if draft.get('framework') != 'cefr':
+        return None
+    return {'framework': 'cefr', 'formVersion': draft.get('formVersion'), 'decisionRuleVersion': 'cefr-decision-v1', 'routingRuleVersion': 'cefr-routing-v1',
+            'reportModelVersion': 'cefr-profile-v1', 'sections': [{'cefrLevel': section.get('cefrLevel'), 'construct': section.get('construct'),
+                                                                    'taskletKind': section.get('taskletKind')} for section in draft['sections']]}
+
+
+PROFILE = {'overallLevel': 'B1', 'recommendedPlacement': 'B1 consolidation', 'confidence': 'moderate',
+           'skills': {'reading': {'level': 'B1+', 'confidence': 'high', 'dimensions': {'inference': {'level': 'B1', 'evidence': '3/4 objective'}}},
+                      'writing': {'level': 'B1', 'confidence': 'moderate', 'dimensions': {'task_achievement': {'level': 'B1'}}}},
+           'strengths': ['reading.inference'], 'developmentPriorities': ['writing.accuracy'], 'flags': [], 'manualReviewRequired': False,
+           'decisionRuleVersion': 'cefr-decision-v1', 'routingRuleVersion': 'cefr-routing-v1', 'reportModelVersion': 'cefr-profile-v1', 'provisionalStandard': True,
+           'disclaimer': 'Estimativa LangSpot alinhada ao CEFR; não é certificação oficial.'}
+
+ASSESSMENT_RPCS = {
+    'get_assessment_draft': lambda body: STATE.drafts[body['p_assessment_id']],
+    'get_assessment_cefr_metadata': _draft_metadata,
+    'get_assessment_pacing': lambda body: {'sectionPacing': 'none', 'sections': [{'timeLimitMinutes': None} for _ in STATE.drafts[body['p_assessment_id']]['sections']]},
+    'save_assessment_draft': _save_draft,
+    'save_assessment_cefr_metadata': lambda body: None,
+    'save_assessment_pacing': lambda body: None,
+    'publish_assessment': _publish,
+    'generate_assessment_from_preset': _generate,
+    'get_assessment_deletion_impact': lambda body: {'assignments': 1, 'inProgressStudents': 0, 'submittedStudents': 1 if body['p_assessment_id'] == 'as-1' else 0},
+    'delete_assessment': _delete_assessment,
+    'get_assessment_student_exposure': lambda body: {'fixed': [{'sectionTitle': 'Reading B1', 'skill': 'reading', 'itemKey': 'RD-1', 'taskletKey': 'RD-B1-T1',
+                                                               'taskletTitle': 'The new library', 'seenAt': iso(-60 * 24 * 30), 'assessmentTitle': 'Level Check - A2'}],
+                                                     'pools': [{'sectionTitle': 'Language Use B1', 'skill': 'language_use', 'poolSize': 25, 'drawCount': 5, 'unseen': 20}]}
+    if body['p_student_id'] == 'st-ana' else {'fixed': [], 'pools': []},
+    'list_student_seen_items': lambda body: [{'itemKey': 'LU-0', 'taskletKey': None, 'seenAt': iso(-9000), 'assessmentTitle': 'Level Check - A2'}],
+    'open_live_assessment_session': lambda body: 'at-ls',
+    'get_live_assessment_session': lambda body: STATE.live_session,
+    'score_live_assessment_response': _score_live,
+    'complete_live_assessment_session': lambda body: STATE.live_session['attempt'].update(status='completed'),
+    'get_attempt_cefr_profile': lambda body: PROFILE,
+    'get_assessment_integrity_signals': lambda body: {'maxReadingWordsPerMinute': 400, 'rapidParts': [], 'fastObjectiveAnswers': {'count': 1, 'total': 12},
+                                                      'sharedWrongAnswers': []},
+    'get_assessment_report_note': lambda body: STATE.report_notes.get(body['p_attempt_id']),
+    'save_assessment_report_note': lambda body: STATE.report_notes.__setitem__(body['p_attempt_id'], {'summary': body['p_summary'], 'nextSteps': body['p_next_steps'],
+                                                                                                      'updatedAt': iso()}),
+    'get_previous_assessment_for_report': lambda body: {'attemptId': 'old', 'title': 'Placement A2', 'completedAt': iso(-60 * 24 * 40), 'score': 58,
+                                                        'skills': {'reading': 70, 'language_use': 55}},
+    'override_assessment_cefr_level': lambda body: STATE.overrides.append(body),
+    'confirm_assessment_level_update': lambda body: STATE.confirmed_levels.append(body),
+    'get_cefr_item_analytics': lambda body: {'calibrationStatus': 'uncalibrated', 'minimumCalibrationResponses': 30, 'items': [
+        {'questionId': 'x', 'prompt': 'Where is the office?', 'skill': 'reading', 'cefr': 'B1', 'responses': 3, 'facility': 0.67, 'averageTimeMs': 41000,
+         'discrimination': None, 'reliabilityStatus': 'insufficient_data'}]},
+}
+
 def _matches(row: dict, query: str) -> bool:
-    """Minimal PostgREST eq./neq. filtering (select/order are ignored)."""
+    """Minimal PostgREST filtering: eq, neq, is.null, lt/lte/gt/gte on strings (select/order are ignored)."""
     for key, value in urllib.parse.parse_qsl(query):
         if key in ('select', 'order', 'limit'):
             continue
@@ -331,6 +599,13 @@ def _matches(row: dict, query: str) -> bool:
             return False
         if value.startswith('neq.') and str(row.get(key)) == value[4:]:
             return False
+        if value == 'is.null' and row.get(key) is not None:
+            return False
+        if value.startswith('in.(') and str(row.get(key)) not in value[4:-1].split(','):
+            return False
+        for operator, test in (('lt.', lambda a, b: a < b), ('lte.', lambda a, b: a <= b), ('gt.', lambda a, b: a > b), ('gte.', lambda a, b: a >= b)):
+            if value.startswith(operator) and (row.get(key) is None or not test(str(row.get(key)), value[len(operator):])):
+                return False
     return True
 
 
@@ -346,8 +621,14 @@ def _delete(self) -> None:
         return
     query = dict(urllib.parse.parse_qsl(url.query))
     table = url.path.removeprefix('/rest/v1/')
+    if table == 'assessment_assignments':
+        removed = [row for row in STATE.assessment_assignments if _matches(row, url.query)]
+        STATE.assessment_assignments[:] = [row for row in STATE.assessment_assignments if row not in removed]
+        self._json(200, [{'id': row['id']} for row in removed])
+        return
     rows = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
-            'lessons': STATE.lessons}.get(table)
+            'lessons': STATE.lessons, 'student_records': STATE.students, 'teacher_invitations': STATE.teacher_invitations,
+            'question_bank': STATE.question_bank}.get(table)
     if rows is None:
         self._json(404, {'message': 'not found'})
         return

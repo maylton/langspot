@@ -6,11 +6,7 @@ from gi.repository import Adw, Gio, Gtk
 from langspot_linux.ui.common import label, open_uri
 from langspot_linux.ui.login import LoginView
 
-WEB_SECTIONS = [
-    ('Construtor de provas', 'document-properties-symbolic'),
-    ('Quiz interativo', 'dialog-question-symbolic'),
-    ('Configurações da conta', 'emblem-system-symbolic'),
-]
+WEB_SECTIONS: list[tuple[str, str]] = []
 
 
 class SidebarRow(Gtk.ListBoxRow):
@@ -69,17 +65,22 @@ class MainWindow(Adw.ApplicationWindow):
 
     def show_main(self, profile: dict) -> None:
         from langspot_linux.ui.pages.agenda import AgendaPage
+        from langspot_linux.ui.pages.assessments import AssessmentsPage
         from langspot_linux.ui.pages.finance import FinancePage
         from langspot_linux.ui.pages.live import LivePage
         from langspot_linux.ui.pages.materials import MaterialsPage
         from langspot_linux.ui.pages.notifications import NotificationsPage
+        from langspot_linux.ui.pages.overview import OverviewPage
+        from langspot_linux.ui.pages.progress import ProgressPage
         from langspot_linux.ui.pages.reports import ReportsPage
         from langspot_linux.ui.pages.review import ReviewPage
+        from langspot_linux.ui.pages.settings import SettingsPage
         from langspot_linux.ui.pages.students import StudentsPage
-        from langspot_linux.ui.pages.tasks import TasksPage
+        from langspot_linux.ui.pages.tasks import QuizPage, TasksPage
 
         self.profile = profile
-        for page_class in (AgendaPage, StudentsPage, TasksPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ReportsPage, NotificationsPage):
+        for page_class in (OverviewPage, AgendaPage, StudentsPage, TasksPage, QuizPage, AssessmentsPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ProgressPage,
+                           ReportsPage, NotificationsPage, SettingsPage):
             self.pages[page_class.key] = page_class(self)
 
         self.split = Adw.NavigationSplitView(min_sidebar_width=230, max_sidebar_width=280)
@@ -94,7 +95,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.stack.remove(old)
         self.stack.add_named(self.split, 'main')
         self.stack.set_visible_child_name('main')
-        self.open_page('agenda')
+        self.open_page('overview')
 
     def _sidebar(self, profile: dict) -> Adw.NavigationPage:
         toolbar = Adw.ToolbarView()
@@ -123,10 +124,11 @@ class MainWindow(Adw.ApplicationWindow):
         self.listbox = listbox
         box.append(listbox)
 
-        box.append(label('No site', css=('caption-heading', 'dim-label'), wrap=False))
-        box.get_last_child().set_margin_start(18)
-        box.get_last_child().set_margin_top(18)
-        web = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        web = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, visible=bool(WEB_SECTIONS))
+        if WEB_SECTIONS:
+            box.append(label('No site', css=('caption-heading', 'dim-label'), wrap=False))
+            box.get_last_child().set_margin_start(18)
+            box.get_last_child().set_margin_top(18)
         web.add_css_class('navigation-sidebar')
         for title, icon in WEB_SECTIONS:
             row = SidebarRow('web', title, icon)
@@ -136,14 +138,22 @@ class MainWindow(Adw.ApplicationWindow):
         web.connect('row-activated', lambda *_: open_uri(self, self.app.config.web_url))
         box.append(web)
 
-        footer = Gtk.Box(spacing=10, margin_start=14, margin_end=14, margin_top=12, margin_bottom=12, valign=Gtk.Align.END, vexpand=True)
-        name = profile.get('full_name') or profile.get('email') or 'Professor'
-        footer.append(Adw.Avatar(size=34, text=name, show_initials=True))
+        footer = Gtk.Button(margin_start=8, margin_end=8, margin_top=12, margin_bottom=12, valign=Gtk.Align.END, vexpand=True,
+                            tooltip_text='Configurações')
+        footer.add_css_class('flat')
+        inner = Gtk.Box(spacing=10)
+        self.footer_avatar = Adw.Avatar(size=34, show_initials=True)
+        inner.append(self.footer_avatar)
         names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        names.append(label(name, css=('heading',), wrap=False))
-        names.append(label(profile.get('email') or '', css=('caption', 'dim-label'), wrap=False))
-        footer.append(names)
+        self.footer_name = label('', css=('heading',), wrap=False)
+        self.footer_email = label('', css=('caption', 'dim-label'), wrap=False)
+        names.append(self.footer_name)
+        names.append(self.footer_email)
+        inner.append(names)
+        footer.set_child(inner)
+        footer.connect('clicked', lambda *_: self.open_page('settings'))
         box.append(footer)
+        self.update_identity()
         toolbar.set_content(Gtk.ScrolledWindow(child=box, hscrollbar_policy=Gtk.PolicyType.NEVER))
         return Adw.NavigationPage(title='LangSpot', child=toolbar)
 
@@ -160,6 +170,35 @@ class MainWindow(Adw.ApplicationWindow):
         if row:
             self.listbox.select_row(row)
         page.on_shown()
+
+    def update_identity(self) -> None:
+        """Name, e-mail and photo of the signed-in teacher in the sidebar footer."""
+        from langspot_linux.ui.pages.settings import avatar_texture
+        name = self.profile.get('full_name') or self.profile.get('email') or 'Professor'
+        self.footer_avatar.set_text(name)
+        self.footer_avatar.set_custom_image(avatar_texture(self.profile.get('avatar_url') or ''))
+        self.footer_name.set_text(name)
+        self.footer_email.set_text(self.profile.get('school_name') or self.profile.get('email') or '')
+
+    def open_attempt(self, attempt_id: str) -> None:
+        """Show an assessment attempt's report in the Avaliações page."""
+        page = self.pages['assessments']
+        self.open_page('assessments')
+        page.nav.pop_to_tag('root')
+        page.open_attempt(attempt_id)
+
+    def open_student(self, student_id: str) -> None:
+        """Show a student's profile in the Alunos page."""
+        page = self.pages['students']
+        record = page.record(student_id) if page.loaded else None
+        if record is None:
+            page.open_student = student_id
+            if page.loaded:
+                page.refresh()
+        self.open_page('students')
+        if record is not None:
+            page.nav.pop_to_tag('root')
+            page.show_student(record)
 
     def set_count(self, key: str, count: int) -> None:
         row = self.rows.get(key)

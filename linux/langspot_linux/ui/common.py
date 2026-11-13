@@ -54,6 +54,44 @@ def confirm(parent: Gtk.Widget, heading: str, body: str, action: str, on_confirm
     dialog.present(parent)
 
 
+def confirm_typed(parent: Gtk.Widget, heading: str, body: str, expected: str, action: str, on_confirm: Callable[[], None]) -> None:
+    """Destructive confirmation that needs the user to type `expected` (the website's confirmByTyping)."""
+    dialog = Adw.AlertDialog(heading=heading, body=f'{body}\n\nDigite {expected} para confirmar.')
+    entry = Gtk.Entry(placeholder_text=expected)
+    dialog.set_extra_child(entry)
+    dialog.add_response('cancel', 'Cancelar')
+    dialog.add_response('ok', action)
+    dialog.set_response_appearance('ok', Adw.ResponseAppearance.DESTRUCTIVE)
+    dialog.set_response_enabled('ok', False)
+    dialog.set_default_response('cancel')
+    entry.connect('changed', lambda item: dialog.set_response_enabled('ok', item.get_text().strip() == expected))
+    dialog.connect('response', lambda _dialog, response: on_confirm() if response == 'ok' and entry.get_text().strip() == expected else None)
+    dialog.present(parent)
+
+
+def ask_long_text(parent: Gtk.Widget, heading: str, body: str, initial: str, action: str, on_text: Callable[[str], None]) -> None:
+    """Alert with a multi-line text box (comments); calls on_text with the stripped text when not empty."""
+    dialog = Adw.AlertDialog(heading=heading, body=body)
+    view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=8, bottom_margin=8, left_margin=10, right_margin=10)
+    view.get_buffer().set_text(initial)
+    frame = Gtk.ScrolledWindow(child=view, min_content_height=110, max_content_height=220, propagate_natural_height=True, width_request=360)
+    frame.add_css_class('card')
+    dialog.set_extra_child(frame)
+    dialog.add_response('cancel', 'Cancelar')
+    dialog.add_response('ok', action)
+    dialog.set_response_appearance('ok', Adw.ResponseAppearance.SUGGESTED)
+    dialog.set_default_response('ok')
+
+    def response(_dialog, value):
+        buffer = view.get_buffer()
+        text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False).strip()
+        if value == 'ok' and text:
+            on_text(text)
+    dialog.connect('response', response)
+    dialog.present(parent)
+    view.grab_focus()
+
+
 def ask_text(parent: Gtk.Widget, heading: str, body: str, placeholder: str, action: str, on_text: Callable[[str], None]) -> None:
     dialog = Adw.AlertDialog(heading=heading, body=body)
     entry = Gtk.Entry(placeholder_text=placeholder, activates_default=True)
@@ -198,6 +236,38 @@ def date_row(title: str, initial, on_change: Callable | None = None):
     row.add_suffix(button)
     row.set_activatable_widget(button)
     return row, lambda: chosen['day']
+
+
+def optional_datetime(title: str, subtitle: str, day, hour: int = 8, current=None):
+    """Expander row with an on/off switch, a date and an hour (on and set to `current`, an aware datetime, when given).
+    Returns (row, getter) where getter() → aware datetime or None."""
+    from datetime import datetime as _datetime
+
+    if current is not None:
+        local = current.astimezone()
+        day, hour = local.date(), local.hour
+    row = Adw.ExpanderRow(title=title, subtitle=subtitle, show_enable_switch=True, enable_expansion=current is not None)
+    when, when_value = date_row('Data', day)
+    hours = Adw.SpinRow.new_with_range(0, 23, 1)
+    hours.set_title('Hora')
+    hours.set_value(hour)
+    row.add_row(when)
+    row.add_row(hours)
+
+    def value():
+        if not row.get_enable_expansion():
+            return None
+        chosen = when_value()
+        return _datetime(chosen.year, chosen.month, chosen.day, int(hours.get_value())).astimezone()
+    return row, value
+
+
+def rich_markup(text: str | None) -> str:
+    """Pango markup for task text in the Pilot Bank's light markdown (**bold**), as the website's richText."""
+    import re as _re
+    parts = _re.split(r'(\*\*[^*]+\*\*)', text or '')
+    return ''.join(f'<b>{GLib.markup_escape_text(part[2:-2])}</b>' if part.startswith('**') and part.endswith('**') and len(part) > 4
+                   else GLib.markup_escape_text(part) for part in parts)
 
 
 def student_names(client) -> dict[str, dict]:

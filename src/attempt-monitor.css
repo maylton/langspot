@@ -145,3 +145,41 @@
 .assessment-recording-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#fdecef;color:#7a1033;font-size:13px}
 .assessment-recording-live{color:#ca1551}
 .dark-theme .assessment-recording-confirm{background:#3a1622;color:#ffc2d4}
+
+/* Assigned assessments (teacher dashboard) */
+.assigned-assessments{display:grid;gap:12px;margin-bottom:18px;padding:16px 18px;border:1px solid #dce6f6;border-radius:18px;background:#fff}
+.assigned-assessments>header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+.assigned-assessments>header>div{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;color:#345995}
+.assigned-assessments>header strong{color:#172033;font-size:15px}
+.assigned-assessments>header small{flex-basis:100%;color:#6e7a8f;font-size:12px}
+.assigned-assessments>header label{display:grid;gap:4px;font-size:10px;font-weight:800;color:#596579}
+.assigned-assessments>header select{border:1px solid #dfe4ec;border-radius:10px;padding:8px 10px;background:#fafbfc;color:#172033}
+.assigned-filters{display:flex;flex-wrap:wrap;gap:6px}
+.assigned-filters button{display:inline-flex;align-items:center;gap:6px;border:1px solid #dfe4ec;border-radius:99px;padding:6px 11px;background:#fff;color:#4c586b;font-size:12px;font-weight:700;cursor:pointer}
+.assigned-filters button b{min-width:18px;border-radius:99px;padding:1px 6px;background:#eef2f7;font-size:10px}
+.assigned-filters button.active{border-color:#345995;background:#345995;color:#fff}
+.assigned-filters button.active b{background:rgba(255,255,255,.22)}
+.assigned-assessments ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.assigned-assessments li{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px 12px;padding:11px 12px;border-radius:13px;background:#f7f8fb}
+.assigned-main{display:grid;grid-template-columns:132px 1fr;align-items:center;gap:3px 10px}
+.assigned-main strong{color:#172033}
+.assigned-main>span:not(.assigned-state){grid-column:2;color:#4c586b;font-size:13px}
+.assigned-main small{grid-column:2;display:flex;align-items:center;gap:5px;color:#7a8597;font-size:11px}
+.assigned-state{grid-row:span 3;align-self:start;justify-self:start;border-radius:99px;padding:4px 9px;font-size:9px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eef2f7;color:#5c687a}
+.assigned-state.waiting{background:#e7f8f5;color:#237a69}.assigned-state.scheduled{background:#eef3fb;color:#345995}
+.assigned-state.overdue,.assigned-state.expired{background:#fdecef;color:#b02a4b}.assigned-state.in_progress{background:#fff4dc;color:#8b6415}
+.assigned-state.to_review{background:#e8eff9;color:#234170}.assigned-state.completed{background:#e6f5ea;color:#2a7a45}
+.assigned-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.assigned-edit{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:4px}
+.assigned-edit .assessment-assign-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
+.assigned-message{margin:0;font-size:12px;color:#237a69}
+.assigned-empty{margin:0;color:#7a8597;font-size:13px}
+.dark-theme .assigned-assessments{background:#141d2c;border-color:#2a3547}
+.dark-theme .assigned-assessments li{background:#101827}
+.dark-theme .assigned-assessments>header strong,.dark-theme .assigned-main strong{color:#edf1f8}
+.dark-theme .assigned-filters button{background:#101827;border-color:#344155;color:#c9d3e3}
+.dark-theme .assigned-filters button.active{background:#4b6fae;border-color:#4b6fae;color:#fff}
+.dark-theme .assigned-assessments>header select{background:#101827;border-color:#344155;color:#edf1f8}
+@media(max-width:620px){.assigned-assessments li{grid-template-columns:1fr}.assigned-actions{justify-content:flex-start}.assigned-edit{grid-template-columns:1fr}}
+.assessment-assigned-count{display:block;margin:-2px 0 6px;color:#345995;font-size:11px;font-weight:700}
+@media(max-width:620px){.assigned-main{grid-template-columns:1fr}.assigned-state{grid-row:auto}.assigned-main>span:not(.assigned-state),.assigned-main small{grid-column:1}}

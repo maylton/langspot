@@ -48,6 +48,8 @@ class LangSpotApp(Adw.Application):
         if icons.is_dir():
             Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(str(icons))
         Gtk.Window.set_default_icon_name(APP_ID)
+        from langspot_linux.ui.pages.settings import apply_theme
+        apply_theme(self.prefs.get('theme', 'system'))
 
         self.add_action(action('open-web', lambda *_: self.window and open_uri(self.window, self.config.web_url)))
         self.add_action(action('logout', lambda *_: self.logout()))
@@ -116,7 +118,7 @@ class LangSpotApp(Adw.Application):
         run_async(work, self.signed_in, failed)
 
     def load_profile(self, session: Session) -> dict:
-        rows = self.client.select('profiles', select='id,role,full_name,email', id=f'eq.{session.user_id}')
+        rows = self.client.select('profiles', select='id,role,full_name,email,school_name,avatar_url,whatsapp_phone', id=f'eq.{session.user_id}')
         profile = rows[0] if rows else {}
         if profile.get('role') not in ('teacher', 'admin'):
             self.client.sign_out()
@@ -176,7 +178,7 @@ class LangSpotApp(Adw.Application):
                                           read_at='is.null', scheduled_for=f'lte.{now}', order='scheduled_for.desc', limit='50')
             active = client.rpc('list_active_teacher_attempts') or []
             queue = client.rpc('list_assessment_review_queue') or {}
-            submitted = client.select('assignments', select='id', status='eq.submitted', assignment_type='neq.interactive')
+            submitted = client.select('assignments', select='id,assignment_type', status='eq.submitted')
             return notifications, active, queue, submitted
 
         run_async(work, self._polled, lambda _error: None)
@@ -188,7 +190,8 @@ class LangSpotApp(Adw.Application):
         self.window.set_count('notifications', len(notifications))
         self.window.set_count('live', len(active))
         self.window.set_count('review', len(queue.get('items') or []) + len(queue.get('readyToFinalize') or []))
-        self.window.set_count('tasks', len(submitted))
+        self.window.set_count('tasks', sum(1 for row in submitted if row.get('assignment_type') != 'interactive'))
+        self.window.set_count('quiz', sum(1 for row in submitted if row.get('assignment_type') == 'interactive'))
         if self._seen_notifications is not None:
             for item in notifications:
                 if item['id'] not in self._seen_notifications:
@@ -276,6 +279,9 @@ class LangSpotApp(Adw.Application):
         except (OSError, ValueError):
             return {}
 
+    def save_prefs(self) -> None:
+        self._save_prefs()
+
     def _save_prefs(self) -> None:
         path = self._prefs_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -304,8 +310,8 @@ class LangSpotApp(Adw.Application):
     def about(self) -> None:
         dialog = Adw.AboutDialog(application_name='LangSpot', application_icon=APP_ID, version=VERSION,
                                  developer_name='Maylton Fernandes', website=self.config.web_url if self.config else '',
-                                 comments='Aplicativo nativo do LangSpot para professores no Linux: agenda, alunos, tarefas, correção, '
-                                          'provas ao vivo, materiais, financeiro, relatórios e notificações.',
+                                 comments='Aplicativo nativo do LangSpot para professores no Linux: visão geral, agenda, alunos, tarefas, '
+                                          'correção, provas ao vivo, materiais, financeiro, progresso, relatórios, notificações e configurações.',
                                  license_type=Gtk.License.CUSTOM, license='Uso interno do LangSpot.')
         dialog.present(self.window)
 
