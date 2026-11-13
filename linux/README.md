@@ -24,6 +24,15 @@ Todas as áreas do painel do professor do site estão no app; só o PDF dos rela
 | **Notificações** | Lista, marcar como lida, abrir a área relacionada |
 | **Configurações** | Perfil com foto, status da conta, padrões das aulas, tema, segundo plano, calendário do sistema, **backup**; para o administrador, **convidar e gerenciar professores** |
 
+### Desfoque do compositor
+
+Em compositores com `ext-background-effect-v1` (Hyprland, e portanto o Caelestia) e GTK 4.24, a janela fica translúcida e o
+compositor desfoca o que está atrás dela, como no Harmonia Player (Configurações → Aplicativo → Desfoque do compositor,
+ligado por padrão). Em outros ambientes a opção fica indisponível e nada muda.
+
+Quando o tema GTK do usuário pinta os cartões com a mesma cor da janela (o `gtk.css` gerado pelo Caelestia), o LangSpot
+clareia os cartões e as listas um tom, só no próprio app; os outros aplicativos continuam com o tema como está.
+
 ### Aulas no calendário do sistema
 
 No menu principal, **Mostrar as aulas no calendário do sistema**. O app passa a manter o arquivo
