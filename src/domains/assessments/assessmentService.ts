@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentAssignmentRow, AssessmentAttemptRow, AssessmentRow } from './database';
 import type { AssessmentReportNote, PreviousAssessmentForReport } from './report';
+import type { AssignmentListRow } from './teacher/assignments';
 import type { ActiveTeacherAttempt, AttemptLiveStatus, AssessmentDraft, AssessmentStudentExposure, StudentSeenItem, AssessmentProgressReport, CefrLevel, CefrLevelCheckPreset, CefrProfile, AssessmentIntegritySignals, LiveAssessmentSession, ReviewQueue, TeacherAssessmentResult } from './types';
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
@@ -17,6 +18,30 @@ export async function listTeacherAssessments(client: SupabaseClient): Promise<As
 export async function listAssessmentAssignments(client: SupabaseClient, assessmentId: string): Promise<AssessmentAssignmentRow[]> {
   const { data, error } = await client.from('assessment_assignments').select('id,assessment_id,teacher_id,student_id,available_from,due_at,attempt_limit,status,created_at,updated_at').eq('assessment_id', assessmentId).order('created_at', { ascending: false });
   return requireData(data as AssessmentAssignmentRow[] | null, error);
+}
+
+const ASSIGNMENT_LIST_COLUMNS = 'id,assessment_id,student_id,available_from,due_at,attempt_limit,status,created_at';
+
+/** Every assignment of the teacher (all assessments), newest first. */
+export async function listTeacherAssignments(client: SupabaseClient): Promise<AssignmentListRow[]> {
+  const { data, error } = await client.from('assessment_assignments').select(ASSIGNMENT_LIST_COLUMNS).order('created_at', { ascending: false });
+  return requireData(data as AssignmentListRow[] | null, error);
+}
+
+/** Changes the dates or attempts of an assignment the student has not started. */
+export async function updateAssessmentAssignment(client: SupabaseClient, id: string, input: { availableFrom: string | null; dueAt: string | null; attemptLimit: number }): Promise<void> {
+  const { data, error } = await client.from('assessment_assignments')
+    .update({ available_from: input.availableFrom, due_at: input.dueAt, attempt_limit: input.attemptLimit, updated_at: new Date().toISOString() })
+    .eq('id', id).in('status', ['assigned', 'available']).select('id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('O aluno já começou esta prova; a atribuição não pode mais ser alterada.');
+}
+
+/** Removes an assignment the student has not started (nothing answered is lost). */
+export async function cancelAssessmentAssignment(client: SupabaseClient, id: string): Promise<void> {
+  const { data, error } = await client.from('assessment_assignments').delete().eq('id', id).in('status', ['assigned', 'available']).select('id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('O aluno já começou esta prova; a atribuição não pode mais ser cancelada.');
 }
 
 export async function loadAssessmentDraft(client: SupabaseClient, assessmentId: string): Promise<AssessmentDraft> {
