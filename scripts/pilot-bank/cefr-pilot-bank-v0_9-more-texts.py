@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Builds docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.9.md from v0.8.
+"""Builds docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.9.md from v0.8.
 
-Adds two Reading tasklets per CEFR level (scripts/cefr_pilot_bank_v0_9_texts.py) at the end of each
+Adds two Reading tasklets per CEFR level (scripts/pilot-bank/cefr_pilot_bank_v0_9_texts.py) at the end of each
 level in section 21, so every level has eight texts. Every edit asserts that its anchor is found once.
 """
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.8.md'
-DST = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.9.md'
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.8.md'
+DST = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.9.md'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cefr_pilot_bank_v0_9_texts import TASKLETS  # noqa: E402
 

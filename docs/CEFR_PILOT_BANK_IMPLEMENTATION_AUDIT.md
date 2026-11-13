@@ -2,7 +2,7 @@
 
 ## Resultado
 
-O conteúdo consolidado de `LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md` foi importado sem alteração pedagógica: 300 unidades avaliativas, 36 tasklets de Reading/Listening e todos os metadados globais `approved_for_pilot`, `uncalibrated` e `pilot-0.2`. A expansão substitui a versão operacional anterior porque conserva os seus IDs e acrescenta 102 unidades; ela não é somada como um segundo banco de 300 itens.
+O conteúdo consolidado de `history/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md` foi importado sem alteração pedagógica: 300 unidades avaliativas, 36 tasklets de Reading/Listening e todos os metadados globais `approved_for_pilot`, `uncalibrated` e `pilot-0.2`. A expansão substitui a versão operacional anterior porque conserva os seus IDs e acrescenta 102 unidades; ela não é somada como um segundo banco de 300 itens.
 
 O adaptive engine não foi alterado nem ampliado.
 

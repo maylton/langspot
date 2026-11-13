@@ -148,8 +148,8 @@ Listening is switched off until the audio for each tasklet has been produced
 - Forms generated with preset 1.0 / bank `pilot-0.2` keep their snapshots. Drafts of 1.0 can no
   longer be published; generate the Level Check again to get the 1.1 form.
 
-The bank moves to `pilot-0.3` (`docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md`), built from
-v0.2 by `scripts/cefr-pilot-bank-v0_3-changes.py`. The changes follow
+The bank moves to `pilot-0.3` (`docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md`), built from
+v0.2 by `scripts/pilot-bank/cefr-pilot-bank-v0_3-changes.py`. The changes follow
 `docs/CEFR_CONTENT_AND_BUILDER_REVIEW.md`: option lengths rebalanced (the key is no longer usually
 the longest option), the LU-B1-003 double key, duplicated Language Use items, above-level wording
 in A1–B1 stems, Writing lengths for A1/A2/B2, missing durations and duplicated productive tasks.

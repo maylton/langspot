@@ -71,9 +71,9 @@ Exemplos do próprio banco (v0.5):
 ## Como a v0.5 foi feita
 
 - As 96 questões de Reading foram revisadas: todas as de B1 a C2 e as fracas de A1 e A2.
-  `scripts/cefr_pilot_bank_v0_5_options.py` guarda as alternativas novas, e o gabarito mantém a letra,
+  `scripts/pilot-bank/cefr_pilot_bank_v0_5_options.py` guarda as alternativas novas, e o gabarito mantém a letra,
   então a distribuição A/B/C/D não mudou.
-- `scripts/cefr-pilot-bank-v0_5-distractors.py` gera `LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md` a
+- `scripts/pilot-bank/cefr-pilot-bank-v0_5-distractors.py` gera `history/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md` a
   partir da v0.4.
 - **Listening** (desativado no momento) ainda não foi revisado. Aplique este guia antes de reativá-lo.
 

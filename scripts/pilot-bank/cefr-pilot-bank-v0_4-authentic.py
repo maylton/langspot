@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Builds docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md from v0.3.
+"""Builds docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md from v0.3.
 
-Adds one authentic Reading tasklet per CEFR level (scripts/cefr_pilot_bank_v0_4_authentic.py) to
+Adds one authentic Reading tasklet per CEFR level (scripts/pilot-bank/cefr_pilot_bank_v0_4_authentic.py) to
 section 21, after the existing expansion tasklet of the same level. Every edit asserts that its
 anchor is found exactly once.
 """
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md'
-DST = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md'
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md'
+DST = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cefr_pilot_bank_v0_4_authentic import TASKLETS  # noqa: E402
 

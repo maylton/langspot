@@ -43,7 +43,7 @@ O conteúdo do banco **não se edita direto no Supabase**. A fonte de verdade é
 `docs/cefr/`.
 
 1. **Crie a versão nova do markdown com um script**, como nas anteriores
-   (`scripts/cefr-pilot-bank-v0_7-productive.py` + `scripts/cefr_pilot_bank_v0_7_productive.py`). O script
+   (`scripts/pilot-bank/cefr-pilot-bank-v0_7-productive.py` + `scripts/pilot-bank/cefr_pilot_bank_v0_7_productive.py`). O script
    lê a versão anterior, aplica as mudanças guardadas num arquivo de dados e confere que cada alteração
    acontece exatamente uma vez. Nunca edite o markdown à mão: o script documenta o que mudou.
 2. **Atualize a versão em `scripts/cefr-pilot-bank.mjs`**: a constante `PILOT_VERSION`, o arquivo de

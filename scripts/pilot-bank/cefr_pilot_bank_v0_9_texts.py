@@ -3,7 +3,7 @@
 Written with docs/cefr/ITEM_AUTHORING_PROMPT.md and docs/cefr/ITEM_WRITING_GUIDELINES.md:
 - external texts are public domain or CC BY, with ABNT reference, licence, credit and adaptation
   (docs/cefr/AUTHENTIC_TEXT_SOURCES.md); the literal excerpts are in
-  scripts/cefr_pilot_bank_v0_9_authentic_texts.json; LangSpot-authored texts have no source fields;
+  scripts/pilot-bank/cefr_pilot_bank_v0_9_authentic_texts.json; LangSpot-authored texts have no source fields;
 - topics new to each level; text lengths per level (A1 30–80 … C2 600–900 words);
 - distractors reuse text material with the wrong relation, keys paraphrase (from A2), no absolute words
   a text does not use; the keys of each tasklet are a permutation of A–D, so each letter is the key of

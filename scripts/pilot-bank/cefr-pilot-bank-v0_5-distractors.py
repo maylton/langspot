@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Builds docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md from v0.4.
+"""Builds docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md from v0.4.
 
 Rewrites Reading options following docs/cefr/ITEM_WRITING_GUIDELINES.md
-(scripts/cefr_pilot_bank_v0_5_options.py). Keys keep their letter. Every edit asserts that its
+(scripts/pilot-bank/cefr_pilot_bank_v0_5_options.py). Keys keep their letter. Every edit asserts that its
 target is found exactly once, so a drifted source fails loudly.
 """
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md'
-DST = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md'
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.4.md'
+DST = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.5.md'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cefr_pilot_bank_v0_5_options import OPTIONS  # noqa: E402
 

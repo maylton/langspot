@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md from v0.2.
+"""Builds docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md from v0.2.
 
 Each change comes from docs/CEFR_CONTENT_AND_BUILDER_REVIEW.md. Every edit asserts that
 the original text is found exactly once, so a drifted source fails loudly.
@@ -8,9 +8,9 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md'
-DST = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md'
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md'
+DST = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.3.md'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cefr_pilot_bank_v0_3_options import OPTIONS, PROMPTS  # noqa: E402
 

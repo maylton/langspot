@@ -2,7 +2,7 @@
 
 Data: 2026-11-06
 Escopo: Pilot Bank v0.2 (300 unidades), os seis Level Checks (A1–C2), o General CEFR Placement e a página de criação de avaliações.
-Fora do escopo: questões que professores criaram direto no banco de produção. Esta revisão leu o repositório (`docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md`, migrations e código do editor).
+Fora do escopo: questões que professores criaram direto no banco de produção. Esta revisão leu o repositório (`docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.2.md`, migrations e código do editor).
 
 > Como ler: as seções 1–3 tratam do conteúdo, a seção 4 da página de criação e a seção 5 traz as prioridades. O **Apêndice** traz o veredito de cada uma das 300 unidades.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Builds docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md from v0.6.
+"""Builds docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md from v0.6.
 
-Applies scripts/cefr_pilot_bank_v0_7_productive.py to Writing, Speaking and Mediation tasks. Handles
+Applies scripts/pilot-bank/cefr_pilot_bank_v0_7_productive.py to Writing, Speaking and Mediation tasks. Handles
 both task formats of the bank: the original sections (prompt as free text after the metadata) and the
 v0.2 expansion (prompt on a **Prompt:** / **Task:** line). Original Mediation tasks get an explicit
 **Task:** marker between the source and the instruction. Every edit asserts a single match.
@@ -10,9 +10,9 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md'
-DST = ROOT / 'docs/cefr/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md'
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.6.md'
+DST = ROOT / 'docs/cefr/history/LangSpot_CEFR_Placement_Pilot_Bank_v0.7.md'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cefr_pilot_bank_v0_7_productive import TASKS  # noqa: E402
 
