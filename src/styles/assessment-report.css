@@ -1,5 +1,4 @@
 /* Student assessment report (screen + PDF via print). */
-
 .student-report {
   display: grid;
   gap: 18px;
@@ -111,8 +110,7 @@
   color: #b44369;
 }
 
-.student-report-delta.flat,
-.student-report-delta.none {
+.student-report-delta.flat, .student-report-delta.none {
   color: #8b95a7;
 }
 
@@ -122,15 +120,13 @@
   font-size: 12px;
 }
 
-.student-report-columns,
-.student-report-note {
+.student-report-columns, .student-report-note {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
 
-.student-report-columns > div,
-.student-report-note > div {
+.student-report-columns > div, .student-report-note > div {
   padding: 14px 16px;
   border-radius: 12px;
   background: #f7f8fb;
@@ -151,8 +147,7 @@
   line-height: 1.6;
 }
 
-.student-report-columns p,
-.student-report-note p {
+.student-report-columns p, .student-report-note p {
   margin: 0;
   color: #536075;
   line-height: 1.55;
@@ -224,8 +219,7 @@
   color: #284675 !important;
 }
 
-.dark-theme .student-report,
-.dark-theme .teacher-report-note {
+.dark-theme .student-report, .dark-theme .teacher-report-note {
   border-color: #29364b;
   background: #151e2d;
   color: #edf1f8;
@@ -239,9 +233,7 @@
   background: #1b2434;
 }
 
-.dark-theme .student-report-columns p,
-.dark-theme .student-report-note p,
-.dark-theme .teacher-report-note label {
+.dark-theme .student-report-columns p, .dark-theme .student-report-note p, .dark-theme .teacher-report-note label {
   color: #b8c2d1;
 }
 
@@ -249,8 +241,7 @@
   background: #293247;
 }
 
-.dark-theme .student-report-overall strong,
-.dark-theme .student-report-skill > strong small {
+.dark-theme .student-report-overall strong, .dark-theme .student-report-skill > strong small {
   color: #7fa1d7;
 }
 
@@ -272,17 +263,14 @@
   .student-report {
     padding: 16px;
   }
-
   .student-report-skill {
     grid-template-columns: 1fr auto;
     gap: 4px 10px;
   }
-
   .student-report-skill > i {
     grid-column: 1 / -1;
     grid-row: 2;
   }
-
   .student-report-skill > .student-report-delta {
     grid-column: 2;
   }
@@ -293,12 +281,9 @@
   .printing-student-report body * {
     visibility: hidden;
   }
-
-  .printing-student-report .student-report,
-  .printing-student-report .student-report * {
+  .printing-student-report .student-report, .printing-student-report .student-report * {
     visibility: visible;
   }
-
   .printing-student-report .student-report {
     position: absolute;
     top: 0;
@@ -308,25 +293,18 @@
     background: #fff !important;
     color: #172033 !important;
   }
-
   .printing-student-report .student-report-actions {
     display: none;
   }
-
   .printing-student-report .student-report-columns > div {
     background: #f7f8fb !important;
   }
-
   .printing-student-report .student-report-note > div {
     background: #f0f5fb !important;
   }
-
-  .printing-student-report .student-report p,
-  .printing-student-report .student-report li,
-  .printing-student-report .student-report span {
+  .printing-student-report .student-report p, .printing-student-report .student-report li, .printing-student-report .student-report span {
     color: #333c4e !important;
   }
-
   .printing-student-report .student-report-skill > i b {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
@@ -350,5 +328,10 @@
 }
 
 /* Profile dimensions: sentence case ("Precisão do significado"), not title case. */
-.cefr-skill-grid dt { text-transform: none; }
-.cefr-skill-grid dt::first-letter { text-transform: uppercase; }
+.cefr-skill-grid dt {
+  text-transform: none;
+}
+
+.cefr-skill-grid dt::first-letter {
+  text-transform: uppercase;
+}

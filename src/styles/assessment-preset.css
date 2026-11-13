@@ -1,3 +1,5 @@
+/* Assessment preset. */
+
 .assessment-tasklet-audio {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -17,8 +19,7 @@
   color: #27695c;
 }
 
-.assessment-tasklet-audio strong,
-.assessment-tasklet-audio span {
+.assessment-tasklet-audio strong, .assessment-tasklet-audio span {
   display: block;
 }
 
@@ -51,7 +52,6 @@
   .assessment-tasklet-audio {
     grid-template-columns: auto 1fr;
   }
-
   .assessment-tasklet-audio label {
     grid-column: 1 / -1;
     width: 100%;
@@ -67,29 +67,25 @@
   background: #fff;
 }
 
-.assessment-creation-menu > header,
-.assessment-creation-primary {
+.assessment-creation-menu > header, .assessment-creation-primary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.assessment-creation-menu header span,
-.assessment-level-checks > div span {
+.assessment-creation-menu header span, .assessment-level-checks > div span {
   color: #345995;
   font-size: 9px;
   font-weight: 900;
   letter-spacing: .1em;
 }
 
-.assessment-creation-menu h3,
-.assessment-level-checks h4 {
+.assessment-creation-menu h3, .assessment-level-checks h4 {
   margin: 4px 0 0;
 }
 
-.assessment-creation-primary button,
-.assessment-level-checks button {
+.assessment-creation-primary button, .assessment-level-checks button {
   display: grid;
   gap: 5px;
   text-align: left;
@@ -105,9 +101,7 @@
   min-height: 78px;
 }
 
-.assessment-creation-primary span,
-.assessment-level-checks span,
-.assessment-level-checks small {
+.assessment-creation-primary span, .assessment-level-checks span, .assessment-level-checks small {
   color: #6f7a8d;
   font-size: 10px;
 }
@@ -135,9 +129,7 @@
   font-weight: 800;
 }
 
-.dark-theme .assessment-creation-menu,
-.dark-theme .assessment-creation-primary button,
-.dark-theme .assessment-level-checks button {
+.dark-theme .assessment-creation-menu, .dark-theme .assessment-creation-primary button, .dark-theme .assessment-level-checks button {
   border-color: #344155;
   background: #141d2c;
   color: #edf1f8;
@@ -150,12 +142,10 @@
 }
 
 @media (max-width: 620px) {
-  .assessment-creation-menu > header,
-  .assessment-creation-primary {
+  .assessment-creation-menu > header, .assessment-creation-primary {
     align-items: stretch;
     flex-direction: column;
   }
-
   .assessment-level-checks {
     grid-template-columns: 1fr;
   }

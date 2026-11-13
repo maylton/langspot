@@ -1,0 +1,105 @@
+/* ClassPlay shortcut (top bar + sidebar footer). Mark colours follow ClassPlay's own brand. */
+.classplay-mark {
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:7px;
+  background:#15201c;
+  color:#fff;
+  font-weight:900;
+  line-height:1;
+  box-shadow:inset 0 -3px 6px rgba(0,0,0,.18)
+}
+
+.classplay-link {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  text-decoration:none;
+  font-weight:800;
+  white-space:nowrap
+}
+
+.classplay-link--topbar {
+  height:40px;
+  padding:0 12px 0 9px;
+  border:1px solid #dfe5ee;
+  border-radius:12px;
+  background:#fff;
+  color:#26324a;
+  font-size:13px;
+  transition:border-color .15s,box-shadow .15s
+}
+
+.classplay-link--topbar:hover {
+  border-color:#4ecf82;
+  box-shadow:0 0 0 3px rgba(78,207,130,.18)
+}
+
+.classplay-link--topbar .classplay-link-arrow {
+  color:#8a94a6
+}
+
+.classplay-link--footer {
+  width:100%;
+  padding:10px 13px;
+  border-radius:12px;
+  color:#c9d3e2;
+  font-size:13px
+}
+
+.classplay-link--footer:hover {
+  background:rgba(255,255,255,.08);
+  color:#fff
+}
+
+.classplay-link--footer .classplay-mark {
+  background:#fff;
+  color:#15201c;
+  box-shadow:none
+}
+
+.classplay-link--footer .classplay-link-arrow {
+  margin-left:auto;
+  opacity:.6
+}
+
+.classplay-link:focus-visible {
+  outline:2px solid #4ecf82;
+  outline-offset:2px
+}
+
+.dark-theme .classplay-link--topbar {
+  border-color:#2a3547;
+  background:#151e2d;
+  color:#e6ecf5
+}
+
+.dark-theme .classplay-link--topbar .classplay-mark {
+  background:#fff;
+  color:#15201c
+}
+
+/* Phones: the top bar keeps only the mark. */
+@media (max-width:620px) {
+  .classplay-link--topbar {
+    padding:0 9px
+  }
+  .classplay-link--topbar span:not(.classplay-mark),.classplay-link--topbar .classplay-link-arrow {
+    display:none
+  }
+}
+
+/* Teacher top bar on phones is a fixed two-column grid (bell + main action); there ClassPlay stays in the menu drawer. */
+@media (max-width:700px) {
+  .topbar-actions .classplay-link--topbar {
+    display:none
+  }
+}
+
+/* Student phones: the sidebar becomes the bottom navigation; ClassPlay stays as the top-bar mark. */
+@media (max-width:820px) {
+  .student-sidebar .classplay-link--footer {
+    display:none
+  }
+}

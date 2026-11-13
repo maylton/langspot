@@ -1,5 +1,4 @@
 /* Live (teacher-administered) assessment tasks. */
-
 .assessment-live-toggle {
   display: inline-flex;
   align-items: center;
@@ -50,8 +49,7 @@
   line-height: 1;
 }
 
-.live-session-progress span,
-.live-session-progress small {
+.live-session-progress span, .live-session-progress small {
   color: #6e7a8f;
   font-size: 12px;
 }
@@ -92,8 +90,7 @@
   color: #238874;
 }
 
-.live-session-tasks strong,
-.live-session-tasks small {
+.live-session-tasks strong, .live-session-tasks small {
   display: block;
 }
 
@@ -263,8 +260,7 @@
   font-weight: 600;
 }
 
-.live-scoring textarea,
-.live-scoring input {
+.live-scoring textarea, .live-scoring input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #dfe4ec;
@@ -345,16 +341,13 @@
   color: #b8c2d1;
 }
 
-.dark-theme .assessment-live-toggle.live,
-.dark-theme .assessment-live-notice {
+.dark-theme .assessment-live-toggle.live, .dark-theme .assessment-live-notice {
   border-color: #33496e;
   background: #1b2434;
   color: #c4d5f0;
 }
 
-.dark-theme .live-session-tasks button,
-.dark-theme .live-task,
-.dark-theme .live-level-picker button {
+.dark-theme .live-session-tasks button, .dark-theme .live-task, .dark-theme .live-level-picker button {
   border-color: #29364b;
   background: #151e2d;
   color: #edf1f8;
@@ -365,17 +358,11 @@
   box-shadow: 0 0 0 3px #1e293b;
 }
 
-.dark-theme .live-task-prompt,
-.dark-theme .live-timer-clock strong,
-.dark-theme .live-rubric legend,
-.dark-theme .live-task-source p,
-.dark-theme .live-task-evidence dd {
+.dark-theme .live-task-prompt, .dark-theme .live-timer-clock strong, .dark-theme .live-rubric legend, .dark-theme .live-task-source p, .dark-theme .live-task-evidence dd {
   color: #eff3fa;
 }
 
-.dark-theme .live-task-meta span,
-.dark-theme .live-task-source,
-.dark-theme .live-rubric fieldset {
+.dark-theme .live-task-meta span, .dark-theme .live-task-source, .dark-theme .live-rubric fieldset {
   border-color: #29364b;
   background: #101827;
   color: #b8c2d1;
@@ -396,8 +383,7 @@
   color: #fff;
 }
 
-.dark-theme .live-scoring label,
-.dark-theme .live-scoring-footer span {
+.dark-theme .live-scoring label, .dark-theme .live-scoring-footer span {
   color: #b8c2d1;
 }
 
@@ -405,25 +391,21 @@
   .live-session-layout {
     grid-template-columns: 1fr;
   }
-
   .live-session-tasks {
     position: static;
     grid-auto-flow: column;
     grid-auto-columns: minmax(180px, 1fr);
     overflow-x: auto;
   }
-
   .live-task {
     padding: 16px;
   }
-
   .live-task-prompt {
     font-size: 18px;
   }
 }
 
 /* Review queue (reuses the live session list and task card). */
-
 .review-queue {
   display: grid;
   gap: 18px;
@@ -448,8 +430,7 @@
   background: #edf9f7;
 }
 
-.review-queue-ready h3,
-.review-queue-ready p {
+.review-queue-ready h3, .review-queue-ready p {
   margin: 0;
 }
 
@@ -468,8 +449,7 @@
   border-top: 1px solid #c9eae3;
 }
 
-.review-queue-ready strong,
-.review-queue-ready small {
+.review-queue-ready strong, .review-queue-ready small {
   display: block;
 }
 
@@ -557,8 +537,7 @@
   background: #172a26;
 }
 
-.dark-theme .review-queue-ready p,
-.dark-theme .review-queue-ready small {
+.dark-theme .review-queue-ready p, .dark-theme .review-queue-ready small {
   color: #aee5da;
 }
 
@@ -596,8 +575,7 @@
   margin: 0;
 }
 
-.dark-theme .live-timer .secondary-button,
-.dark-theme .review-live-cta .secondary-button {
+.dark-theme .live-timer .secondary-button, .dark-theme .review-live-cta .secondary-button {
   background: #1e293b;
   color: #afc4e6;
 }

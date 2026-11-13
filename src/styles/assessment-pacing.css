@@ -1,5 +1,4 @@
 /* Paced assessments (parts), part confirmation and the final submission code. */
-
 .assessment-pacing-option {
   display: grid;
   gap: 4px;
@@ -47,8 +46,7 @@
   background: #fff;
 }
 
-.assessment-stage strong,
-.assessment-stage small {
+.assessment-stage strong, .assessment-stage small {
   display: block;
 }
 
@@ -68,13 +66,11 @@
   color: #238874;
 }
 
-.assessment-stage.open,
-.assessment-stage.available {
+.assessment-stage.open, .assessment-stage.available {
   border-color: #afc4e6;
 }
 
-.assessment-stage.open .assessment-stage-icon,
-.assessment-stage.available .assessment-stage-icon {
+.assessment-stage.open .assessment-stage-icon, .assessment-stage.available .assessment-stage-icon {
   color: #345995;
 }
 
@@ -126,8 +122,7 @@
   width: min(460px, 100%);
 }
 
-.assessment-submit-confirmation h2,
-.assessment-submit-confirmation p {
+.assessment-submit-confirmation h2, .assessment-submit-confirmation p {
   margin: 0;
 }
 
@@ -162,15 +157,13 @@
   text-align: center;
 }
 
-.dark-theme .assessment-pacing-option,
-.dark-theme .assessment-stage {
+.dark-theme .assessment-pacing-option, .dark-theme .assessment-stage {
   border-color: #29364b;
   background: #151e2d;
   color: #edf1f8;
 }
 
-.dark-theme .assessment-stage-list > p,
-.dark-theme .assessment-pacing-option p {
+.dark-theme .assessment-stage-list > p, .dark-theme .assessment-pacing-option p {
   color: #b8c2d1;
 }
 
@@ -195,7 +188,6 @@
   .assessment-stage {
     grid-template-columns: auto minmax(0, 1fr);
   }
-
   .assessment-stage button {
     grid-column: 1 / -1;
   }
@@ -303,8 +295,7 @@
  * The global mobile rule `main { min-height: 100vh }` (styles.css) also hit the assessment's
  * <main> elements, pushing question navigation and the Previous/Next buttons below the fold.
  */
-.assessment-runner-shell main.assessment-question-stage,
-.assessment-runner-shell main.assessment-stage-list {
+.assessment-runner-shell main.assessment-question-stage, .assessment-runner-shell main.assessment-stage-list {
   min-height: 0;
 }
 
