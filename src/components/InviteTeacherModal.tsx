@@ -91,7 +91,7 @@ export function InviteTeacherModal({ onClose, demoMode = false }: { onClose: () 
       if (!supabase) throw new Error('Supabase não configurado');
 
       // Call invite-teacher function
-      const { data, error: err } = await supabase.functions.invoke('invite-teacher', {
+      const { error: err } = await supabase.functions.invoke('invite-teacher', {
         body: {
           email: formData.email,
           full_name: formData.full_name,
