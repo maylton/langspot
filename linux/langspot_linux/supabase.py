@@ -220,3 +220,14 @@ class SupabaseClient:
         """
         headers = {'Origin': origin} if origin else None
         return self._authed(lambda: self._request('POST', f'/functions/v1/{function}', body=body, headers=headers))
+
+    def update_returning(self, table: str, values: dict, select: str = 'id', **filters: str) -> list[dict]:
+        """PATCH that returns the changed rows (empty when the filters matched nothing)."""
+        return self._authed(lambda: self._request('PATCH', f'/rest/v1/{table}', body=values, query={'select': select, **filters},
+                                                  headers={'Prefer': 'return=representation'})) or []
+
+    def delete_returning(self, table: str, select: str = 'id', **filters: str) -> list[dict]:
+        if not filters:
+            raise ValueError('delete_returning() needs a filter')
+        return self._authed(lambda: self._request('DELETE', f'/rest/v1/{table}', query={'select': select, **filters},
+                                                  headers={'Prefer': 'return=representation'})) or []

@@ -146,7 +146,15 @@ class State:
         self.saved_drafts: list[dict] = []
         self.published: list[str] = []
         self.generated: list[dict] = []
-        self.assessment_assignments: list[dict] = []
+        self.assessment_assignments: list[dict] = [
+            {'id': 'aa-1', 'assessment_id': 'as-1', 'teacher_id': TEACHER, 'student_id': 'st-ana', 'available_from': None, 'due_at': None, 'attempt_limit': 1,
+             'status': 'grading', 'created_at': iso(-4000)},
+            {'id': 'aa-2', 'assessment_id': 'as-live', 'teacher_id': TEACHER, 'student_id': 'st-carla', 'available_from': None, 'due_at': iso(60 * 24 * 3),
+             'attempt_limit': 1, 'status': 'assigned', 'created_at': iso(-600)},
+            {'id': 'aa-3', 'assessment_id': 'as-live', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'available_from': iso(60 * 24), 'due_at': None,
+             'attempt_limit': 2, 'status': 'assigned', 'created_at': iso(-300)},
+            {'id': 'aa-4', 'assessment_id': 'as-1', 'teacher_id': TEACHER, 'student_id': 'st-bruno', 'available_from': None, 'due_at': iso(-60 * 24),
+             'attempt_limit': 1, 'status': 'available', 'created_at': iso(-9000)}]
         self.deleted_assessments: list[str] = []
         self.report_notes: dict[str, dict] = {}
         self.overrides: list[dict] = []
@@ -414,6 +422,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, STATE.students)
         if table == 'lessons':
             return self._json(200, sorted([row for row in STATE.lessons if _matches(row, url.query)], key=lambda row: row['starts_at']))
+        if table == 'assessment_assignments':
+            return self._json(200, [row for row in STATE.assessment_assignments if _matches(row, url.query)])
         if table == 'assessments':
             return self._json(200, sorted(STATE.assessments, key=lambda row: row['updated_at'], reverse=True))
         if table == 'cefr_level_check_presets':
@@ -447,6 +457,11 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         query = dict(urllib.parse.parse_qsl(url.query))
         table = url.path.removeprefix('/rest/v1/')
+        if table == 'assessment_assignments':
+            changed = [row for row in STATE.assessment_assignments if _matches(row, url.query)]
+            for row in changed:
+                row.update(body)
+            return self._json(200, [{'id': row['id']} for row in changed])
         if table == 'profiles':
             target = query.get('id', '').removeprefix('eq.')
             if target == TEACHER:
@@ -586,6 +601,8 @@ def _matches(row: dict, query: str) -> bool:
             return False
         if value == 'is.null' and row.get(key) is not None:
             return False
+        if value.startswith('in.(') and str(row.get(key)) not in value[4:-1].split(','):
+            return False
         for operator, test in (('lt.', lambda a, b: a < b), ('lte.', lambda a, b: a <= b), ('gt.', lambda a, b: a > b), ('gte.', lambda a, b: a >= b)):
             if value.startswith(operator) and (row.get(key) is None or not test(str(row.get(key)), value[len(operator):])):
                 return False
@@ -604,6 +621,11 @@ def _delete(self) -> None:
         return
     query = dict(urllib.parse.parse_qsl(url.query))
     table = url.path.removeprefix('/rest/v1/')
+    if table == 'assessment_assignments':
+        removed = [row for row in STATE.assessment_assignments if _matches(row, url.query)]
+        STATE.assessment_assignments[:] = [row for row in STATE.assessment_assignments if row not in removed]
+        self._json(200, [{'id': row['id']} for row in removed])
+        return
     rows = {'materials': STATE.materials, 'assignments': STATE.assignments, 'payments': STATE.payments, 'material_assignments': STATE.material_assignments,
             'lessons': STATE.lessons, 'student_records': STATE.students, 'teacher_invitations': STATE.teacher_invitations,
             'question_bank': STATE.question_bank}.get(table)

@@ -3,21 +3,26 @@
 Aplicativo **nativo** do LangSpot para professores, em GTK4 + libadwaita (Python). Usa o mesmo backend
 (Supabase) do site, então tudo o que você faz aqui aparece no site e no app do aluno, e vice-versa.
 
-## O que tem na versão 0.2
+## O que tem na versão 0.3
+
+Todas as áreas do painel do professor do site estão no app; só o PDF dos relatórios de período continua no site.
 
 | Área | O que faz |
 |---|---|
-| **Agenda** | Calendário por **semana**, **mês** ou **lista** (como no site), filtros por aluno e situação, **Nova aula** (inclusive pelo **+** de cada dia), editar, cancelar, **concluir a aula com o registro** (presença, resumo, pontos fortes, a melhorar, tarefa de casa e habilidades, que também atualizam o perfil do aluno), editar ou excluir o registro, **pedidos de cancelamento** dos alunos (aprovar ou recusar com resposta), entrar na sala online e adicionar ao Google Agenda |
-| **Alunos** | Busca, perfil, contato (copiar e-mail, abrir WhatsApp), habilidades, próxima aula e histórico de avaliações com o nível CEFR |
-| **Tarefas** | Para corrigir, aguardando o aluno e corrigidas; entrega em texto ou arquivo, comentários feitos no site, **nota (0 a 100) e comentário**, **nova tarefa** com prazo e material (o material é compartilhado com o aluno), excluir |
-| **Correção** | Fila de Writing, Speaking e Mediation: enunciado, texto-fonte, resposta com contagem de palavras, **player de áudio**, gravações apagadas pelo aluno, **rubrica por nível CEFR**, comentário, excluir tarefa sem resposta, **ver a correção e concluir a revisão** |
-| **Ao vivo** | Alunos fazendo prova agora (presença, progresso), etapas, o que falta, a questão que está na tela do aluno e sinais de integridade; atualiza a cada 10 s |
-| **Materiais** | Biblioteca com busca e filtros (tipo e nível), abrir, **enviar arquivo** (PDF, DOCX, PPTX ou imagem até 10 MB) ou **salvar link**, **compartilhar com alunos**, excluir |
-| **Financeiro** | Recebido, a receber e atrasado; cobranças a receber, pagas ou todas; **nova cobrança**, marcar como paga ou pendente, **lembrete pelo WhatsApp**, excluir |
-| **Relatórios** | **Resumo do período** (aulas, conclusão, frequência, entrega e média das tarefas, tempo de aula, atividade por aluno) e **relatório individual**, com períodos rápidos ou datas; copiar o resumo ou enviar pelo WhatsApp |
-| **Notificações** | Lista, marcar como lida, marcar todas; ao clicar, abre a área relacionada |
-| **No sistema** | Notificações do desktop quando chega uma notificação nova, um aluno começa uma prova ou entrega uma tarefa; contadores na barra lateral; sessão guardada no chaveiro (libsecret); opção de continuar em segundo plano ao fechar a janela; **aulas no calendário do sistema** (abaixo) |
-| **No site** | Construtor de provas, quiz interativo, PDF dos relatórios e configurações da conta abrem no navegador |
+| **Visão geral** | Página inicial: números do momento, o que precisa de atenção agora (provas ao vivo, correções, tarefas entregues, pedidos de cancelamento, cobranças atrasadas, notificações), próximas aulas com **Entrar** e seus alunos |
+| **Agenda** | Calendário por **semana**, **mês** ou **lista**, filtros, nova aula, editar, cancelar, **concluir com o registro** (presença, resumo, pontos fortes, a melhorar, tarefa de casa, habilidades), **pedidos de cancelamento**, sala online e Google Agenda |
+| **Alunos** | **Cadastrar com senha temporária** (com primeira aula opcional e o tutorial de acesso para copiar) ou **convidar por e-mail**; perfil com contato, sequência de estudos e conquistas, **habilidades editáveis**, histórico de aulas (registrar, editar, excluir), avaliações (abre o relatório); editar e excluir o aluno |
+| **Tarefas** | Para corrigir, aguardando, corrigidas; **comentários por trecho** do texto do aluno, nota e feedback; nova tarefa com material |
+| **Quiz** | Quizzes interativos: resultado e tentativas do aluno, prévia com gabarito, **novo quiz** (banco de questões, **geração com IA**, questões manuais), **banco de questões** com metadados |
+| **Avaliações** | **Provas atribuídas** (quem recebeu cada prova e a situação, inclusive quem não começou; alterar datas e tentativas ou cancelar antes do início), provas prontas de nível para um aluno (evitando o que ele já viu), **editor completo** (seções, banco, questões manuais, ao vivo, áudio de Listening, validação, publicação, prévia), atribuir com aviso do que o aluno já viu, **aplicar ao vivo** (cronômetro e rubrica), **resultados** (perfil CEFR, revisão do nível, integridade, correção, comentário para o aluno e **PDF**), Evolução com confirmação de nível, Analytics |
+| **Correção** | Fila de Writing, Speaking e Mediation com rubrica CEFR, áudio e conclusão da revisão |
+| **Ao vivo** | Alunos fazendo prova agora, etapas e a questão na tela do aluno |
+| **Materiais** | Biblioteca, enviar arquivo ou link, compartilhar com alunos |
+| **Financeiro** | Totais, cobranças, marcar como paga, lembrete pelo WhatsApp |
+| **Progresso** | Média da turma, destaques, habilidades, alunos por nível e progresso de cada aluno |
+| **Relatórios** | Resumo do período e relatório individual |
+| **Notificações** | Lista, marcar como lida, abrir a área relacionada |
+| **Configurações** | Perfil com foto, status da conta, padrões das aulas, tema, segundo plano, calendário do sistema, **backup**; para o administrador, **convidar e gerenciar professores** |
 
 ### Aulas no calendário do sistema
 
@@ -53,7 +58,7 @@ O instalador:
 
 ```bash
 python3 -m langspot_linux                      # rodar a partir do código
-python3 -m unittest tests.test_model tests.test_supabase tests.test_calendar_sync
+python3 -m unittest tests.test_model tests.test_supabase tests.test_calendar_sync tests.test_assessments
 xvfb-run -a python3 -m tests.test_ui_flow       # fluxo completo da interface (Supabase falso)
 xvfb-run -a python3 -m tests.screenshots /tmp/telas [--dark]
 ```
@@ -71,6 +76,7 @@ LANGSPOT_SUPABASE_URL=http://127.0.0.1:54321 LANGSPOT_SUPABASE_ANON_KEY=demo LAN
 - `langspot_linux/supabase.py`: cliente Supabase (Auth, PostgREST, RPC, Storage) só com a biblioteca padrão; renova a sessão sozinho.
 - `langspot_linux/model.py`: lógica sem interface (escala CEFR, nota da rubrica, etapas da prova ao vivo, calendário,
   financeiro, relatórios), igual à do site.
+- `langspot_linux/assessments.py`: regras das avaliações portadas do site (rascunhos, validação, exposição, relatório, atribuições).
 - `langspot_linux/calendar_sync.py`: arquivo `.ics` das aulas e ligação com o GNOME (EDS) e o KDE (Akonadi).
 - `langspot_linux/ui/`: aplicativo, janela, login e uma página por área (`ui/pages/`).
 

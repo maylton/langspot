@@ -158,5 +158,26 @@ class ReportTest(unittest.TestCase):
         self.assertTrue(a.audio_path('t', 'as', 'q', 'Track 1.MP3').endswith('.mp3'))
 
 
+class AssignmentsTest(unittest.TestCase):
+    def test_states_filters_and_order(self) -> None:
+        from datetime import datetime, timezone
+        now = datetime(2026, 11, 13, 12, tzinfo=timezone.utc)
+        row = lambda **values: {'id': 'a', 'assessment_id': 'as', 'student_id': 's', 'available_from': None, 'due_at': None, 'attempt_limit': 1,
+                                'status': 'assigned', 'created_at': '2026-11-10T00:00:00Z', **values}
+        self.assertEqual(a.assignment_state(row(), now), 'waiting')
+        self.assertEqual(a.assignment_state(row(status='available', available_from='2026-11-14T08:00:00Z'), now), 'scheduled')
+        self.assertEqual(a.assignment_state(row(due_at='2026-11-12T23:00:00Z'), now), 'overdue')
+        self.assertEqual([a.assignment_state(row(status=status), now) for status in ('started', 'grading', 'submitted', 'completed', 'expired')],
+                         ['in_progress', 'to_review', 'to_review', 'completed', 'expired'])
+        self.assertTrue(a.matches_assignment_filter('overdue', 'open') and a.matches_assignment_filter('expired', 'done'))
+        self.assertFalse(a.matches_assignment_filter('in_progress', 'open'))
+        rows = [row(id='done', status='completed'), row(id='later', due_at='2026-11-30T00:00:00Z'), row(id='soon', due_at='2026-11-15T00:00:00Z'),
+                row(id='late', due_at='2026-11-01T00:00:00Z'), row(id='nodate')]
+        self.assertEqual([item['id'] for item in a.sort_assignments(rows, now)], ['late', 'soon', 'later', 'nodate', 'done'])
+        self.assertEqual(a.assignment_counts([row(assessment_id='x'), row(assessment_id='x', status='completed')]), {'x': (2, 1)})
+        self.assertIn('2 tentativas', a.assignment_details(row(attempt_limit=2), now))
+        self.assertIn('sem prazo', a.assignment_details(row(), now))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -238,11 +238,15 @@ def date_row(title: str, initial, on_change: Callable | None = None):
     return row, lambda: chosen['day']
 
 
-def optional_datetime(title: str, subtitle: str, day, hour: int = 8):
-    """Expander row with an on/off switch, a date and an hour. Returns (row, getter) where getter() → aware datetime or None."""
+def optional_datetime(title: str, subtitle: str, day, hour: int = 8, current=None):
+    """Expander row with an on/off switch, a date and an hour (on and set to `current`, an aware datetime, when given).
+    Returns (row, getter) where getter() → aware datetime or None."""
     from datetime import datetime as _datetime
 
-    row = Adw.ExpanderRow(title=title, subtitle=subtitle, show_enable_switch=True, enable_expansion=False)
+    if current is not None:
+        local = current.astimezone()
+        day, hour = local.date(), local.hour
+    row = Adw.ExpanderRow(title=title, subtitle=subtitle, show_enable_switch=True, enable_expansion=current is not None)
     when, when_value = date_row('Data', day)
     hours = Adw.SpinRow.new_with_range(0, 23, 1)
     hours.set_title('Hora')

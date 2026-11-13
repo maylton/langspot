@@ -2,5 +2,5 @@
 
 APP_ID = 'app.langspot.Teacher'
 APP_NAME = 'LangSpot'
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 WEB_URL = 'https://langspot.vercel.app'

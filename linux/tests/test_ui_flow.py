@@ -428,6 +428,14 @@ def confirm_level():
     row.emit('activated')
 
 
+def edit_assignment_due():
+    dialog = last_dialog()
+    due = next(row for row in walk(dialog, Adw.ExpanderRow) if row.get_title() == 'Prazo')
+    due.set_enable_expansion(True)
+    next(row for row in walk(dialog, Adw.SpinRow) if row.get_title() == 'Tentativas').set_value(3)
+    buttons(dialog, 'Salvar')[0].emit('clicked')
+
+
 def individual_report():
     app.window.pages['reports'].header.get_title_widget().set_active_name('individual')
 
@@ -530,6 +538,17 @@ steps += [
     (300, submit_assign),
     (1500, lambda: check(STATE.assessment_assignments and STATE.assessment_assignments[-1]['student_id'] == 'st-ana'
                          and STATE.assessment_assignments[-1]['attempt_limit'] == 1, 'Published assessment assigned to Ana')),
+    (300, lambda: assessments_page().refresh()),
+    (1500, lambda: check(any(row.get_title().startswith('Carla Mendes · Speaking check A2') for row in walk(assessments_page().nav, Adw.ActionRow))
+                         and any(row.get_title().startswith('Ana Souza · Level Check - B1') for row in walk(assessments_page().nav, Adw.ActionRow)),
+                         'Assigned assessments listed, including ones not started')),
+    (100, lambda: assessments_page().edit_assignment(row_with(STATE.assessment_assignments, 'id', 'aa-2'))), (800, edit_assignment_due),
+    (1500, lambda: check(row_with(STATE.assessment_assignments, 'id', 'aa-2')['attempt_limit'] == 3 and row_with(STATE.assessment_assignments, 'id', 'aa-2')['due_at'],
+                         'Not-started assignment changed')),
+    (100, lambda: assessments_page().cancel_assignment(row_with(STATE.assessment_assignments, 'id', 'aa-3'))), (500, confirm_dialog),
+    (1500, lambda: check(not row_with(STATE.assessment_assignments, 'id', 'aa-3'), 'Not-started assignment cancelled')),
+    (100, lambda: assessments_page().cancel_assignment(row_with(STATE.assessment_assignments, 'id', 'aa-1'))), (500, confirm_dialog),
+    (1500, lambda: check(bool(row_with(STATE.assessment_assignments, 'id', 'aa-1')), 'Started assignment kept (cannot be cancelled)')),
     (300, lambda: assessments_page().open_editor(__import__('langspot_linux.assessments', fromlist=['x']).empty_draft(), None)),
     (2500, type_title), (10, lambda: check(any(row.get('title') == 'Phrasal verbs quiz' for row in STATE.saved_drafts), 'Blank draft autosaved')),
     (300, add_section), (800, open_manual), (2500, fill_manual), (10,

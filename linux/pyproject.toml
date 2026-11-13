@@ -1,6 +1,6 @@
 [project]
 name = "langspot-linux"
-version = "0.2.0"
+version = "0.3.0"
 description = "Native GTK4 + libadwaita teacher app for the LangSpot platform"
 readme = "README.md"
 requires-python = ">=3.12"
