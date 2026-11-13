@@ -15,8 +15,6 @@ import ctypes
 import ctypes.util
 import logging
 import os
-import re
-from pathlib import Path
 from ctypes import CFUNCTYPE, POINTER, Structure, byref, c_char_p, c_int, c_uint32, c_void_p
 
 import gi
@@ -24,6 +22,8 @@ import gi
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gdk, Gtk  # noqa: E402
+
+from langspot_linux.theme import theme_flattens_cards  # noqa: E402
 
 LOGGER = logging.getLogger(__name__)
 BACKGROUND_EFFECT = b'ext_background_effect_manager_v1'
@@ -51,21 +51,9 @@ list.boxed-list > row:hover { background-color: alpha(@window_fg_color, .04); }
 '''
 
 
-def theme_flattens_cards(path: Path | None = None) -> bool:
-    """Whether the user's GTK 4 theme (e.g. Caelestia's generated gtk.css) gives cards the window's colour."""
-    path = path or Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'gtk-4.0' / 'gtk.css'
-    try:
-        text = path.read_text(encoding='utf-8')
-    except OSError:
-        return False
-    colors = dict(re.findall(r'@define-color\s+(\w+)\s+([^;]+);', text))
-    card, window = colors.get('card_bg_color', '').strip().lower(), colors.get('window_bg_color', '').strip().lower()
-    return bool(card) and (card == window or card == '@window_bg_color')
-
-
 def lift_flat_cards(display: Gdk.Display) -> bool:
     """Only in LangSpot: lighter cards when the theme makes them invisible. Other apps keep the theme as it is."""
-    if not theme_flattens_cards():
+    if not theme_flattens_cards():  # langspot_linux.theme
         return False
     provider = Gtk.CssProvider()
     provider.load_from_string(FLAT_CARDS_CSS)
