@@ -238,6 +238,34 @@ def date_row(title: str, initial, on_change: Callable | None = None):
     return row, lambda: chosen['day']
 
 
+def optional_datetime(title: str, subtitle: str, day, hour: int = 8):
+    """Expander row with an on/off switch, a date and an hour. Returns (row, getter) where getter() → aware datetime or None."""
+    from datetime import datetime as _datetime
+
+    row = Adw.ExpanderRow(title=title, subtitle=subtitle, show_enable_switch=True, enable_expansion=False)
+    when, when_value = date_row('Data', day)
+    hours = Adw.SpinRow.new_with_range(0, 23, 1)
+    hours.set_title('Hora')
+    hours.set_value(hour)
+    row.add_row(when)
+    row.add_row(hours)
+
+    def value():
+        if not row.get_enable_expansion():
+            return None
+        chosen = when_value()
+        return _datetime(chosen.year, chosen.month, chosen.day, int(hours.get_value())).astimezone()
+    return row, value
+
+
+def rich_markup(text: str | None) -> str:
+    """Pango markup for task text in the Pilot Bank's light markdown (**bold**), as the website's richText."""
+    import re as _re
+    parts = _re.split(r'(\*\*[^*]+\*\*)', text or '')
+    return ''.join(f'<b>{GLib.markup_escape_text(part[2:-2])}</b>' if part.startswith('**') and part.endswith('**') and len(part) > 4
+                   else GLib.markup_escape_text(part) for part in parts)
+
+
 def student_names(client) -> dict[str, dict]:
     """student_id → {'name', 'phone', 'level', 'goal', 'skills'} for the teacher's students."""
     rows = client.select('student_records', select='student_id,level,goal,skills,notes,student:profiles!student_records_student_id_fkey(full_name,email,whatsapp_phone)')

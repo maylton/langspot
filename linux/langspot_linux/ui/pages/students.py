@@ -249,10 +249,12 @@ class StudentsPage(Page):
                 assessments.add(Adw.ActionRow(title='Nenhuma avaliação concluída ainda.'))
             for item in items:
                 completed = model.short_datetime(item.get('completedAt'))
-                row = Adw.ActionRow(title=GLib.markup_escape_text(item.get('title') or 'Avaliação'),
+                row = Adw.ActionRow(title=GLib.markup_escape_text(item.get('title') or 'Avaliação'), activatable=True,
                                     subtitle=GLib.markup_escape_text(f'{completed} · resultado {item.get("score") if item.get("score") is not None else "—"}%'))
                 if item.get('estimatedCefr'):
                     row.add_suffix(pill(item['estimatedCefr'], 'accent'))
+                row.add_suffix(Gtk.Image(icon_name='go-next-symbolic'))
+                row.connect('activated', lambda _row, attempt=item['attemptId']: self.window.open_attempt(attempt))
                 assessments.add(row)
 
         def failed(error: Exception) -> None:

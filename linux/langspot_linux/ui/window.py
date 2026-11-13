@@ -6,9 +6,7 @@ from gi.repository import Adw, Gio, Gtk
 from langspot_linux.ui.common import label, open_uri
 from langspot_linux.ui.login import LoginView
 
-WEB_SECTIONS = [
-    ('Construtor de provas', 'document-properties-symbolic'),
-]
+WEB_SECTIONS: list[tuple[str, str]] = []
 
 
 class SidebarRow(Gtk.ListBoxRow):
@@ -67,6 +65,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def show_main(self, profile: dict) -> None:
         from langspot_linux.ui.pages.agenda import AgendaPage
+        from langspot_linux.ui.pages.assessments import AssessmentsPage
         from langspot_linux.ui.pages.finance import FinancePage
         from langspot_linux.ui.pages.live import LivePage
         from langspot_linux.ui.pages.materials import MaterialsPage
@@ -80,7 +79,7 @@ class MainWindow(Adw.ApplicationWindow):
         from langspot_linux.ui.pages.tasks import QuizPage, TasksPage
 
         self.profile = profile
-        for page_class in (OverviewPage, AgendaPage, StudentsPage, TasksPage, QuizPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ProgressPage,
+        for page_class in (OverviewPage, AgendaPage, StudentsPage, TasksPage, QuizPage, AssessmentsPage, ReviewPage, LivePage, MaterialsPage, FinancePage, ProgressPage,
                            ReportsPage, NotificationsPage, SettingsPage):
             self.pages[page_class.key] = page_class(self)
 
@@ -125,10 +124,11 @@ class MainWindow(Adw.ApplicationWindow):
         self.listbox = listbox
         box.append(listbox)
 
-        box.append(label('No site', css=('caption-heading', 'dim-label'), wrap=False))
-        box.get_last_child().set_margin_start(18)
-        box.get_last_child().set_margin_top(18)
-        web = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        web = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, visible=bool(WEB_SECTIONS))
+        if WEB_SECTIONS:
+            box.append(label('No site', css=('caption-heading', 'dim-label'), wrap=False))
+            box.get_last_child().set_margin_start(18)
+            box.get_last_child().set_margin_top(18)
         web.add_css_class('navigation-sidebar')
         for title, icon in WEB_SECTIONS:
             row = SidebarRow('web', title, icon)
@@ -179,6 +179,13 @@ class MainWindow(Adw.ApplicationWindow):
         self.footer_avatar.set_custom_image(avatar_texture(self.profile.get('avatar_url') or ''))
         self.footer_name.set_text(name)
         self.footer_email.set_text(self.profile.get('school_name') or self.profile.get('email') or '')
+
+    def open_attempt(self, attempt_id: str) -> None:
+        """Show an assessment attempt's report in the Avaliações page."""
+        page = self.pages['assessments']
+        self.open_page('assessments')
+        page.nav.pop_to_tag('root')
+        page.open_attempt(attempt_id)
 
     def open_student(self, student_id: str) -> None:
         """Show a student's profile in the Alunos page."""

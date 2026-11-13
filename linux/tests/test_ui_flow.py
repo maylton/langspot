@@ -26,6 +26,7 @@ from gi.repository import Adw, GLib, Gtk  # noqa: E402
 from langspot_linux.ui.app import LangSpotApp  # noqa: E402
 
 STATE = fake_supabase.STATE
+PDF = __import__('pathlib').Path('/tmp/langspot-ui-test/relatorio.pdf')
 app = LangSpotApp()
 failures: list[str] = []
 steps: list = []
@@ -335,6 +336,98 @@ def question_bank_dialog():
     question_bank(app.window)
 
 
+def assessments_page():
+    return app.window.pages['assessments']
+
+
+def editor():
+    return assessments_page().editor
+
+
+def publish_draft():
+    editor().publish()
+
+
+def respond_alert(response='ok'):
+    def run():
+        dialog = walk(app.window, Adw.AlertDialog)[0]
+        dialog.emit('response', response)
+        dialog.force_close()
+    return run
+
+
+def submit_assign():
+    dialog = last_dialog()
+    buttons(dialog, 'Atribuir')[0].emit('clicked')
+
+
+def type_title():
+    page = editor().page
+    entry(page, 'Título (ex.: Unit 4 Progress Test)').set_text('Phrasal verbs quiz')
+
+
+def add_section():
+    buttons(editor().page, 'Adicionar seção')[0].emit('clicked')
+
+
+def open_manual():
+    buttons(editor().page, 'Criar questão')[0].emit('clicked')
+
+
+def fill_manual():
+    dialog = last_dialog()
+    entry(dialog, 'Enunciado').set_text('She ___ up early every day.')
+    views = walk(dialog, Gtk.TextView)
+    views[0].get_buffer().set_text('gets\ngoes')
+    views[1].get_buffer().set_text('gets')
+    buttons(dialog, 'Adicionar')[0].emit('clicked')
+
+
+def save_note():
+    page = visible_page('assessments')
+    row = next(item for item in walk(page, Adw.ExpanderRow) if item.get_title() == 'Relatório para o aluno')
+    row.set_expanded(True)
+    views = walk(row, Gtk.TextView)
+    views[0].get_buffer().set_text('Você evoluiu muito na leitura.')
+    views[1].get_buffer().set_text('Revisar conectivos.')
+    buttons(row, 'Salvar comentário')[0].emit('clicked')
+
+
+def open_override():
+    buttons(visible_page('assessments'), 'Revisar nível CEFR')[0].emit('clicked')
+
+
+def fill_override():
+    dialog = last_dialog()
+    next(row for row in walk(dialog, Adw.ComboRow) if row.get_title() == 'Nível revisado').set_selected(5)  # B1+
+    walk(dialog, Gtk.TextView)[0].get_buffer().set_text('Writing B1 na tarefa principal; leitura forte.')
+    buttons(dialog, 'Registrar revisão')[0].emit('clicked')
+
+
+def write_pdf():
+    from langspot_linux.ui.assessment_results import write_report_pdf
+    result = fake_supabase.STATE.result()
+    result['cefrProfile'] = fake_supabase.PROFILE
+    write_report_pdf(PDF, result, None, {'summary': 'Ótimo trabalho — continue assim.', 'nextSteps': 'Ler 10 min por dia.'})
+
+
+def score_live():
+    page = visible_page('assessments')
+    for row in walk(page, Adw.ComboRow):
+        row.set_selected(3)  # A2
+    buttons(page, 'Salvar e avançar')[0].emit('clicked')
+
+
+def complete_live():
+    buttons(visible_page('assessments'), 'Concluir avaliação')[0].emit('clicked')
+
+
+def confirm_level():
+    page = visible_page('assessments')
+    row = next(item for item in walk(page, Adw.ButtonRow) if item.get_title() == 'Confirmar nível B1')
+    row.emit('activated')
+
+
 def individual_report():
     app.window.pages['reports'].header.get_title_widget().set_active_name('individual')
 
@@ -427,6 +520,40 @@ steps += [
     (300, close_dialogs), (300, lambda: app.window.pages['settings'].manage_teachers()), (1500, suspend_teacher),
     (1500, lambda: check(row_with(STATE.teachers, 'id', 'teacher-0002')['status'] == 'expired', 'Teacher access suspended')),
     (300, close_dialogs),
+    # Assessments
+    (300, lambda: app.window.open_page('assessments')), (2000, lambda: assessments_page().generate('pr-b1', None, 'st-ana')),
+    (2500, lambda: check(STATE.generated and STATE.generated[-1]['p_student_id'] == 'st-ana' and STATE.generated[-1]['p_selection_seed'].startswith('ana-souza-')
+                         and STATE.generated[-1]['p_bank_version'] == 'pilot-0.10', 'Ready-made level check generated for the student')),
+    (100, lambda: check(editor().draft['framework'] == 'cefr' and len(editor().draft['sections']) == 2, 'Generated draft opened in the editor')),
+    (300, publish_draft), (800, respond_alert()),
+    (2500, lambda: check(STATE.published and STATE.published[-1].startswith('as-gen-'), 'Draft saved and published')),
+    (300, submit_assign),
+    (1500, lambda: check(STATE.assessment_assignments and STATE.assessment_assignments[-1]['student_id'] == 'st-ana'
+                         and STATE.assessment_assignments[-1]['attempt_limit'] == 1, 'Published assessment assigned to Ana')),
+    (300, lambda: assessments_page().open_editor(__import__('langspot_linux.assessments', fromlist=['x']).empty_draft(), None)),
+    (2500, type_title), (10, lambda: check(any(row.get('title') == 'Phrasal verbs quiz' for row in STATE.saved_drafts), 'Blank draft autosaved')),
+    (300, add_section), (800, open_manual), (2500, fill_manual), (10,
+     lambda: check(any(draft.get('title') == 'Phrasal verbs quiz' and draft['sections'] and draft['sections'][0]['questions']
+                       and draft['sections'][0]['questions'][0]['snapshot']['answer'] == 'gets' for draft in STATE.saved_drafts), 'Manual question added and saved')),
+    (300, lambda: assessments_page().nav.pop_to_tag('root')),
+    (1500, lambda: assessments_page().delete(assessments_page().by_id('as-d1'))), (1000, respond_alert()),
+    (1500, lambda: check('as-d1' in STATE.deleted_assessments, 'Draft deleted after the impact check')),
+    (300, lambda: assessments_page().open_attempt('at-1')), (2500, save_note),
+    (1500, lambda: check(STATE.report_notes.get('at-1', {}).get('nextSteps') == 'Revisar conectivos.', 'Report note saved')),
+    (300, open_override), (800, fill_override),
+    (1500, lambda: check(STATE.overrides and STATE.overrides[-1]['p_level'] == 'B1+', 'CEFR level overridden with a reason')),
+    (100, write_pdf), (300, lambda: check(PDF.read_bytes()[:5] == b'%PDF-' and PDF.stat().st_size > 2000, 'Student report exported to PDF')),
+    (300, lambda: assessments_page().nav.pop_to_tag('root')),
+    (300, lambda: __import__('langspot_linux.ui.assessment_results', fromlist=['x']).LiveSession(assessments_page(), 'at-ls')), (1500, score_live),
+    (1500, lambda: check(STATE.live_session['questions'][0]['gradingStatus'] == 'reviewed' and STATE.live_session['questions'][0]['rubricScores'].get('fluency') == 3,
+                         'Live task scored with the rubric')),
+    (300, complete_live), (1500, lambda: check(STATE.live_session['attempt']['status'] == 'completed', 'Live session completed')),
+    (300, lambda: assessments_page().nav.pop_to_tag('root')),
+    (300, lambda: __import__('langspot_linux.ui.assessment_results', fromlist=['x']).show_progress(assessments_page(), assessments_page().students, [], 'st-ana')),
+    (1500, confirm_level), (800, confirm_dialog),
+    (1500, lambda: check(STATE.confirmed_levels and STATE.confirmed_levels[-1] == {'p_student_id': 'st-ana', 'p_attempt_id': 'at-1', 'p_level': 'B1'},
+                         'Level confirmed from the progress history')),
+    (300, lambda: assessments_page().nav.pop_to_tag('root')),
     # Desktop calendar
     (100, lambda: app.activate_action('calendar-sync', None)),
     (2500, lambda: check(calendar_file().exists() and 'UID:lesson-l2@langspot.app' in calendar_file().read_text()
