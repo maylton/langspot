@@ -67,7 +67,7 @@ O instalador:
 
 ```bash
 python3 -m langspot_linux                      # rodar a partir do código
-python3 -m unittest tests.test_model tests.test_supabase tests.test_calendar_sync tests.test_assessments
+python3 -m unittest tests.test_model tests.test_supabase tests.test_calendar_sync tests.test_assessments tests.test_blur
 xvfb-run -a python3 -m tests.test_ui_flow       # fluxo completo da interface (Supabase falso)
 xvfb-run -a python3 -m tests.screenshots /tmp/telas [--dark]
 ```
@@ -82,15 +82,34 @@ LANGSPOT_SUPABASE_URL=http://127.0.0.1:54321 LANGSPOT_SUPABASE_ANON_KEY=demo LAN
 
 ### Estrutura
 
-- `langspot_linux/supabase.py`: cliente Supabase (Auth, PostgREST, RPC, Storage) só com a biblioteca padrão; renova a sessão sozinho.
-- `langspot_linux/model.py`: lógica sem interface (escala CEFR, nota da rubrica, etapas da prova ao vivo, calendário,
-  financeiro, relatórios), igual à do site.
-- `langspot_linux/assessments.py`: regras das avaliações portadas do site (rascunhos, validação, exposição, relatório, atribuições).
-- `langspot_linux/calendar_sync.py`: arquivo `.ics` das aulas e ligação com o GNOME (EDS) e o KDE (Akonadi).
-- `langspot_linux/ui/`: aplicativo, janela, login e uma página por área (`ui/pages/`).
+```
+langspot_linux/
+  supabase.py          cliente Supabase (Auth, PostgREST, RPC, Storage, Edge Functions) só com a biblioteca padrão
+  config.py, session_store.py, worker.py   configuração, sessão no chaveiro, tarefas em segundo plano
+  model/               lógica sem interface, um módulo por domínio (datas, aulas, correção, monitor ao vivo, finanças,
+                       relatórios, calendário, alunos, conta, quiz); `model.<nome>` reexporta tudo
+  assessments/         regras das avaliações portadas do site (rótulos, rascunhos, questões e validação, exposição,
+                       relatório do aluno, provas atribuídas)
+  calendar_sync.py, theme.py               arquivo .ics das aulas (GNOME/KDE/Caelestia); fatos do tema GTK
+  ui/
+    app.py, window.py, login.py            aplicativo, janela e login
+    common.py          componentes comuns (cartões, menus de ações, formulários, datas)
+    blur.py            desfoque do compositor
+    grading.py, lesson_forms.py, quiz_builder.py   correção por rubrica, registro de aula, quiz e banco de questões
+    assessment_editor/ editor de avaliações (campos, banco, questão manual, prévia)
+    assessment_results/ resultados, relatório do aluno e PDF, evolução e analytics, aplicação ao vivo
+    pages/             uma página por área; os diálogos maiores ficam ao lado (student_forms, settings_admin,
+                       assessment_assignments)
+tests/                 testes sem interface (rodam no CI), Supabase falso, fluxo da interface e screenshots
+```
 
-As funções e tabelas usadas são as mesmas do site: `student_records`, `lessons`, `cancellation_requests`, `assignments`,
-`materials`, `material_assignments`, `payments`, `notifications`, `profiles`, os buckets `materials` e `assignment-submissions`,
-`list_assessment_review_queue`, `get_assessment_result`, `review_assessment_response`, `exclude_assessment_response`,
-`finalize_assessment_review`, `list_active_teacher_attempts`, `get_attempt_live_status` e `get_assessment_progress`.
-Ao mudar uma delas no banco, atualize o app e o `tests/fake_supabase.py`.
+Os testes que rodam no CI não importam GTK: a lógica fica em `model/`, `assessments/`, `calendar_sync.py` e `theme.py`.
+
+O app usa as mesmas tabelas, funções (RPC) e Edge Functions do site; ao mudar uma delas no banco, atualize o app e o
+`tests/fake_supabase.py`. As principais: `student_records`, `lessons`, `cancellation_requests`, `assignments`,
+`question_bank`, `materials`, `material_assignments`, `payments`, `notifications`, `profiles`, `teacher_invitations`,
+`assessments`, `assessment_assignments`, `assessment_attempts`, os buckets `materials`, `assignment-submissions` e
+`assessment-audio`, as funções de avaliação (`get_assessment_draft`, `save_assessment_draft`, `publish_assessment`,
+`generate_assessment_from_preset`, `get_assessment_result`, `review_assessment_response`, `finalize_assessment_review`,
+`get_live_assessment_session`, `get_assessment_progress` e afins) e as Edge Functions `invite-student`,
+`invite-teacher`, `admin-teachers` e `generate-quiz`.
