@@ -4,7 +4,7 @@ from __future__ import annotations
 from gi.repository import Adw, GLib, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, empty_state, label, markup, pill, scrolled, text_card, vbox
+from langspot_linux.ui.common import Page, card_box, empty_state, label, markup, pill, scrolled, text_card, vbox
 from langspot_linux.worker import run_async
 
 PRESENCE_KIND = {'online': 'success', 'recent': 'warning', 'away': ''}
@@ -182,9 +182,7 @@ class LivePage(Page):
         self._render_detail(detail, status)
 
     def _question_card(self, question: dict, stage, viewing: bool, detail: dict, status: dict) -> Gtk.Widget:
-        card = vbox(12)
-        card.add_css_class('card')
-        card.add_css_class('ls-card')
+        card = card_box(12)
         if viewing:
             card.add_css_class('viewing')
         head = Gtk.Box(spacing=8)

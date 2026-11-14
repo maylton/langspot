@@ -1,0 +1,105 @@
+"""Labels shared by every page, and date and time formatting."""
+from __future__ import annotations
+
+import re
+from datetime import date, datetime, timedelta, timezone
+
+
+CEFR_LEVELS = ['A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C1+', 'C2']
+SKILL_LABELS = {
+    'reading': 'Reading', 'listening': 'Listening', 'writing': 'Writing', 'speaking': 'Speaking',
+    'spoken_production': 'Spoken Production', 'spoken_interaction': 'Spoken Interaction',
+    'mediation': 'Mediation', 'language_use': 'Language Use', 'grammar': 'Grammar', 'vocabulary': 'Vocabulary',
+    'use_of_english': 'Language Use',
+}
+CRITERION_LABELS = {
+    'task_achievement': 'Cumprimento da tarefa', 'range': 'Repertório', 'accuracy': 'Correção',
+    'grammatical_accuracy': 'Correção gramatical', 'lexical_control': 'Controle do vocabulário',
+    'organisation_cohesion': 'Organização e coesão', 'organisation': 'Organização',
+    'register_pragmatic_appropriacy': 'Adequação ao contexto', 'fluency': 'Fluência', 'coherence': 'Coerência',
+    'interaction': 'Interação', 'pronunciation_phonological_control': 'Pronúncia',
+    'information_selection': 'Seleção de informações', 'accuracy_of_meaning': 'Precisão do significado',
+    'reformulation': 'Reformulação', 'audience_appropriacy': 'Adequação ao leitor', 'language_control': 'Controle da língua',
+}
+EVENT_LABELS = {
+    'tab_blur': 'Saiu da janela da prova', 'tab_focus': 'Voltou para a prova', 'fullscreen_exit': 'Saiu da tela cheia',
+    'paste_detected': 'Colou texto', 'copy_detected': 'Copiou texto', 'drop_detected': 'Arrastou texto para a resposta',
+    'bulk_insert_detected': 'Inseriu muito texto de uma vez', 'network_disconnect': 'Perdeu a conexão',
+    'network_reconnect': 'Reconectou', 'session_conflict': 'Abriu a prova em outro dispositivo', 'resumed': 'Retomou a prova',
+}
+LESSON_STATUS = {'scheduled': 'Agendada', 'completed': 'Concluída', 'cancelled': 'Cancelada'}
+WEEKDAYS = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
+MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+
+def parse_time(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    text = value.replace('Z', '+00:00')
+    # PostgreSQL may send 5-digit fractions or a space separator.
+    text = text.replace(' ', 'T', 1)
+    match = re.match(r'^(.*T\d\d:\d\d:\d\d)(\.\d+)?(.*)$', text)
+    if match:
+        fraction = (match.group(2) or '')[:7].ljust(7, '0') if match.group(2) else ''
+        text = match.group(1) + fraction + match.group(3)
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def local(value: datetime) -> datetime:
+    return value.astimezone()
+
+
+def relative_time(value: str | datetime | None, now: datetime | None = None) -> str:
+    moment = parse_time(value) if isinstance(value, str) or value is None else value
+    if moment is None:
+        return '—'
+    now = now or datetime.now(timezone.utc)
+    seconds = max(0, round((now - moment).total_seconds()))
+    if seconds < 45:
+        return 'agora'
+    minutes = round(seconds / 60)
+    if minutes < 60:
+        return f'há {minutes} min'
+    hours = minutes // 60
+    if hours < 24:
+        rest = minutes % 60
+        return f'há {hours} h' + (f' {rest} min' if rest else '')
+    days = hours // 24
+    return f'há {days} dia' + ('' if days == 1 else 's')
+
+
+def day_label(day: date, today: date | None = None) -> str:
+    today = today or date.today()
+    if day == today:
+        return 'Hoje'
+    if day == today + timedelta(days=1):
+        return 'Amanhã'
+    if day == today - timedelta(days=1):
+        return 'Ontem'
+    return f'{WEEKDAYS[day.weekday()].capitalize()}, {day.day} {MONTHS[day.month - 1]}'
+
+
+def short_datetime(value: str | None) -> str:
+    moment = parse_time(value)
+    if moment is None:
+        return '—'
+    moment = local(moment)
+    return f'{moment.day:02d}/{moment.month:02d}/{moment.year} às {moment:%H:%M}'
+
+
+def clock(seconds: int | None) -> str:
+    if seconds is None:
+        return 'sem limite'
+    hours, rest = divmod(max(0, int(seconds)), 3600)
+    minutes, secs = divmod(rest, 60)
+    return f'{hours}:{minutes:02d}:{secs:02d}' if hours else f'{minutes:02d}:{secs:02d}'
+
+
+def local_date(value: str | None) -> str:
+    """A timestamp's date in the local time zone, '12/11/2026'; '' when it is not a timestamp."""
+    moment = parse_time(value)
+    return f'{local(moment):%d/%m/%Y}' if moment else ''

@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from gi.repository import Adw, GLib, Gtk, Pango
 
 from langspot_linux import model
-from langspot_linux.ui.common import (Page, ask_long_text, confirm, date_row, empty_state, form_dialog, label, open_uri, pill, scrolled,
+from langspot_linux.ui.common import (card_box, stat_card, stat_row, Page, ask_long_text, confirm, date_row, empty_state, form_dialog, label, open_uri, pill, scrolled,
                                       student_names, text_card, text_view, vbox)
 from langspot_linux.ui.quiz_builder import new_quiz, question_bank, quiz_preview_groups, result_group
 from langspot_linux.worker import run_async
@@ -53,15 +53,8 @@ class TasksPage(Page):
         box = vbox(18)
         waiting = [task for task in self.tasks if task.get('status') == 'pending']
         reviewed = [task for task in self.tasks if task.get('status') == 'reviewed']
-        counts = Gtk.Box(spacing=12, homogeneous=True)
-        for title, value in ((self.labels['review'], len(to_review)), (self.labels['waiting'], len(waiting)), (self.labels['reviewed'], len(reviewed))):
-            card = vbox(2)
-            card.add_css_class('card')
-            card.add_css_class('ls-card')
-            card.append(label(str(value), css=('ls-big-number',)))
-            card.append(label(title, css=('dim-label',)))
-            counts.append(card)
-        box.append(counts)
+        box.append(stat_row([stat_card(title, str(value), value_first=True) for title, value in (
+            (self.labels['review'], len(to_review)), (self.labels['waiting'], len(waiting)), (self.labels['reviewed'], len(reviewed)))]))
         if not self.tasks:
             box.append(empty_state(self.icon, self.labels['empty'], self.labels['empty_hint']))
         today = date.today().isoformat()
@@ -175,9 +168,7 @@ class TasksPage(Page):
     def _submission(self, task: dict, answer: str, comments: list[dict], *, editable: bool) -> Gtk.Widget:
         """The student's answer with highlighted comments; when reviewing, select text to comment on it."""
         container = vbox(12)
-        card = vbox(8)
-        card.add_css_class('card')
-        card.add_css_class('ls-card')
+        card = card_box(8)
         card.append(label('Resposta do aluno', css=('caption-heading', 'dim-label')))
         container.append(card)
         if task.get('status') == 'pending':

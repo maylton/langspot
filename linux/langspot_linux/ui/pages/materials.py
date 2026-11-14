@@ -7,7 +7,7 @@ from pathlib import Path
 from gi.repository import Adw, Gio, GLib, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, confirm, empty_state, form_dialog, label, open_uri, scrolled, student_names, vbox
+from langspot_linux.ui.common import Page, confirm, empty_state, form_dialog, open_uri, scrolled, student_names, vbox
 from langspot_linux.worker import run_async
 
 TYPE_ICONS = {'PDF': 'x-office-document-symbolic', 'Documento': 'x-office-document-symbolic', 'Apresentação': 'x-office-presentation-symbolic',

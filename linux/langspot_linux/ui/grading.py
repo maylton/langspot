@@ -7,10 +7,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import ask_text, label, pill, scrolled, text_card, vbox
+from langspot_linux.ui.common import ask_text, card_box, label, pill, scrolled, text_card, vbox
 from langspot_linux.worker import run_async
 
 PRODUCTIVE = ('writing', 'speaking', 'mediation')
@@ -58,9 +58,7 @@ class GradingMixin:
         if question.get('type') == 'speaking':
             box.append(self._audio_card(question, result))
         else:
-            card = vbox(8)
-            card.add_css_class('card')
-            card.add_css_class('ls-card')
+            card = card_box(8)
             card.append(label('Resposta do aluno', css=('caption-heading', 'dim-label')))
             card.append(label(answer or 'Em branco', selectable=True, css=() if answer else ('dim-label',)))
             if answer:
@@ -142,9 +140,7 @@ class GradingMixin:
         self.nav.push(Adw.NavigationPage(title=f'{student} · {skill}', child=toolbar))
 
     def _audio_card(self, question: dict, result: dict) -> Gtk.Widget:
-        card = vbox(10)
-        card.add_css_class('card')
-        card.add_css_class('ls-card')
+        card = card_box(10)
         card.append(label('Gravação do aluno', css=('caption-heading', 'dim-label')))
         discarded = model.discarded_recordings((result.get('integrity') or {}).get('events') or [], question.get('id'))
         if discarded:

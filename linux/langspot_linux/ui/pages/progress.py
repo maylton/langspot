@@ -5,7 +5,7 @@ from __future__ import annotations
 from gi.repository import Adw, GLib, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, empty_state, label, scrolled, vbox
+from langspot_linux.ui.common import Page, empty_state, hero_card, label, scrolled, stat_card, stat_row, vbox
 from langspot_linux.worker import run_async
 
 LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
@@ -63,36 +63,19 @@ class ProgressPage(Page):
         average = round(sum(model.progress_of(skills) for skills in skill_sets) / len(skill_sets)) if skill_sets else 0
         averages = {skill: model.skill_average(skill_sets, skill) for skill in model.SKILLS}
 
-        hero = Gtk.Box(spacing=16)
-        hero.add_css_class('card')
-        hero.add_css_class('ls-card')
-        titles = vbox(4)
-        titles.set_hexpand(True)
-        titles.append(label('Panorama de desenvolvimento', css=('title-2',)))
-        titles.append(label('Compare habilidades e veja onde cada aluno precisa de mais atenção.', css=('dim-label',)))
-        hero.append(titles)
         score = vbox(0)
         score.set_valign(Gtk.Align.CENTER)
         score.append(label(f'{average}%', css=('ls-big-number',), xalign=1))
         score.append(label('média da turma' if self.level is None else f'média do {self.level}', css=('caption', 'dim-label'), xalign=1))
-        hero.append(score)
-        box.append(hero)
+        box.append(hero_card('Panorama de desenvolvimento', 'Compare habilidades e veja onde cada aluno precisa de mais atenção.', score))
 
         top = max(visible, key=lambda row: model.progress_of(row.get('skills')), default=None)
         strongest = max(model.SKILLS, key=lambda skill: averages[skill]) if visible else None
         weakest = min(model.SKILLS, key=lambda skill: averages[skill]) if visible else None
-        insights = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=3, min_children_per_line=1, column_spacing=12, row_spacing=12, homogeneous=True)
-        for title, value, note in (('Maior destaque', self._name(top) if top else '—', f'{model.progress_of(top.get("skills"))}% de progresso geral' if top else 'Nenhum aluno'),
+        box.append(stat_row([stat_card(title, value, note, value_css='title-3') for title, value, note in (('Maior destaque', self._name(top) if top else '—', f'{model.progress_of(top.get("skills"))}% de progresso geral' if top else 'Nenhum aluno'),
                                    ('Habilidade mais forte', strongest or '—', f'{averages[strongest]}% de média' if strongest else 'Sem dados'),
-                                   ('Ponto de atenção', weakest or '—', f'{averages[weakest]}% de média' if weakest else 'Sem dados')):
-            card = vbox(2)
-            card.add_css_class('card')
-            card.add_css_class('ls-card')
-            card.append(label(title, css=('dim-label',)))
-            card.append(label(value, css=('title-3',)))
-            card.append(label(note, css=('caption', 'dim-label')))
-            insights.append(card)
-        box.append(insights)
+                                   ('Ponto de atenção', weakest or '—', f'{averages[weakest]}% de média' if weakest else 'Sem dados'))],
+                            wrap=True, per_line=3, min_per_line=1))
 
         skills = Adw.PreferencesGroup(title='Desempenho por habilidade', description='Média dos alunos' + (f' do nível {self.level}' if self.level else '') + '.')
         for skill in model.SKILLS:

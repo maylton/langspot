@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from gi.repository import Adw, Gio, Gtk
 
+from langspot_linux.ui import blur
 from langspot_linux.ui.common import label, open_uri
 from langspot_linux.ui.login import LoginView
 
@@ -48,7 +49,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.toasts.set_child(self.stack)
         # An empty layer under everything where blur.py asks the compositor for its blur:
         # nothing changes in it, so GTK only redraws what changes above it.
-        layers = Gtk.Overlay(child=Gtk.Box(css_classes=['ls-blur-layer']))
+        layers = Gtk.Overlay(child=Gtk.Box(css_classes=[blur.LAYER_CLASS]))
         layers.add_overlay(self.toasts)
         layers.set_measure_overlay(self.toasts, True)
         self.set_content(layers)

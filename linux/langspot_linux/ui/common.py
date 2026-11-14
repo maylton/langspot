@@ -325,3 +325,69 @@ def text_view(text: str = '', height: int = 110) -> tuple[Gtk.Frame, Callable[[]
         buffer = view.get_buffer()
         return buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False).strip()
     return frame, value
+
+
+def card_box(spacing: int = 2, *, horizontal: bool = False) -> Gtk.Box:
+    """A box drawn as a LangSpot card."""
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL if horizontal else Gtk.Orientation.VERTICAL, spacing=spacing)
+    box.add_css_class('card')
+    box.add_css_class('ls-card')
+    return box
+
+
+def stat_card(title: str, value: str, note: str = '', *, value_css: str = 'ls-big-number', value_first: bool = False) -> Gtk.Widget:
+    """A number with its caption (and an optional note) in a card."""
+    card = card_box()
+    caption = label(title, css=('dim-label',))
+    number = label(value, css=(value_css,))
+    for widget in ((number, caption) if value_first else (caption, number)):
+        card.append(widget)
+    if note:
+        card.append(label(note, css=('caption', 'dim-label')))
+    return card
+
+
+def stat_row(cards: list[Gtk.Widget], *, wrap: bool = False, per_line: int = 4, min_per_line: int = 2) -> Gtk.Widget:
+    """Cards side by side: equal columns, or a grid that wraps on narrow windows."""
+    if wrap:
+        row = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=per_line, min_children_per_line=min_per_line,
+                          column_spacing=12, row_spacing=12, homogeneous=True)
+    else:
+        row = Gtk.Box(spacing=12, homogeneous=True)
+    for card in cards:
+        row.append(card)
+    return row
+
+
+def hero_card(title: str, subtitle: str, side: Gtk.Widget | None = None, *, title_css: str = 'title-2') -> Gtk.Widget:
+    """The wide card at the top of a page: title and subtitle on the left, an optional widget on the right."""
+    hero = card_box(16, horizontal=True)
+    titles = vbox(4)
+    titles.set_hexpand(True)
+    titles.append(label(title, css=(title_css,)))
+    titles.append(label(subtitle, css=('dim-label',)))
+    hero.append(titles)
+    if side is not None:
+        hero.append(side)
+    return hero
+
+
+def action_menu(entries: list[tuple[str, Callable[[], None]]], danger: list[tuple[str, Callable[[], None]]] | None = None, *,
+                icon: str = 'view-more-symbolic', tooltip: str = 'Ações', flat: bool = True) -> Gtk.MenuButton:
+    """A menu button whose items run callbacks; `danger` items go in a separate section at the end."""
+    menu = Gio.Menu()
+    actions = Gio.SimpleActionGroup()
+    for section, items in ((menu, entries), (Gio.Menu(), danger or [])):
+        for index, (title, callback) in enumerate(items):
+            name = f'{"d" if section is not menu else "a"}{index}'
+            section.append(title, f'menu.{name}')
+            item = Gio.SimpleAction.new(name, None)
+            item.connect('activate', lambda *_a, run=callback: run())
+            actions.add_action(item)
+        if section is not menu and items:
+            menu.append_section(None, section)
+    button = Gtk.MenuButton(icon_name=icon, menu_model=menu, valign=Gtk.Align.CENTER, tooltip_text=tooltip)
+    if flat:
+        button.add_css_class('flat')
+    button.insert_action_group('menu', actions)
+    return button
