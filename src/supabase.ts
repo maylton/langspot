@@ -117,7 +117,7 @@ export type DbQuestionBankItem = {
   operational_descriptor?: string | null;
   primary_evidence?: string | null;
   response_constraints?: { min: number; max: number; unit: 'words' | 'seconds' | 'minutes'; label: string } | null;
-  rubric?: import('./App').QuestionBankRubricCriterion[] | null;
+  rubric?: import('./types').QuestionBankRubricCriterion[] | null;
   source_material?: string | null;
   tasklet_id?: string | null;
   psychometric_status?: 'uncalibrated' | 'pilot_data_collected' | 'under_analysis' | 'calibrated' | null;

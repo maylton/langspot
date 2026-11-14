@@ -154,7 +154,7 @@ class ReportTest(unittest.TestCase):
         new = {'attempt': {'startedAt': '2026-11-12T10:00:00Z'}, 'integrity': {'events': [
             {'type': 'recording_discarded', 'metadata': {'questionId': 'q', 'pausedCount': 2}}]}}
         self.assertEqual(a.discarded_info(new, 'q'), (1, 2))
-        self.assertEqual(a.clock(125), '02:05')
+        self.assertEqual((a.clock(125), a.clock(3725)), ('02:05', '1:02:05'))
         self.assertTrue(a.audio_path('t', 'as', 'q', 'Track 1.MP3').endswith('.mp3'))
 
 

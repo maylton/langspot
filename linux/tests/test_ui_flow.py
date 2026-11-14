@@ -265,9 +265,24 @@ def fill_payment():
     buttons(dialog, 'Registrar')[0].emit('clicked')
 
 
+def activate_menu_item(button, title):
+    """Runs the item labelled `title` of a menu button (sections included)."""
+    models = [button.get_menu_model()]
+    while models:
+        model = models.pop()
+        for index in range(model.get_n_items()):
+            item_label = model.get_item_attribute_value(index, 'label', None)
+            if item_label and item_label.get_string() == title:
+                button.activate_action(model.get_item_attribute_value(index, 'action', None).get_string(), None)
+                return
+            section = model.get_item_link(index, 'section')
+            if section:
+                models.append(section)
+    raise AssertionError(f'menu item {title!r} not found')
+
+
 def mark_first_paid():
-    menu = walk(app.window.pages['finance'].nav, Gtk.MenuButton)[0]
-    menu.activate_action('payment.paid', None)
+    activate_menu_item(walk(app.window.pages['finance'].nav, Gtk.MenuButton)[0], 'Marcar como paga')
 
 
 def students_page():

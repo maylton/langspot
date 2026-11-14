@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from gi.repository import Adw, GLib, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, label, open_uri, scrolled, student_names, vbox
+from langspot_linux.ui.common import Page, hero_card, label, open_uri, scrolled, stat_card, stat_row, student_names, vbox
 from langspot_linux.worker import run_async
 
 
@@ -41,36 +41,19 @@ class OverviewPage(Page):
         now = datetime.now().astimezone()
         box = vbox(20)
 
-        hero = Gtk.Box(spacing=16)
-        hero.add_css_class('card')
-        hero.add_css_class('ls-card')
-        titles = vbox(4)
-        titles.set_hexpand(True)
-        titles.append(label(f'Olá, {first}!', css=('title-1',)))
-        titles.append(label(profile.get('school_name') or 'Seus alunos, aulas e progresso no mesmo lugar.', css=('dim-label',)))
-        hero.append(titles)
         agenda = Gtk.Button(label='Ver agenda', valign=Gtk.Align.CENTER)
         agenda.add_css_class('pill')
         agenda.connect('clicked', lambda *_: self.window.open_page('agenda'))
-        hero.append(agenda)
-        box.append(hero)
+        box.append(hero_card(f'Olá, {first}!', profile.get('school_name') or 'Seus alunos, aulas e progresso no mesmo lugar.', agenda, title_css='title-1'))
 
         week_start = model.week_start(now.date())
         this_week = [lesson for lesson in lessons if lesson.status != 'cancelled' and week_start <= lesson.starts_at.date() < week_start + timedelta(days=7)]
         progress = round(sum(model.progress_of(value['skills']) for value in students.values()) / len(students)) if students else 0
-        cards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4, min_children_per_line=2, column_spacing=12, row_spacing=12, homogeneous=True)
-        for title, value, note in (('Alunos', str(len(students)), 'com acesso ao portal'),
-                                   ('Aulas registradas', str(sum(1 for lesson in lessons if lesson.status == 'completed')), 'histórico completo'),
-                                   ('Aulas nesta semana', str(len(this_week)), f'{sum(1 for lesson in this_week if lesson.status == "completed")} já concluídas'),
-                                   ('Média de progresso', f'{progress}%', 'média das habilidades')):
-            card = vbox(2)
-            card.add_css_class('card')
-            card.add_css_class('ls-card')
-            card.append(label(title, css=('dim-label',)))
-            card.append(label(value, css=('ls-big-number',)))
-            card.append(label(note, css=('caption', 'dim-label')))
-            cards.append(card)
-        box.append(cards)
+        box.append(stat_row([stat_card(title, value, note) for title, value, note in (
+            ('Alunos', str(len(students)), 'com acesso ao portal'),
+            ('Aulas registradas', str(sum(1 for lesson in lessons if lesson.status == 'completed')), 'histórico completo'),
+            ('Aulas nesta semana', str(len(this_week)), f'{sum(1 for lesson in this_week if lesson.status == "completed")} já concluídas'),
+            ('Média de progresso', f'{progress}%', 'média das habilidades'))], wrap=True))
 
         review = len(queue.get('items') or []) + len(queue.get('readyToFinalize') or [])
         todo = [(len(live), 'Alunos fazendo prova agora', 'Acompanhe ao vivo', 'media-record-symbolic', 'live'),

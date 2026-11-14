@@ -1,0 +1,10 @@
+import { Ban, Check } from 'lucide-react';
+import { useState } from 'react';
+import { CancellationRequest } from '../../supabase';
+import { formatPortalDate } from '../../lib/format';
+import { StatusBadge } from '../../student/components/ui';
+
+export function CancellationRequestsModal({ requests, onClose, onResolve }: { requests: CancellationRequest[]; onClose: () => void; onResolve: (request: CancellationRequest, status: 'approved' | 'rejected', response: string) => void }) {
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal request-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">AGENDA</p><h2>Solicitações de cancelamento</h2></div><button className="icon-button" onClick={onClose}>×</button></div><div className="request-list">{requests.length ? requests.map((request) => <article className="request-card" key={request.id}><div className="request-heading"><div><strong>{request.student?.full_name ?? 'Aluno'}</strong><span>{request.lessons ? `${formatPortalDate(request.lessons.starts_at)} · ${request.lessons.topic}` : 'Aula'}</span></div><StatusBadge status={request.status} /></div><p>{request.reason}</p>{request.status === 'pending' ? <><textarea value={responses[request.id] ?? ''} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Resposta opcional para o aluno" /><div className="request-actions"><button className="reject-button" onClick={() => onResolve(request, 'rejected', responses[request.id] ?? '')}><Ban size={15} />Recusar</button><button className="approve-button" onClick={() => onResolve(request, 'approved', responses[request.id] ?? '')}><Check size={15} />Aprovar</button></div></> : request.teacher_response && <small>Resposta: {request.teacher_response}</small>}</article>) : <div className="empty-state small"><Check size={30} /><h3>Nenhuma solicitação</h3><p>Os pedidos dos alunos aparecerão aqui.</p></div>}</div></section></div>;
+}

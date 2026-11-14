@@ -4,10 +4,10 @@ from __future__ import annotations
 import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, confirm, date_row, empty_state, form_dialog, label, open_uri, pill, scrolled, student_names, vbox
+from langspot_linux.ui.common import Page, action_menu, confirm, date_row, empty_state, form_dialog, label, open_uri, pill, scrolled, stat_card, stat_row, student_names, vbox
 from langspot_linux.worker import run_async
 
 STATUS_KIND = {'paid': 'success', 'pending': 'accent', 'overdue': 'error'}
@@ -51,18 +51,10 @@ class FinancePage(Page):
         today = date.today()
         totals = model.payment_totals(self.payments, today)
         box = vbox(18)
-        cards = Gtk.Box(spacing=12, homogeneous=True)
-        for title, value, note in (('Recebido', model.money(totals['paid']), 'pagamentos registrados'),
-                                   ('A receber', model.money(totals['open']), 'pendentes e atrasados'),
-                                   ('Atrasado', model.money(totals['overdue']), 'vencidos e não pagos')):
-            card = vbox(2)
-            card.add_css_class('card')
-            card.add_css_class('ls-card')
-            card.append(label(title, css=('dim-label',)))
-            card.append(label(value, css=('title-2',)))
-            card.append(label(note, css=('caption', 'dim-label')))
-            cards.append(card)
-        box.append(cards)
+        box.append(stat_row([stat_card(title, value, note, value_css='title-2') for title, value, note in (
+            ('Recebido', model.money(totals['paid']), 'pagamentos registrados'),
+            ('A receber', model.money(totals['open']), 'pendentes e atrasados'),
+            ('Atrasado', model.money(totals['overdue']), 'vencidos e não pagos'))]))
 
         def wanted(row: dict) -> bool:
             status = model.payment_status(row, today)
@@ -92,31 +84,17 @@ class FinancePage(Page):
         row.add_suffix(amount)
         row.add_suffix(pill(model.PAYMENT_LABELS[status], STATUS_KIND[status]))
 
-        menu = Gio.Menu()
-        actions = Gio.SimpleActionGroup()
+        entries = []
         if status != 'paid':
-            menu.append('Marcar como paga', 'payment.paid')
-            actions.add_action(self._action('paid', lambda: self._set_status(payment, 'paid')))
+            entries.append(('Marcar como paga', lambda: self._set_status(payment, 'paid')))
             if student.get('phone'):
-                menu.append('Lembrar pelo WhatsApp', 'payment.remind')
-                actions.add_action(self._action('remind', lambda: self._remind(payment, student, status)))
+                entries.append(('Lembrar pelo WhatsApp', lambda: self._remind(payment, student, status)))
         else:
-            menu.append('Marcar como pendente', 'payment.pending')
-            actions.add_action(self._action('pending', lambda: self._set_status(payment, 'pending')))
-        menu.append('Excluir cobrança', 'payment.delete')
-        actions.add_action(self._action('delete', lambda: confirm(self.window, 'Excluir esta cobrança?', 'Esta ação não pode ser desfeita.', 'Excluir',
-                                                                   lambda: self._delete(payment), destructive=True)))
-        button = Gtk.MenuButton(icon_name='view-more-symbolic', menu_model=menu, valign=Gtk.Align.CENTER, tooltip_text='Ações')
-        button.add_css_class('flat')
-        button.insert_action_group('payment', actions)
-        row.add_suffix(button)
+            entries.append(('Marcar como pendente', lambda: self._set_status(payment, 'pending')))
+        delete = lambda: confirm(self.window, 'Excluir esta cobrança?', 'Esta ação não pode ser desfeita.', 'Excluir',  # noqa: E731
+                                 lambda: self._delete(payment), destructive=True)
+        row.add_suffix(action_menu(entries, [('Excluir cobrança', delete)]))
         return row
-
-    @staticmethod
-    def _action(name: str, callback) -> Gio.SimpleAction:
-        item = Gio.SimpleAction.new(name, None)
-        item.connect('activate', lambda *_: callback())
-        return item
 
     def _set_status(self, payment: dict, status: str) -> None:
         values = {'status': status, 'paid_at': datetime.now(timezone.utc).isoformat() if status == 'paid' else None}

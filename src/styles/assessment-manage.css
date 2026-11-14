@@ -1,0 +1,765 @@
+/* Assessment area — one button system for the teacher builder and the student screens.
+   Every action button has the same height, radius and type; only the colour says what it does:
+   primary (purple), secondary (light purple), neutral (grey) and danger (red). */
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.secondary-button,.cancel-button,.student-primary,.danger-button,.assessment-delete-confirm) {
+  min-height:40px;
+  width:auto;
+  margin:0;
+  padding:0 16px;
+  border:1px solid transparent;
+  border-radius:12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.2;
+  white-space:nowrap;
+  text-decoration:none;
+  box-shadow:none
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.student-primary) {
+  background:#345995;
+  color:#fff
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.student-primary):hover:not(:disabled) {
+  background:#2d5390
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .secondary-button {
+  background:#e8eef8;
+  color:#2b4a7d
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .secondary-button:hover:not(:disabled) {
+  background:#dbe5f6
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .cancel-button {
+  background:#eef1f6;
+  color:#596579
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .cancel-button:hover:not(:disabled) {
+  background:#e4e8ef
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.danger-button,.assessment-delete-confirm) {
+  background:#c23866;
+  color:#fff
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.danger-button,.assessment-delete-confirm):hover:not(:disabled) {
+  background:#a92e57
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.secondary-button,.cancel-button,.student-primary,.danger-button,.assessment-delete-confirm).compact {
+  min-height:34px;
+  padding:0 12px
+}
+
+:is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) :is(.primary-button,.secondary-button,.cancel-button,.student-primary,.danger-button,.assessment-delete-confirm):disabled {
+  opacity:.55;
+  cursor:not-allowed;
+  transform:none
+}
+
+/* Icon-only actions (delete section, remove question, delete assessment). */
+:is(.assessment-dashboard,.assessment-editor,.live-session) .icon-button {
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  flex:0 0 auto
+}
+
+:is(.assessment-dashboard,.assessment-editor) .icon-button.danger {
+  background:#fff1f6;
+  color:#c23866
+}
+
+:is(.assessment-dashboard,.assessment-editor) .icon-button.danger:hover {
+  background:#ffe3ec
+}
+
+/* Native checkboxes and radios use the platform purple. */
+:is(.assessment-editor,.assessment-runner-shell,.assessment-student-hub,.live-session,.attempt-monitor,.review-queue,.assessment-results) :is(input[type=checkbox],input[type=radio]) {
+  accent-color:#345995
+}
+
+/* Dashboard */
+.assessment-card-top {
+  gap:10px
+}
+
+.assessment-card-top .assessment-delete-button {
+  margin-left:auto
+}
+
+.assessment-card-actions {
+  flex-wrap:wrap;
+  gap:8px
+}
+
+.assessment-card-actions>button {
+  flex:1 1 auto
+}
+
+.assessment-level-checks .assessment-new-form {
+  justify-self:start;
+  display:inline-flex;
+  align-items:center;
+  min-height:34px;
+  padding:0 12px;
+  border:0;
+  border-radius:12px;
+  background:#e8eef8;
+  color:#2b4a7d;
+  font-size:12px;
+  font-weight:700
+}
+
+.assessment-level-checks .assessment-new-form:hover {
+  background:#dbe5f6;
+  border:0
+}
+
+/* Editor: fields align to the top of their row; add actions keep their natural width. */
+.assessment-settings-grid label,.assessment-section-fields label {
+  align-content:start
+}
+
+.assessment-editor .assessment-add-section {
+  justify-self:start
+}
+
+.assessment-question-actions {
+  align-items:end
+}
+
+/* Student runner: previous on the left, next on the right, same size. */
+.assessment-runner-actions {
+  justify-content:space-between
+}
+
+.assessment-runner-actions>button {
+  min-width:132px
+}
+
+/* Delete confirmation */
+.assessment-delete-dialog {
+  width:min(480px,100%)
+}
+
+.assessment-delete-dialog h2 {
+  font-size:19px;
+  margin:4px 0 12px;
+  overflow-wrap:anywhere
+}
+
+.assessment-delete-dialog p {
+  color:#596579;
+  line-height:1.5;
+  display:flex;
+  align-items:center;
+  gap:7px
+}
+
+.assessment-delete-warnings {
+  margin:0 0 12px;
+  padding:12px 14px 12px 30px;
+  border-radius:12px;
+  background:#fff1f6;
+  border:1px solid #f5cdda;
+  color:#8f2f4f;
+  display:grid;
+  gap:6px;
+  line-height:1.45
+}
+
+@media(max-width:620px) {
+  .assessment-runner-actions>button {
+    min-width:0;
+    flex:1
+  }
+}
+
+.dark-theme :is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .secondary-button {
+  background:#1b273b;
+  color:#aac0e4
+}
+
+.dark-theme :is(.assessment-dashboard,.assessment-editor,.assessment-progress,.assessment-results,.live-session,.attempt-monitor,.review-queue,.assessment-student-hub,.assessment-student-result,.assessment-result-pending,.assessment-runner-shell,.assessment-submit-confirmation,.assessment-delete-dialog,.device-check) .cancel-button {
+  background:#202b3e;
+  color:#b5c0d0
+}
+
+.dark-theme :is(.assessment-dashboard,.assessment-editor) .icon-button.danger {
+  background:#3a222a;
+  color:#ffb8d0
+}
+
+.dark-theme .assessment-level-checks .assessment-new-form {
+  background:#1b273b;
+  color:#aac0e4
+}
+
+.dark-theme .assessment-delete-dialog p {
+  color:#b8c2d3
+}
+
+.dark-theme .assessment-delete-warnings {
+  background:#2a1a1f;
+  border-color:#5a2f3d;
+  color:#f6b8cd
+}
+
+/* The runner scrolls as a whole: its blocks keep their natural height instead of shrinking. */
+.assessment-runner-shell>* {
+  flex-shrink:0
+}
+
+/* Stage overview: the exit/submit row lines up with the list of stages, right below it. */
+.assessment-runner-actions.assessment-stage-actions {
+  width:min(760px,100%);
+  max-width:none;
+  margin:0 auto
+}
+
+.assessment-runner-shell main.assessment-stage-list {
+  padding:12px 0 0
+}
+
+/* Creation menu: ready-made level tests first, manual building below. */
+.assessment-creation-group {
+  display:grid;
+  gap:4px
+}
+
+.assessment-creation-group>span {
+  color:#345995;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.1em
+}
+
+.assessment-creation-group h4 {
+  margin:2px 0 0;
+  font-size:15px
+}
+
+.assessment-creation-group small {
+  font-size:11px;
+  color:#6f7a8d;
+  line-height:1.45
+}
+
+.assessment-level-checks .assessment-level-check-option>button:first-child {
+  grid-template-columns:42px minmax(0,1fr);
+  column-gap:12px;
+  row-gap:6px;
+  align-items:center;
+  align-content:start;
+  padding:14px;
+  min-height:0
+}
+
+.assessment-level-badge {
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:#345995;
+  color:#fff;
+  font-size:15px;
+  font-weight:900
+}
+
+.assessment-level-checks .assessment-level-check-option strong {
+  font-size:14px
+}
+
+.assessment-level-checks .assessment-level-check-option>button:first-child>:is(small,span,em) {
+  grid-column:1/-1
+}
+
+.assessment-level-checks .assessment-level-check-option small {
+  font-size:11px;
+  color:#596579;
+  line-height:1.4
+}
+
+.assessment-level-checks .assessment-level-check-option>button:first-child>span {
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:0;
+  color:#6f7a8d;
+  line-height:1.4
+}
+
+.assessment-level-checks .assessment-level-check-option em {
+  font-size:11px
+}
+
+.assessment-creation-empty {
+  grid-column:1/-1;
+  margin:0;
+  padding:12px 14px;
+  border-radius:12px;
+  background:#fff7e8;
+  color:#8b6415;
+  font-size:12px
+}
+
+.assessment-creation-manual {
+  display:grid;
+  gap:10px;
+  padding-top:16px;
+  border-top:1px solid #eceff4
+}
+
+.assessment-creation-manual .assessment-creation-primary button {
+  min-height:70px
+}
+
+.assessment-creation-manual .assessment-creation-primary strong {
+  font-size:13px
+}
+
+.assessment-ready-made-hint {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 16px;
+  border:1px solid #d6e2f5;
+  border-radius:14px;
+  background:#f3f6fc;
+  color:#284675
+}
+
+.assessment-ready-made-hint>div {
+  display:grid;
+  gap:3px;
+  flex:1
+}
+
+.assessment-ready-made-hint strong {
+  font-size:13px;
+  color:#22385a
+}
+
+.assessment-ready-made-hint span {
+  font-size:12px;
+  color:#3a4a64
+}
+
+.dark-theme .assessment-creation-manual {
+  border-color:#2a3547
+}
+
+.dark-theme .assessment-ready-made-hint {
+  background:#151f30;
+  border-color:#283b5a;
+  color:#aac0e4
+}
+
+.dark-theme .assessment-ready-made-hint strong {
+  color:#dfe8f7
+}
+
+.dark-theme .assessment-ready-made-hint span {
+  color:#5d84c3
+}
+
+@media(max-width:620px) {
+  .assessment-ready-made-hint {
+    flex-wrap:wrap
+  }
+  .assessment-ready-made-hint>button {
+    width:100%
+  }
+}
+
+/* Teacher preview: the assessment as the student sees it. */
+.assessment-preview>header {
+  display:grid;
+  gap:6px
+}
+
+.assessment-preview>header h2,.assessment-preview>header p {
+  margin:0
+}
+
+.assessment-preview>header>small {
+  color:#8994a6;
+  font-size:11px
+}
+
+.assessment-preview-key-toggle {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  justify-self:start;
+  margin-top:6px;
+  padding:8px 12px;
+  border-radius:10px;
+  background:#f0f5fb;
+  color:#284675;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer
+}
+
+.assessment-preview-key-toggle input {
+  accent-color:#345995
+}
+
+.assessment-preview article h3 {
+  margin:0 0 6px
+}
+
+.assessment-preview-teacher-only {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin:0 0 6px;
+  color:#8994a6;
+  font-size:11px
+}
+
+.assessment-preview article ol.assessment-preview-questions {
+  display:grid;
+  gap:14px;
+  padding:0;
+  margin:14px 0 0;
+  list-style:none
+}
+
+.assessment-preview article li.assessment-preview-group {
+  display:grid;
+  gap:12px;
+  padding:0;
+  background:none;
+  border-radius:0
+}
+
+.assessment-preview-text {
+  display:grid;
+  gap:6px
+}
+
+.assessment-preview-text .assessment-source-material {
+  margin:0
+}
+
+.assessment-preview-question {
+  display:grid;
+  gap:10px;
+  padding:16px 18px;
+  border:1px solid #e4e8ef;
+  border-radius:14px;
+  background:#fff
+}
+
+.assessment-preview-question>small {
+  color:#345995;
+  font-size:11px;
+  font-weight:800
+}
+
+.assessment-preview-question h4 {
+  margin:0;
+  font-size:15px;
+  line-height:1.45
+}
+
+.assessment-preview-question .assessment-response-target {
+  margin:0;
+  color:#596579;
+  font-size:12px
+}
+
+.assessment-preview article ol.assessment-preview-options {
+  display:grid;
+  gap:7px;
+  padding:0;
+  margin:0;
+  list-style:none
+}
+
+.assessment-preview article ol.assessment-preview-options li {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid #e2e6ed;
+  border-radius:11px;
+  background:#fff
+}
+
+.assessment-preview-options b {
+  width:24px;
+  height:24px;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  border-radius:7px;
+  background:#f1f3f7;
+  color:#596579;
+  font-size:11px
+}
+
+.assessment-preview-options span {
+  flex:1
+}
+
+.assessment-preview article ol.assessment-preview-options li.correct {
+  border-color:#9ed9cd;
+  background:#eaf8f5;
+  color:#1d6b5b
+}
+
+.assessment-preview-options li.correct b {
+  background:#237a69;
+  color:#fff
+}
+
+.assessment-preview-answer-box {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:14px;
+  border:1px dashed #d6dbe4;
+  border-radius:11px;
+  color:#8994a6;
+  font-size:12px
+}
+
+.assessment-preview-answer-box strong {
+  color:#1d6b5b
+}
+
+.dark-theme .assessment-preview-question,.dark-theme .assessment-preview article ol.assessment-preview-options li {
+  background:#101827;
+  border-color:#2a3547
+}
+
+.dark-theme .assessment-preview-options b {
+  background:#202b3e;
+  color:#b5c0d0
+}
+
+.dark-theme .assessment-preview article ol.assessment-preview-options li.correct {
+  background:#17332d;
+  border-color:#2c6a5e;
+  color:#a8e6da
+}
+
+.dark-theme .assessment-preview-key-toggle {
+  background:#1b273b;
+  color:#aac0e4
+}
+
+.dark-theme .assessment-preview-answer-box {
+  border-color:#344155
+}
+
+/* Generic in-app confirmation and the assignment form. */
+.assessment-confirm-items {
+  margin:0 0 12px;
+  padding:12px 14px 12px 30px;
+  border-radius:12px;
+  background:#fffae8;
+  border:1px solid #f3e4ae;
+  color:#7a6310;
+  display:grid;
+  gap:6px;
+  line-height:1.45
+}
+
+.dark-theme .assessment-confirm-items {
+  background:#2b2614;
+  border-color:#5c4f1e;
+  color:#f1dc8f
+}
+
+.assessment-assign-form>p {
+  margin:0;
+  color:#6f7a8d;
+  font-size:12px;
+  line-height:1.45
+}
+
+.assessment-assign-actions {
+  grid-column:1/-1;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px
+}
+
+.assessment-assign-status {
+  font-weight:700
+}
+
+/* Task text from the Pilot Bank keeps its line breaks (bullet lists, numbered notes). */
+.assessment-rich-text {
+  white-space:pre-line
+}
+
+/* Fullscreen gate: the assessment is only shown in fullscreen on desktop. */
+.assessment-fullscreen-gate {
+  position:fixed;
+  inset:0;
+  z-index:260;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:#14223a
+}
+
+.assessment-fullscreen-gate>section {
+  width:min(460px,100%);
+  display:grid;
+  justify-items:center;
+  gap:12px;
+  padding:30px 28px;
+  border-radius:20px;
+  background:#fff;
+  text-align:center;
+  box-shadow:0 24px 70px rgba(0,0,0,.35)
+}
+
+.assessment-fullscreen-gate h2 {
+  margin:0;
+  font-size:20px;
+  color:#172033
+}
+
+.assessment-fullscreen-gate p {
+  margin:0;
+  color:#596579;
+  line-height:1.5
+}
+
+.assessment-fullscreen-gate-icon {
+  width:48px;
+  height:48px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  background:#e8eef8;
+  color:#2b4a7d
+}
+
+.assessment-fullscreen-refused {
+  display:grid;
+  gap:8px;
+  justify-items:center;
+  margin-top:6px;
+  padding:12px;
+  border-radius:12px;
+  background:#fff8e6;
+  color:#7a5410
+}
+
+.dark-theme .assessment-fullscreen-gate>section {
+  background:#151e2d
+}
+
+.dark-theme .assessment-fullscreen-gate h2 {
+  color:#edf1f8
+}
+
+.dark-theme .assessment-fullscreen-gate p {
+  color:#b8c2d3
+}
+
+/* CEFR level review (teacher): stacked form, actions on the right. */
+.cefr-override-form {
+  display:grid;
+  gap:12px;
+  max-width:640px;
+  padding:16px 18px;
+  border:1px solid #e1e7ef;
+  border-radius:16px;
+  background:#fff
+}
+
+.cefr-override-form header {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:6px 12px
+}
+
+.cefr-override-form header strong {
+  font-size:15px
+}
+
+.cefr-override-form header span {
+  color:#6e7a8f;
+  font-size:12px
+}
+
+.cefr-override-form label {
+  display:grid;
+  gap:6px;
+  color:#536075;
+  font-size:12px;
+  font-weight:800
+}
+
+.cefr-override-form select {
+  width:min(180px,100%);
+  border:1px solid #dfe4ec;
+  border-radius:10px;
+  padding:9px 10px;
+  background:#fff;
+  color:#172033;
+  font-weight:700
+}
+
+.cefr-override-form textarea {
+  width:100%;
+  border:1px solid #dfe4ec;
+  border-radius:10px;
+  padding:10px 12px;
+  font:inherit;
+  font-weight:400;
+  resize:vertical;
+  background:#fafbfc;
+  color:#172033
+}
+
+.cefr-override-form small {
+  color:#7e899b;
+  font-size:11px
+}
+
+.cefr-override-form [role=alert] {
+  margin:0;
+  color:#ca1551;
+  font-size:12px
+}
+
+.cefr-override-actions {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px
+}
+
+.dark-theme .cefr-override-form {
+  border-color:#2a3547;
+  background:#151e2d
+}
+
+.dark-theme .cefr-override-form select,.dark-theme .cefr-override-form textarea {
+  border-color:#2a3547;
+  background:#111a28;
+  color:#e6ecf5
+}

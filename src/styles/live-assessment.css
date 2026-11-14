@@ -1,0 +1,581 @@
+/* Live (teacher-administered) assessment tasks. */
+.assessment-live-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 6px;
+  padding: 6px 10px;
+  border: 1px solid #dfe4ec;
+  border-radius: 999px;
+  background: #f5f7fb;
+  color: #596579;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.assessment-live-toggle.live {
+  border-color: #afc4e6;
+  background: #e8eef8;
+  color: #2a4d84;
+}
+
+.assessment-live-notice {
+  margin: 8px 0 0;
+  padding: 9px 12px;
+  border-left: 3px solid #345995;
+  border-radius: 8px;
+  background: #f0f5fb;
+  color: #284675;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.live-session {
+  display: grid;
+  gap: 18px;
+}
+
+.live-session-progress {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.live-session-progress strong {
+  color: #345995;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.live-session-progress span, .live-session-progress small {
+  color: #6e7a8f;
+  font-size: 12px;
+}
+
+.live-session-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.live-session-tasks {
+  display: grid;
+  gap: 6px;
+  position: sticky;
+  top: 16px;
+}
+
+.live-session-tasks button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 11px 12px;
+  border: 1px solid #e4e8ef;
+  border-radius: 12px;
+  background: #fff;
+  color: #3b4558;
+  text-align: left;
+}
+
+.live-session-tasks button.active {
+  border-color: #4173c3;
+  box-shadow: 0 0 0 3px #e8eef8;
+}
+
+.live-session-tasks .done {
+  color: #238874;
+}
+
+.live-session-tasks strong, .live-session-tasks small {
+  display: block;
+}
+
+.live-session-tasks strong {
+  font-size: 13px;
+}
+
+.live-session-tasks small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: #7e899b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-task {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #e4e8ef;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.live-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.live-task-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #f1f3f8;
+  color: #536075;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.live-task-meta span.done {
+  background: #e6f7f4;
+  color: #237a69;
+}
+
+.live-task-prompt {
+  margin: 0;
+  color: #172033;
+  font-size: 21px;
+  line-height: 1.4;
+}
+
+.live-task-source {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f7f8fb;
+}
+
+.live-task-source b {
+  display: block;
+  margin-bottom: 6px;
+  color: #7e899b;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.live-task-source p {
+  margin: 0;
+  color: #2c3649;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.live-task-evidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.live-task-evidence dt {
+  color: #7e899b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.live-task-evidence dd {
+  margin: 4px 0 0;
+  color: #3b4558;
+  font-size: 13px;
+}
+
+.live-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid #d7e2f3;
+  border-radius: 14px;
+  background: #f9fbfd;
+}
+
+.live-timer-clock {
+  display: grid;
+  gap: 2px;
+}
+
+.live-timer-clock span {
+  color: #7e899b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.live-timer-clock strong {
+  color: #172033;
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.live-timer-clock.preparing strong {
+  color: #b5931a;
+}
+
+.live-timer-clock.speaking strong {
+  color: #345995;
+}
+
+.live-timer-clock small {
+  color: #7e899b;
+  font-size: 11px;
+}
+
+.live-timer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-scoring {
+  display: grid;
+  gap: 14px;
+}
+
+.live-scoring label {
+  display: grid;
+  gap: 6px;
+  color: #536075;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-scoring label small {
+  color: #8b95a7;
+  font-weight: 600;
+}
+
+.live-scoring textarea, .live-scoring input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  background: #fafbfc;
+  color: #172033;
+}
+
+.live-rubric {
+  display: grid;
+  gap: 10px;
+}
+
+.live-rubric fieldset {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #e4e8ef;
+  border-radius: 12px;
+}
+
+.live-rubric legend {
+  padding: 0 4px;
+  color: #2c3649;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.live-rubric input {
+  max-width: 120px;
+}
+
+.live-level-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.live-level-picker button {
+  min-width: 44px;
+  padding: 8px 9px;
+  border: 1px solid #dfe4ec;
+  border-radius: 9px;
+  background: #fff;
+  color: #3b4558;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-level-picker button.selected {
+  border-color: #345995;
+  background: #345995;
+  color: #fff;
+}
+
+.live-scoring-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-scoring-footer span {
+  color: #536075;
+}
+
+.live-session-picker p {
+  margin: 0;
+  color: #6e7a8f;
+  font-size: 12px;
+}
+
+.dark-theme .assessment-live-toggle {
+  border-color: #344155;
+  background: #101827;
+  color: #b8c2d1;
+}
+
+.dark-theme .assessment-live-toggle.live, .dark-theme .assessment-live-notice {
+  border-color: #33496e;
+  background: #1b2434;
+  color: #c4d5f0;
+}
+
+.dark-theme .live-session-tasks button, .dark-theme .live-task, .dark-theme .live-level-picker button {
+  border-color: #29364b;
+  background: #151e2d;
+  color: #edf1f8;
+}
+
+.dark-theme .live-session-tasks button.active {
+  border-color: #3766b0;
+  box-shadow: 0 0 0 3px #1e293b;
+}
+
+.dark-theme .live-task-prompt, .dark-theme .live-timer-clock strong, .dark-theme .live-rubric legend, .dark-theme .live-task-source p, .dark-theme .live-task-evidence dd {
+  color: #eff3fa;
+}
+
+.dark-theme .live-task-meta span, .dark-theme .live-task-source, .dark-theme .live-rubric fieldset {
+  border-color: #29364b;
+  background: #101827;
+  color: #b8c2d1;
+}
+
+.dark-theme .live-timer {
+  border-color: #2b3a52;
+  background: #151c29;
+}
+
+.dark-theme .live-timer-clock.speaking strong {
+  color: #7fa1d7;
+}
+
+.dark-theme .live-level-picker button.selected {
+  border-color: #3766b0;
+  background: #345995;
+  color: #fff;
+}
+
+.dark-theme .live-scoring label, .dark-theme .live-scoring-footer span {
+  color: #b8c2d1;
+}
+
+@media (max-width: 860px) {
+  .live-session-layout {
+    grid-template-columns: 1fr;
+  }
+  .live-session-tasks {
+    position: static;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 1fr);
+    overflow-x: auto;
+  }
+  .live-task {
+    padding: 16px;
+  }
+  .live-task-prompt {
+    font-size: 18px;
+  }
+}
+
+/* Review queue (reuses the live session list and task card). */
+.review-queue {
+  display: grid;
+  gap: 18px;
+}
+
+.review-queue-badge {
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #345995;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.review-queue-ready {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid #a9ddd3;
+  border-radius: 14px;
+  background: #edf9f7;
+}
+
+.review-queue-ready h3, .review-queue-ready p {
+  margin: 0;
+}
+
+.review-queue-ready p {
+  color: #27695c;
+  font-size: 12px;
+}
+
+.review-queue-ready > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #c9eae3;
+}
+
+.review-queue-ready strong, .review-queue-ready small {
+  display: block;
+}
+
+.review-queue-ready small {
+  color: #536075;
+  font-size: 12px;
+}
+
+.review-queue-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.review-queue-filters label {
+  display: grid;
+  gap: 5px;
+  color: #536075;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.review-queue-filters select {
+  min-width: 180px;
+  padding: 9px 10px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  background: #fff;
+  color: #172033;
+}
+
+.review-queue-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.review-queue-dot {
+  width: 9px;
+  height: 9px;
+  margin: 4px 3px 0;
+  border-radius: 50%;
+  background: #f0c93a;
+}
+
+.review-queue-none {
+  margin: 0;
+  color: #8b95a7;
+  font-size: 12px;
+}
+
+.review-words {
+  color: #237a69;
+}
+
+.review-words.off {
+  color: #b44369;
+}
+
+.review-live-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f0f5fb;
+}
+
+.review-live-cta p {
+  margin: 0;
+  color: #284675;
+}
+
+.review-item .assessment-report-questions > article {
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.dark-theme .review-queue-ready {
+  border-color: #2f7265;
+  background: #172a26;
+}
+
+.dark-theme .review-queue-ready p, .dark-theme .review-queue-ready small {
+  color: #aee5da;
+}
+
+.dark-theme .review-queue-ready > div {
+  border-color: #2f7265;
+}
+
+.dark-theme .review-queue-filters select {
+  border-color: #344155;
+  background: #101827;
+  color: #edf1f8;
+}
+
+.dark-theme .review-live-cta {
+  background: #1b2434;
+}
+
+.dark-theme .review-live-cta p {
+  color: #c4d5f0;
+}
+
+@media (max-width: 860px) {
+  .review-queue-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.review-item .assessment-manual-review {
+  grid-template-columns: 1fr;
+}
+
+.review-item .assessment-manual-review > button {
+  justify-self: end;
+  width: auto;
+  margin: 0;
+}
+
+.dark-theme .live-timer .secondary-button, .dark-theme .review-live-cta .secondary-button {
+  background: #1e293b;
+  color: #afc4e6;
+}

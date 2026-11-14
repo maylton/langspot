@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from gi.repository import Adw, GLib, Gtk
 
 from langspot_linux import model
-from langspot_linux.ui.common import Page, copy_text, date_row, empty_state, label, open_uri, scrolled, student_names, vbox
+from langspot_linux.ui.common import Page, copy_text, date_row, empty_state, label, open_uri, scrolled, stat_card, stat_row, student_names, vbox
 from langspot_linux.worker import run_async
 
 PRESETS = [('Este mês', None), ('Últimos 30 dias', 30), ('Últimos 90 dias', 90), ('Semestre', 180)]
@@ -113,15 +113,7 @@ class ReportsPage(Page):
         self.show_content(scrolled(box))
 
     def _metrics(self, items: list[tuple[str, str]]) -> Gtk.Widget:
-        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=4, min_children_per_line=2, column_spacing=12, row_spacing=12, homogeneous=True)
-        for title, value in items:
-            card = vbox(2)
-            card.add_css_class('card')
-            card.add_css_class('ls-card')
-            card.append(label(value, css=('ls-big-number',)))
-            card.append(label(title, css=('dim-label',)))
-            flow.append(card)
-        return flow
+        return stat_row([stat_card(title, value, value_first=True) for title, value in items], wrap=True)
 
     def _summary(self, box: Gtk.Box, lessons: list[model.Lesson], tasks: list[dict]) -> None:
         stats = model.period_stats(lessons, tasks)

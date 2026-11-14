@@ -38,7 +38,7 @@ Cada tasklet externo registra no banco (`question_bank_tasklets`) a referência 
 A v0.8 acrescentou dois textos por nível, para que um aluno possa fazer vários Level Checks sem rever
 textos (um mesmo nível aparece como piso, alvo e teto em provas diferentes). Os itens seguem
 [`ITEM_AUTHORING_PROMPT.md`](ITEM_AUTHORING_PROMPT.md); os textos estão em
-`scripts/cefr_pilot_bank_v0_8_texts.py` e, literalmente, em `scripts/cefr_pilot_bank_v0_8_authentic_texts.json`.
+`scripts/pilot-bank/cefr_pilot_bank_v0_8_texts.py` e, literalmente, em `scripts/pilot-bank/cefr_pilot_bank_v0_8_authentic_texts.json`.
 
 | Tasklet | Texto | Fonte | Licença |
 |---|---|---|---|
@@ -68,7 +68,7 @@ referência para esses níveis, e as páginas oficiais encontradas eram longas o
 A v0.9 acrescentou mais dois textos por nível. Com o gerador que evita textos já vistos pelo aluno
 (`generate_assessment_from_preset(..., p_student_id)`), o mesmo aluno pode fazer mais Level Checks sem
 repetir texto. Os itens seguem [`ITEM_AUTHORING_PROMPT.md`](ITEM_AUTHORING_PROMPT.md). Os textos estão em
-`scripts/cefr_pilot_bank_v0_9_texts.py` e, literalmente, em `scripts/cefr_pilot_bank_v0_9_authentic_texts.json`.
+`scripts/pilot-bank/cefr_pilot_bank_v0_9_texts.py` e, literalmente, em `scripts/pilot-bank/cefr_pilot_bank_v0_9_authentic_texts.json`.
 
 | Tasklet | Texto | Fonte | Licença |
 |---|---|---|---|

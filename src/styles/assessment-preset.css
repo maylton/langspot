@@ -1,0 +1,152 @@
+/* Assessment preset. */
+
+.assessment-tasklet-audio {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 13px;
+  padding: 12px 14px;
+  border: 1px solid #f0dd97;
+  border-radius: 12px;
+  background: #fffae9;
+  color: #75621d;
+}
+
+.assessment-tasklet-audio.ready {
+  border-color: #a9ddd3;
+  background: #edf9f7;
+  color: #27695c;
+}
+
+.assessment-tasklet-audio strong, .assessment-tasklet-audio span {
+  display: block;
+}
+
+.assessment-tasklet-audio span {
+  margin-top: 3px;
+  font-size: 10px;
+}
+
+.assessment-tasklet-audio label {
+  cursor: pointer;
+}
+
+.assessment-tasklet-audio input {
+  display: none;
+}
+
+.dark-theme .assessment-tasklet-audio {
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
+}
+
+.dark-theme .assessment-tasklet-audio.ready {
+  border-color: #2f7265;
+  background: #172a26;
+  color: #aee5da;
+}
+
+@media (max-width: 620px) {
+  .assessment-tasklet-audio {
+    grid-template-columns: auto 1fr;
+  }
+  .assessment-tasklet-audio label {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+.assessment-creation-menu {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #d7e2f3;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.assessment-creation-menu > header, .assessment-creation-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.assessment-creation-menu header span, .assessment-level-checks > div span {
+  color: #345995;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.assessment-creation-menu h3, .assessment-level-checks h4 {
+  margin: 4px 0 0;
+}
+
+.assessment-creation-primary button, .assessment-level-checks button {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  border: 1px solid #e5e8ef;
+  border-radius: 13px;
+  padding: 14px;
+  background: #fafbfc;
+  color: #172033;
+}
+
+.assessment-creation-primary button {
+  flex: 1;
+  min-height: 78px;
+}
+
+.assessment-creation-primary span, .assessment-level-checks span, .assessment-level-checks small {
+  color: #6f7a8d;
+  font-size: 10px;
+}
+
+.assessment-level-checks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.assessment-level-checks > div {
+  grid-column: 1 / -1;
+  padding-top: 3px;
+}
+
+.assessment-level-checks button:hover {
+  border-color: #3968b4;
+  background: #f1f5fc;
+}
+
+.assessment-level-checks button em {
+  color: #345995;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.dark-theme .assessment-creation-menu, .dark-theme .assessment-creation-primary button, .dark-theme .assessment-level-checks button {
+  border-color: #344155;
+  background: #141d2c;
+  color: #edf1f8;
+}
+
+@media (max-width: 900px) {
+  .assessment-level-checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .assessment-creation-menu > header, .assessment-creation-primary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .assessment-level-checks {
+    grid-template-columns: 1fr;
+  }
+}

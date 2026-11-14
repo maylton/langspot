@@ -1,0 +1,333 @@
+/* Paced assessments (parts), part confirmation and the final submission code. */
+.assessment-pacing-option {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #d7e2f3;
+  border-radius: 12px;
+  background: #f9fbfd;
+}
+
+.assessment-pacing-option p {
+  margin: 0;
+  color: #6e7a8f;
+  font-size: 12px;
+}
+
+.assessment-stage-list {
+  display: grid;
+  gap: 14px;
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.assessment-stage-list > p {
+  margin: 0;
+  color: #536075;
+  line-height: 1.55;
+}
+
+.assessment-stage-list ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assessment-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e4e8ef;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.assessment-stage strong, .assessment-stage small {
+  display: block;
+}
+
+.assessment-stage small {
+  margin-top: 3px;
+  color: #7e899b;
+  font-size: 12px;
+}
+
+.assessment-stage-icon {
+  display: grid;
+  place-items: center;
+  color: #8b95a7;
+}
+
+.assessment-stage.done .assessment-stage-icon {
+  color: #238874;
+}
+
+.assessment-stage.open, .assessment-stage.available {
+  border-color: #afc4e6;
+}
+
+.assessment-stage.open .assessment-stage-icon, .assessment-stage.available .assessment-stage-icon {
+  color: #345995;
+}
+
+.assessment-stage.locked {
+  opacity: .65;
+}
+
+.assessment-stage-notice {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #edf9f7;
+  color: #27695c;
+}
+
+.assessment-stage-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto;
+  width: min(900px, 100%);
+  padding: 14px 16px;
+  border: 1px solid #f0dd97;
+  border-radius: 12px;
+  background: #fffae9;
+  color: #75621d;
+}
+
+.assessment-stage-confirm p {
+  margin: 0;
+}
+
+.assessment-stage-confirm div {
+  display: flex;
+  gap: 8px;
+}
+
+.assessment-clock-warning {
+  color: #b44369;
+  font-weight: 800;
+}
+
+.assessment-submit-confirmation {
+  display: grid;
+  gap: 12px;
+  width: min(460px, 100%);
+}
+
+.assessment-submit-confirmation h2, .assessment-submit-confirmation p {
+  margin: 0;
+}
+
+.assessment-confirmation-code {
+  justify-self: center;
+  padding: 10px 22px;
+  border: 1px dashed #4173c3;
+  border-radius: 12px;
+  background: #f0f5fb;
+  color: #284675;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: .3em;
+  user-select: none;
+}
+
+.assessment-submit-confirmation label {
+  display: grid;
+  gap: 6px;
+  color: #536075;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.assessment-submit-confirmation input {
+  padding: 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  font-size: 20px;
+  letter-spacing: .3em;
+  text-align: center;
+}
+
+.dark-theme .assessment-pacing-option, .dark-theme .assessment-stage {
+  border-color: #29364b;
+  background: #151e2d;
+  color: #edf1f8;
+}
+
+.dark-theme .assessment-stage-list > p, .dark-theme .assessment-pacing-option p {
+  color: #b8c2d1;
+}
+
+.dark-theme .assessment-stage-notice {
+  background: #172a26;
+  color: #aee5da;
+}
+
+.dark-theme .assessment-stage-confirm {
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
+}
+
+.dark-theme .assessment-confirmation-code {
+  border-color: #3766b0;
+  background: #1b2434;
+  color: #c4d5f0;
+}
+
+@media (max-width: 560px) {
+  .assessment-stage {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .assessment-stage button {
+    grid-column: 1 / -1;
+  }
+}
+
+.assessment-runner-actions .primary-button {
+  white-space: nowrap;
+}
+
+/* Level Check menu: each preset with a "new form" action. */
+.assessment-level-checks > .assessment-level-check-option {
+  display: grid;
+  grid-column: auto;
+  gap: 6px;
+  padding-top: 0;
+}
+
+.assessment-level-checks .assessment-new-form {
+  justify-self: start;
+  padding: 6px 10px;
+  border-color: transparent;
+  background: transparent;
+  color: #2b4a7d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.assessment-level-checks .assessment-new-form:hover {
+  border-color: #afc4e6;
+}
+
+/* Integrity: fullscreen reminder and server-side signals. */
+.assessment-fullscreen-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 10px 14px;
+  border: 1px solid #f0dd97;
+  border-radius: 12px;
+  background: #fffae9;
+  color: #75621d;
+}
+
+.assessment-server-signals {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.assessment-server-signals h4 {
+  margin: 0;
+}
+
+.assessment-server-signals ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assessment-server-signals li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #f5f7fb;
+  color: #536075;
+  font-size: 12px;
+}
+
+.assessment-server-signals li.flagged {
+  background: #fff1f6;
+  color: #9b2c51;
+}
+
+.dark-theme .assessment-level-checks .assessment-new-form {
+  background: transparent;
+  color: #afc4e6;
+}
+
+.dark-theme .assessment-fullscreen-banner {
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
+}
+
+.dark-theme .assessment-server-signals li {
+  background: #101827;
+  color: #b8c2d1;
+}
+
+.dark-theme .assessment-server-signals li.flagged {
+  background: #3b2029;
+  color: #ffb3cc;
+}
+
+/*
+ * The global mobile rule `main { min-height: 100vh }` (styles.css) also hit the assessment's
+ * <main> elements, pushing question navigation and the Previous/Next buttons below the fold.
+ */
+.assessment-runner-shell main.assessment-question-stage, .assessment-runner-shell main.assessment-stage-list {
+  min-height: 0;
+}
+
+.assessment-device-advice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid #f0dd97;
+  border-radius: 12px;
+  background: #fffae9;
+  color: #75621d;
+}
+
+.assessment-device-advice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dark-theme .assessment-device-advice {
+  border-color: #72632b;
+  background: #2a2618;
+  color: #f1de99;
+}
+
+/* Licence credit of authentic texts, shown under the text (required by CC BY). */
+.assessment-source-credit {
+  display: block;
+  margin: -4px 0 14px;
+  color: #7e899b;
+  font-size: 11px;
+}

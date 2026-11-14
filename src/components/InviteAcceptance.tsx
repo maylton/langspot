@@ -1,4 +1,4 @@
-import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
+import { FormEvent, type InputHTMLAttributes, useState } from 'react';
 import { ArrowRight, Check, Eye, EyeOff, LoaderCircle, X } from 'lucide-react';
 
 interface InviteAcceptanceProps {

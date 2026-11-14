@@ -8,51 +8,8 @@
  */
 
 // Type definitions
-type Skill = 'Speaking' | 'Listening' | 'Reading' | 'Writing' | 'Grammar' | 'Vocabulary' | 'Pronunciation';
-type Lesson = { id: string; date: string; topic: string; notes: string; homework: string };
-type LessonStatus = 'Agendada' | 'Concluída' | 'Cancelada';
-type ScheduledLesson = { id: string; studentId: string; date: string; startTime: string; duration: number; topic: string; onlineUrl?: string; status: LessonStatus; notes: string; homework: string };
-type MaterialType = 'PDF' | 'Documento' | 'Apresentação' | 'Imagem' | 'Vídeo' | 'Áudio' | 'Link' | 'Atividade';
-type Material = { id: string; title: string; type: MaterialType; level: string; skill: Skill; url: string; description: string; createdAt: string };
-type PlatformSettings = { teacherName: string; email: string; whatsappPhone: string; schoolName: string; avatar: string; defaultDuration: number; defaultOnlineUrl: string; compactMode: boolean; theme: 'light' | 'dark'; confirmCancellations: boolean };
-type Student = {
-  id: string;
-  name: string;
-  email: string;
-  age?: string;
-  level: string;
-  goal: string;
-  status: 'Ativo' | 'Pausado';
-  progress: number;
-  nextClass: string;
-  notes: string;
-  skills: Record<Skill, number>;
-  lessons: Lesson[];
-};
-
-/**
- * Utility functions for date handling
- */
-export function startOfWeek(date: Date) {
-  const result = new Date(date);
-  const day = result.getDay();
-  result.setHours(12, 0, 0, 0);
-  result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
-  return result;
-}
-
-export function addDays(date: Date, amount: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + amount);
-  return result;
-}
-
-export function toDateInput(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import type { Material, PlatformSettings, ScheduledLesson, Student } from '../types';
+import { addDays, toDateInput } from '../lib/dates';
 
 /**
  * Mock settings with hardcoded teacher name and school
